@@ -1,0 +1,4 @@
+#Source Dependencies
+#Tue Aug 23 14:33:18 EDT 2011
+src_managed/akka-sbt-plugin-1.1.2/AkkaKernelProject.scala=
+src_managed/akka-sbt-plugin-1.1.2/AkkaProject.scala=src_managed/akka-sbt-plugin-1.1.2/AkkaKernelProject.scala

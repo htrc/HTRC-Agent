@@ -1,0 +1,11 @@
+#!/bin/bash
+
+APPNAME=$1
+PROPFILE=$2
+WORKDIR=$3
+PATH=$WORKDIR:$PATH
+#cd $WORKDIR && $APPNAME $PROPFILE
+echo $APPNAME
+echo $PROPFILE
+echo $WORKDIR
+echo "hey what's up"

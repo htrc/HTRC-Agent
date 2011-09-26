@@ -1,0 +1,4 @@
+#External Dependencies
+#Mon Aug 29 16:56:52 EDT 2011
+/nfs/mneme/home/users/hathitrust/workspace-felix-htrc/htrc-agent/project/boot/scala-2.7.7/org.scala-tools.sbt/sbt/0.7.7/sbt_2.7.7-0.7.7.jar=Plugins.scala
+/nfs/mneme/home/users/hathitrust/workspace-felix-htrc/htrc-agent/project/boot/scala-2.7.7/lib/scala-library.jar=Plugins.scala

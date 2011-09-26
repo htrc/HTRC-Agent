@@ -1,0 +1,4 @@
+#Generated Classes
+#Mon Aug 22 12:19:46 EDT 2011
+src/main/scala/Boot.scala=target/scala_2.9.0/classes/htrcagent/Boot.class
+src/main/scala/AgentWebTemplate.scala=target/scala_2.9.0/classes/htrcagent/AgentActor.class\:target/scala_2.9.0/classes/htrcagent/AgentAlternateService.class\:target/scala_2.9.0/classes/htrcagent/AgentService.class\:target/scala_2.9.0/classes/htrcagent/AgentActor$$anonfun$receive$1.class\:target/scala_2.9.0/classes/htrcagent/AgentAlternateService$$anonfun$test$1.class\:target/scala_2.9.0/classes/htrcagent/AgentService$$anonfun$test$2.class
