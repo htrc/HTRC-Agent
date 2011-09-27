@@ -30,8 +30,10 @@ class Boot  {
   // hardcoded: the keystore file is in config/wso2carbon.jks
   val keyStore = "config" + File.separator + "wso2carbon.jks" 
   val keyStoreFile = (new File(keyStore))
-  logger.debug("wso2carbon.jks keystore file exists and is readable? " +
+  logger.warn("wso2carbon.jks keystore file exists and is readable? " +
       (keyStoreFile.exists() && keyStoreFile.canRead()))
+  logger.warn("Absolute file path to keystore: "+keyStoreFile.getAbsolutePath)
+  
 
   System.setProperty("javax.net.ssl.trustStore", keyStore)
   System.setProperty("javax.net.ssl.trustStorePassword", "wso2carbon")

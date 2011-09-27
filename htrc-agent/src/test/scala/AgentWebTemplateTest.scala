@@ -14,6 +14,7 @@ import java.io.{File, BufferedReader, BufferedWriter, InputStreamReader,
 import scala.collection.mutable.ListBuffer
 import edu.indiana.d2i.registry._
 import java.net.URI
+import java.util.UUID
 //class AgentWebTemplateSpecsAsTest extends JUnit3(AgentWebTemplateTestSpecs)
 //object AgentWebTemplateTestSpecsRunner extends ConsoleRunner(AgentWebTemplateTestSpecs)
 
@@ -143,19 +144,40 @@ class AgentWebTemplateTestSpecs extends Specification {
 	}
 	
 	"The registryClient" should {
-	  "successfully  get SOLR index EPR" in {
-	    val regClient = new RegistryClient
+	   val keyStore = "config" + File.separator + "wso2carbon.jks" 
+       val keyStoreFile = (new File(keyStore))
+	   System.setProperty("javax.net.ssl.trustStore", keyStore)
+       System.setProperty("javax.net.ssl.trustStorePassword", "wso2carbon")
+       System.setProperty("javax.net.ssl.trustStoreType", "JKS")
+       val regClient = new RegistryClient
+	  
+       "successfully  get SOLR index EPR" in { 
 	    val resultURI = new URI(regClient.getSolrIndexServiceURI("htrc-apache-solr-search"))
 	    resultURI must notBeNull
 	    
 	  }
 	  
-	  "successfully get repository EPR" in {
-	    val regClient = new RegistryClient
+	  "successfully get repository EPR" in {   
 	    val resultURI = new URI(regClient.getSolrIndexServiceURI("htrc-cassandra-repository"))
 	    resultURI must notBeNull
 	  }
+	  
+	  "be able to post a resource to the registry without throwing an exception" in {
+	    import java.net.URLEncoder
+	    // args = pathToResource, resourceToPost, metadataToPost
+	    val fakeResultID = "fakeResult-"+UUID.randomUUID
+	    val fakeName = URLEncoder.encode("urn:publicid:IDN+bogusID.org+user+A1Winner","ISO-8859-1")
+	    //val fakeName = "simplename"
+	    val outString =  regClient.postResourse(   
+	        "/results/"+fakeName+"/"+fakeResultID,
+	        "this is a test result",
+	        "<blank>there is no metadata here</blank"
+	        ) 
+	     testlogger.error("this tends to always throw an error...")
+	    
+	  } 
 	}
+	
 	
 	
 }

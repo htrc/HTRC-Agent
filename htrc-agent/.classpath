@@ -83,6 +83,6 @@
 	<classpathentry kind="lib" path="/nfs/mneme/home/users/hathitrust/workspace-felix-htrc/htrc-agent/lib_managed/scala_2.9.0-1/test/specs_2.9.0-1-1.6.8.jar"/>
 	<classpathentry kind="lib" path="/nfs/magnolia/home/user2/hathitrust/workspace-felix-htrc/htrc-agent/lib_unmanaged/control.jar"/>
 	<classpathentry kind="lib" path="/nfs/magnolia/home/user2/hathitrust/workspace-felix-htrc/htrc-agent/lib_unmanaged/demo.jar"/>
-	<classpathentry kind="lib" path="/nfs/magnolia/home/user2/hathitrust/workspace-felix-htrc/htrc-agent/lib_unmanaged/registryclient.jar"/>
+	<classpathentry kind="lib" path="lib_unmanaged/registryclient.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
