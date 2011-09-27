@@ -1,0 +1,7 @@
+Eventually wso2carbon.jks stopped working and I replaced it with...
+
+  /nfs/magnolia/home/user2/hathitrust/GovenanceRegistryTest/wso2greg-4.0.0/repository/resources/security/wso2carbon.jks
+
+This actually was the exact same file, so this change couldn't have done anything.
+
+It didn't seem to work at first.  Then, for no apparent reason, it started working.
