@@ -438,10 +438,12 @@ class Agent(userID: String,x509: String,privKey: String,
   
   val refreshIndexEPR = {() =>  
     //println("RegistryClient object:"+registryClient.toString())      
+    // TODO: need to handle NPE here, registry client can die
     new URI(registryClient.getSolrIndexServiceURI("htrc-apache-solr-search"))
   }
   val refreshRepositoryEPR = {() =>    
-    //println("RegistryClient object:"+registryClient.toString())      
+    //println("RegistryClient object:"+registryClient.toString())
+    // TODO: need to handle NPE here, registry client can die
     new URI(registryClient.getSolrIndexServiceURI("htrc-cassandra-repository"))
   }
   private def getAgentID = agentID

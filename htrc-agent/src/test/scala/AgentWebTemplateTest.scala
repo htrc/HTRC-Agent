@@ -12,6 +12,8 @@ import scala.collection.JavaConversions._
 import java.io.{File, BufferedReader, BufferedWriter, InputStreamReader, 
   FileOutputStream, FileInputStream, FileReader, FileWriter}
 import scala.collection.mutable.ListBuffer
+import edu.indiana.d2i.registry._
+import java.net.URI
 //class AgentWebTemplateSpecsAsTest extends JUnit3(AgentWebTemplateTestSpecs)
 //object AgentWebTemplateTestSpecsRunner extends ConsoleRunner(AgentWebTemplateTestSpecs)
 
@@ -137,6 +139,21 @@ class AgentWebTemplateTestSpecs extends Specification {
 	          l.matches(".*\\\\:.*")  ).reduceLeft(_ || _)
 	          
 	    anyLineHasTooManySlashes must notBe(true)
+	  }
+	}
+	
+	"The registryClient" should {
+	  "successfully  get SOLR index EPR" in {
+	    val regClient = new RegistryClient
+	    val resultURI = new URI(regClient.getSolrIndexServiceURI("htrc-apache-solr-search"))
+	    resultURI must notBeNull
+	    
+	  }
+	  
+	  "successfully get repository EPR" in {
+	    val regClient = new RegistryClient
+	    val resultURI = new URI(regClient.getSolrIndexServiceURI("htrc-cassandra-repository"))
+	    resultURI must notBeNull
 	  }
 	}
 	
