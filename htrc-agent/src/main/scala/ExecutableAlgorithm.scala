@@ -50,7 +50,6 @@ class ExecutableAlgorithm(
 	registryHelper: RegistryHelper,
 	agentRef: ActorRef,
 	launchScript: String,
-	changeUserDirOnAlgoFetch: Boolean,
 	runtimeProps: Properties
 ) extends Algorithm(
 	algoID, 
@@ -64,7 +63,6 @@ class ExecutableAlgorithm(
 	registryHelper,
 	agentRef,
 	launchScript,
-	changeUserDirOnAlgoFetch,
 	runtimeProps
 ) {
 
@@ -146,11 +144,6 @@ class ExecutableAlgorithm(
         
         
           logger.warn("====> WE ASSUME EXECUTABLE IS A JAVA JAR!")
-          if (changeUserDirOnAlgoFetch) {
-        	  logger.warn("====> VERY DANGEROUS! ALGO FETCH SETTING JAVA USER.DIR PROPERTY")
-        	  logger.warn("====> VERY DANGEROUS! ALGO FETCH SETTING JAVA USER.DIR PROPERTY")
-        	  logger.warn("====> VERY DANGEROUS! ALGO FETCH SETTING JAVA USER.DIR PROPERTY")
-          }
           logger.debug("====> User directory is "+System.getProperty("user.dir"))
           logger.warn("====> WARNING. Executables are assumed to be java jars!")
           logger.warn("====> WARNING. Collection name is currently hardcoded in RegistryClient.")

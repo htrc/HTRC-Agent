@@ -40,7 +40,6 @@ import scala.xml.XML
 
 class FirstRegistry(
     
-  changeUserDirOnAlgoFetch: Boolean,
   copyAlgoJarToWorkingDir: Boolean,
   launchScript: String,
   logger: Logger,
@@ -59,21 +58,8 @@ class FirstRegistry(
 	    // this method should contact the registry and return a file(executable)
 	      
 		    val jarFile:String = try {
-		      if (changeUserDirOnAlgoFetch) {
-		        
-		    	  logger.warn("====> VERY DANGEROUS! SETTING JAVA USER.DIR PROPERTY")
-		    	  logger.warn("====> VERY DANGEROUS! SETTING JAVA USER.DIR PROPERTY")
-		    	  logger.warn("====> VERY DANGEROUS! SETTING JAVA USER.DIR PROPERTY")
-		    	  
-		    	  val initialDir = System.getProperty("user.dir")
-		    	  System.setProperty("user.dir",workingDir)
-		    	  val temp = registryClient.getScriptFile(algoName)
-		    	  System.setProperty("user.dir",initialDir)
-		    	  temp
-		    	  
-		      } else {
-		        registryClient.getScriptFile(algoName)
-		      }
+		      registryClient.getScriptFile(algoName)
+		     
 		    } catch {
 		      case npe: NullPointerException => {
 		        logger.warn("====> downloadFile in RegistryClient threw an NPE, recovering...")

@@ -48,13 +48,11 @@ import scala.xml.XML
 class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient, 
     userID: String, x509: String, privKey: String,runtimeProps: Properties) extends Actor {
  
-  private val changeUserDirOnAlgoFetch = false // this can be removed, any branches which trigger
-                                               // on this being 'true' can be removed
   private val copyAlgoJarToWorkingDir = true
   private val launchScript:String = runtimeProps.get("algolaunchscript").toString()
   private val logger = LoggerFactory.getLogger(getClass)
   
-  private val registryHelper: RegistryHelper = new FirstRegistry(changeUserDirOnAlgoFetch, copyAlgoJarToWorkingDir, launchScript, logger, registryClient, runtimeProps)
+  private val registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, launchScript, logger, registryClient, runtimeProps)
   
   
   def receive = {
@@ -86,7 +84,7 @@ class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient,
       val workingDir = AgentUtils.createWorkingDirectory
       
       val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, logger, 
-          initialDir, workingDir, registryHelper, agentRef, launchScript, changeUserDirOnAlgoFetch, runtimeProps)
+          initialDir, workingDir, registryHelper, agentRef, launchScript, runtimeProps)
 	  algo.instantiate()
       
     }

@@ -50,7 +50,6 @@ abstract class Algorithm(
 	registryHelper: RegistryHelper,
 	agentRef: ActorRef,
 	launchScript: String,
-	changeUserDirOnAlgoFetch: Boolean,
 	runtimeProps: Properties
 ) {
 	
