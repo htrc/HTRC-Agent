@@ -163,15 +163,18 @@ class AgentWebTemplateTestSpecs extends Specification {
 	  }
 	  
 	  "be able to post a resource to the registry without throwing an exception" in {
-	    import java.net.URLEncoder
+	    
 	    // args = pathToResource, resourceToPost, metadataToPost
 	    val fakeResultID = "fakeResult-"+UUID.randomUUID
-	    val fakeName = URLEncoder.encode("urn:publicid:IDN+bogusID.org+user+A1Winner","ISO-8859-1")
+	    val fakeName = "urn:publicid:IDN+bogusID.org+user+A1Winner"
+	    val resourcePath = "/results/"+fakeName+"/"+fakeResultID
+	    // below also fails.
+	    //val resourcePath = "/results/"+fakeName
 	    //val fakeName = "simplename"
-	    val outString =  regClient.postResourse(   
-	        "/results/"+fakeName+"/"+fakeResultID,
+	    regClient.postResourse(   
+	        resourcePath,
 	        "this is a test result",
-	        "<blank>there is no metadata here</blank"
+	        "<blank>there is no metadata here</blank>"
 	        ) 
 	     testlogger.error("this tends to always throw an error...")
 	    

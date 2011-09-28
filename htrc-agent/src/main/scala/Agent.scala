@@ -23,7 +23,6 @@ import java.util.UUID
 import edu.indiana.d2i.registry._
 import java.net.URI
 import java.util.Date
-//import org.wso2.carbon.registry.ws.client.solrsearchregistration.GetSOLRIndexWSRegistryClient
 import org.slf4j.{Logger,LoggerFactory}
 import java.util.Properties
 import java.io.{File, BufferedReader, InputStreamReader, FileOutputStream}
@@ -45,10 +44,12 @@ import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
 
+
 class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient, 
     userID: String, x509: String, privKey: String,runtimeProps: Properties) extends Actor {
  
-  private val changeUserDirOnAlgoFetch = false
+  private val changeUserDirOnAlgoFetch = false // this can be removed, any branches which trigger
+                                               // on this being 'true' can be removed
   private val copyAlgoJarToWorkingDir = true
   private val launchScript:String = runtimeProps.get("algolaunchscript").toString()
   private val logger = LoggerFactory.getLogger(getClass)
@@ -84,7 +85,7 @@ class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient,
       val initialDir = System.getProperty("user.dir")
       val workingDir = AgentUtils.createWorkingDirectory
       
-      val algo = new Jar(algoID, algoName, eprMap, userArgs, collectionName, logger, 
+      val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, logger, 
           initialDir, workingDir, registryHelper, agentRef, launchScript, changeUserDirOnAlgoFetch, runtimeProps)
 	  algo.instantiate()
       
@@ -371,8 +372,8 @@ class Agent(userID: String,x509: String,privKey: String,
   // end 2011-09-22 changes
   
   
-  private def getIndexEPR():String = refreshIndexEPR().toString()
-  private def getRepositoryEPR():String = refreshRepositoryEPR().toString()
+  private def getIndexEPR():String = refreshIndexEPR().toString() // this is a network call that should be handled by a worker
+  private def getRepositoryEPR():String = refreshRepositoryEPR().toString() // this is a network call that should be handled by a worker
   private def getRegistryEPR():String = { logger.warn("====> fix fake response to getRegistryEPR()");"greetings."}
   
   // create the workers
@@ -453,8 +454,7 @@ class Agent(userID: String,x509: String,privKey: String,
         collectionName)
         
       self reply formAlgorithmRunXMLResponse(algoID)
-        
-      
+           
     }
     case _ => self.reply(<error>Invalid action</error>)
   }

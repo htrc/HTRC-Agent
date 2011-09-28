@@ -38,7 +38,7 @@ import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
 
-class Jar(    
+class ExecutableAlgorithm(    
     algoID: String, 
 	algoName: String,  	    
 	eprMap: HashMap[String,String],
@@ -68,7 +68,7 @@ class Jar(
 	runtimeProps
 ) {
 
-  val runner = JarRunner
+  val runner = ExecutableAlgorithmRunner
     
   def instantiate(): Boolean = {
     
