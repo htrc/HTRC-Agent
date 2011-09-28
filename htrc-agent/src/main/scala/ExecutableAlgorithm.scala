@@ -187,9 +187,12 @@ class ExecutableAlgorithm(
           logger.debug("====> Updated run status for algoID "+algoID+" to Finished")
           // begin 2011-09-22 changes
           // trying to abstract over stdout console vs stderr console vs file result
-        agentRef ! UpdateAlgorithmRunStatus(algoID,
+          agentRef ! UpdateAlgorithmRunStatus(algoID,
             Finished(new Date,workingDir,new AlgorithmResultSet(List(StdoutResult(outlineString)))))
-          
+          // post results to registry
+          // write me!
+            
+            
         } else {
           logger.warn("!!!!> exit code was " + exitCode)
           logger.debug("====> Updated run status for algoID "+algoID+" to Crashed")

@@ -15,6 +15,7 @@ import scala.collection.mutable.ListBuffer
 import edu.indiana.d2i.registry._
 import java.net.URI
 import java.util.UUID
+import org.apache.commons.codec.binary.Hex
 //class AgentWebTemplateSpecsAsTest extends JUnit3(AgentWebTemplateTestSpecs)
 //object AgentWebTemplateTestSpecsRunner extends ConsoleRunner(AgentWebTemplateTestSpecs)
 
@@ -162,23 +163,41 @@ class AgentWebTemplateTestSpecs extends Specification {
 	    resultURI must notBeNull
 	  }
 	  
+	  val fakeName = "urn:publicid:IDN+bogusID.org+user+A1Winner"
 	  "be able to post a resource to the registry without throwing an exception" in {
 	    
 	    // args = pathToResource, resourceToPost, metadataToPost
 	    val fakeResultID = "fakeResult-"+UUID.randomUUID
-	    val fakeName = "urn:publicid:IDN+bogusID.org+user+A1Winner"
-	    val resourcePath = "/results/"+fakeName+"/"+fakeResultID
+	    val fakeNameHex = Hex.encodeHexString(fakeName.getBytes())
+	    val resourcePath = "/results/"+fakeNameHex+"/"+fakeResultID
+	    testlogger.info("Resource path : "+resourcePath)
 	    // below also fails.
 	    //val resourcePath = "/results/"+fakeName
 	    //val fakeName = "simplename"
 	    regClient.postResourse(   
 	        resourcePath,
 	        "this is a test result",
-	        "<blank>there is no metadata here</blank>"
+	        "<result><userURN>"+fakeName+"</userURN></result>"
 	        ) 
 	     testlogger.error("this tends to always throw an error...")
 	    
 	  } 
+	  
+	  "be able to post a resource to registry using the FirstRegistry interface" in {
+	    val myInterface = new FirstRegistry( true,launchScript="none",logger=testlogger,
+	        registryClient=regClient,runtimeProps=new java.util.Properties)
+	    val tempFileName = "foobar-"+UUID.randomUUID()
+	    val tempFileWriter = new FileWriter("/tmp/"+tempFileName)
+	    tempFileWriter.write("this is a temporary file\n")
+	    tempFileWriter.close()
+	    myInterface.postResultsToRegistry(fakeName,
+	        algorithmID="fakeAlgoRun-"+UUID.randomUUID(),
+	        List(("stdout.txt",StdoutResult("this is a string from stdout")),
+	             ("stderr.txt",StderrResult("this is a string from stderr")),
+	             ("fileresult",FileResult("/tmp",tempFileName))),
+	        "<result><userURN>"+fakeName+"</userURN></result>")
+  
+	  }
 	}
 	
 	

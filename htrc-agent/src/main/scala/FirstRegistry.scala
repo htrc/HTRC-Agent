@@ -16,7 +16,6 @@ import java.util.UUID
 import edu.indiana.d2i.registry._
 import java.net.URI
 import java.util.Date
-//import org.wso2.carbon.registry.ws.client.solrsearchregistration.GetSOLRIndexWSRegistryClient
 import org.slf4j.{Logger,LoggerFactory}
 import java.util.Properties
 import java.io.{File, BufferedReader, InputStreamReader, FileOutputStream}
@@ -37,6 +36,8 @@ import java.io.InputStream
 import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
+import org.apache.commons.codec.binary.Hex
+import java.io.FileReader
 
 class FirstRegistry(
     
@@ -217,4 +218,67 @@ class FirstRegistry(
      </availableAlgorithms>
   }
 
+ 
+  def encodeUserURNForRegistry(userURN:String) : String = {
+    // for now we use a Hex encoding to do this.  Registry API is extremely choosy about
+    // what characters we use ... = % + etc are all off limits
+    Hex.encodeHexString(userURN.getBytes())
+  }
+  
+  def decodeUserURNFromRegistry(userIDInRegistry:String) : String = {
+    logger.warn("!!!!> Need to test decodeUserURNFromRegistry")
+    Hex.decodeHex(userIDInRegistry.toCharArray()).toString
+  }
+  
+  private def registryResultPathPrefix = "/results"
+  
+  def postResultsToRegistry(userURN:String, 
+      algorithmID:String,
+      resultNameAndValueTuples:List[(String,AlgorithmResult)],
+      metadataDescription:String) = {
+      // need to convert the user URN to an acceptable hex string
+      // so that registry doesn't choke
+      val userNameAsHex = encodeUserURNForRegistry(userURN)
+      resultNameAndValueTuples.foreach ((tup) => { 
+        val resultID = tup._1 
+        val result = tup._2
+        logger.warn("!!!!> We stream in huge files when posting them to the registry")
+        logger.warn("!!!!> This needs to be corrected..")
+        // Yes, we will stream the entire thing in and post it.  This 
+        // is a horrible idea, and needs to be corrected.
+        val resultAsString = result match {
+          case StdoutResult(outstring) => {
+            outstring
+          }
+          case StderrResult(outstring) => {
+            outstring
+          }
+          case FileResult(workingDir,fileName) => {
+            val buf = (new BufferedReader(new FileReader(workingDir+File.separator+fileName)))
+            val strBuf = new StringBuffer
+            while (buf.ready) {
+              strBuf.append(buf.readLine())
+            }
+            buf.close()
+            strBuf.toString
+            
+          }
+        }     
+        val resourcePath = this.registryResultPathPrefix + "/"+userNameAsHex+"/"+algorithmID+"/"+resultID
+        logger.info("Posting a result for user "+userURN+" to this registry resource path : "+resourcePath)
+      	registryClient.postResourse(   
+	        resourcePath,
+	        resultAsString,
+	        "<result><userURN>"+userURN+"</userURN></result>"
+	        ) 
+      
+      } )
+      
+	  
+	  
+	    // below also fails.
+	    //val resourcePath = "/results/"+fakeName
+	    //val fakeName = "simplename"
+	    
+  }
 }

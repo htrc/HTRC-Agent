@@ -12,4 +12,10 @@ trait RegistryHelper {
   
   def getCollectionVolumeIDs(collectionName:String): List[String]
 
+  // storing URNs for users doesn't work; 
+  // the next two methods turn them into something the registry API can deal with
+  def encodeUserURNForRegistry(userURN:String) : String 
+	
+  def decodeUserURNFromRegistry(encodedUserString:String) : String
+
 }
