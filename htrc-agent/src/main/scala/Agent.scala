@@ -119,15 +119,27 @@ class Agent(userID: String,x509: String,privKey: String,
   
   //val cachedIndexEPR = new CachedEPR("index-epr",refreshEpr=refreshIndexEPR )
   
+  private def tryEPR(f:()=>String) = {
+    def tryMe() = f()
+    var c = 0
+    var out = tryMe()
+    while (out == null && c < 10) {
+      c = c + 1
+      out = tryMe()
+    }
+    if (out == null ) 
+      throw new RuntimeException("couldn't contact registry")
+    new URI(out)
+  }
   val refreshIndexEPR = {() =>  
     //println("RegistryClient object:"+registryClient.toString())      
     // TODO: need to handle NPE here, registry client can die
-    new URI(registryClient.getSolrIndexServiceURI("htrc-apache-solr-search"))
+    tryEPR(()=>{registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")})
   }
   val refreshRepositoryEPR = {() =>    
     //println("RegistryClient object:"+registryClient.toString())
     // TODO: need to handle NPE here, registry client can die
-    new URI(registryClient.getSolrIndexServiceURI("htrc-cassandra-repository"))
+    tryEPR(()=>{registryClient.getSolrIndexServiceURI("htrc-cassandra-repository")})
   }
   private def getAgentID = agentID
   private def credentialsToXml = {
