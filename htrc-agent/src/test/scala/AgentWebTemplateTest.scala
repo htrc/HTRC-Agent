@@ -182,7 +182,8 @@ class AgentWebTemplateTestSpecs extends Specification {
 	    
 	    // args = pathToResource, resourceToPost, metadataToPost
 	    val fakeResultID = "fakeResult-"+UUID.randomUUID
-	    val fakeNameHex = Hex.encodeHexString(fakeName.getBytes())
+	    val fakeNameHexAr = Hex.encodeHex(fakeName.getBytes())	    
+	    val fakeNameHex = new String(fakeNameHexAr)
 	    val resourcePath = "/results/"+fakeNameHex+"/"+fakeResultID
 	    testlogger.info("Resource path : "+resourcePath)
 	    // below also fails.

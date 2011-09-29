@@ -222,7 +222,10 @@ class FirstRegistry(
   def encodeUserURNForRegistry(userURN:String) : String = {
     // for now we use a Hex encoding to do this.  Registry API is extremely choosy about
     // what characters we use ... = % + etc are all off limits
-    Hex.encodeHexString(userURN.getBytes())
+    
+    // it's an array of characters... you need to use the following "new String"
+    // way of doing things instead of xyz.toString
+    new String(Hex.encodeHex(userURN.getBytes()))
   }
   
   def decodeUserURNFromRegistry(userIDInRegistry:String) : String = {

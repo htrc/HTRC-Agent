@@ -9,9 +9,10 @@ class AkkaWebTemplate(info: ProjectInfo) extends DefaultWebProject(info) with Ak
   val akkaKernel = akkaModule("kernel")
   val jettyWebapp = "org.eclipse.jetty" % "jetty-webapp" % "8.0.0.M2" % "test"
   val javaxServlet30 = "org.mortbay.jetty" % "servlet-api" % "3.0.20100224" % "provided"
-  
-  //val specs2 = "org.specs2" % "1.0" % "compile"
   val specs = "org.scala-tools.testing" % "specs_2.9.0-1" % "1.6.8" % "test" // For specs.org tests
+  val apachecodec   = "commons-codec" % "commons-codec" % "1.5" % "test"	
+  //lazy val logback = "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
+
   
   override val jettyPort = 41567
   override def unmanagedClasspath = {
