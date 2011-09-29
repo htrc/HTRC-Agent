@@ -21,5 +21,5 @@ trait RegistryHelper {
   def postResultsToRegistry(userURN:String, 
       algorithmID:String,
       resultNameAndValueTuples:List[AlgorithmResult]) 
-              : Option[List[String]] // list of registry resource paths
+              : List[String] // list of registry resource paths
 }

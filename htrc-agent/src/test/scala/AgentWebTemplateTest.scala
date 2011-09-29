@@ -189,12 +189,12 @@ class AgentWebTemplateTestSpecs extends Specification {
 	    // below also fails.
 	    //val resourcePath = "/results/"+fakeName
 	    //val fakeName = "simplename"
-	    regClient.postResourse(   
+	    val resultPath = regClient.postResourse(   
 	        resourcePath,
 	        "this is a test result",
 	        "<result><userURN>"+fakeName+"</userURN></result>"
 	        ) 
-	     testlogger.error("this tends to always throw an error...")
+	    resultPath must notBeNull
 	    
 	  } 
 	  
@@ -205,12 +205,14 @@ class AgentWebTemplateTestSpecs extends Specification {
 	    val tempFileWriter = new FileWriter("/tmp/"+tempFileName)
 	    tempFileWriter.write("this is a temporary file\n")
 	    tempFileWriter.close()
-	    myInterface.postResultsToRegistry(fakeName,
+	    val pathList = myInterface.postResultsToRegistry(fakeName,
 	        algorithmID="fakeAlgoRun-"+UUID.randomUUID(),
 	        List(StdoutResult("this is a string from stdout"),
 	             StderrResult("this is a string from stderr"),
 	             FileResult("/tmp",tempFileName)))
-  
+	    pathList must notBeNull
+	    pathList.length must beEqualTo(3)
+	    (for (p <- pathList) yield p != null).reduceLeft(_ && _) must be(true) // no null entries
 	  }
 	}
 	

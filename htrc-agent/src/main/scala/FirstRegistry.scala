@@ -237,11 +237,12 @@ class FirstRegistry(
   
   def postResultsToRegistry(userURN:String, 
       algorithmID:String,
-      resultNameAndValueTuples:List[AlgorithmResult]) = {
+      theResultList:List[AlgorithmResult]) = {
       // need to convert the user URN to an acceptable hex string
       // so that registry doesn't choke
       val userNameAsHex = encodeUserURNForRegistry(userURN)
-      resultNameAndValueTuples.foreach ((result) => { 
+      println("===> Results to post: "+theResultList.toString)
+      val registrySuccessPathList = for (result <- theResultList) yield ({ 
         
         logger.warn("!!!!> We stream in huge files when posting them to the registry")
         logger.warn("!!!!> This needs to be corrected..")
@@ -264,19 +265,54 @@ class FirstRegistry(
             ("file/"+fileName,strBuf.toString)
             
           }
-        }     
+        }
         val resourcePath = this.registryResultPathPrefix + "/"+userNameAsHex+"/"+algorithmID+"/"+resultID
         logger.info("====> Posting a result for user "+userURN+" to this registry resource path : "+resourcePath)
-      	registryClient.postResourse(   
-	        resourcePath,
-	        resultAsString,
-	        "<result><userURN>"+userURN+"</userURN></result>"
-	        ) 
-      
-      } )
+        val metadataToPost = "<result><userURN>"+userURN+"</userURN></result>"
+        val resultPath= { 
+            def tryIt() = { 
+              try {
+                registryClient.postResourse(   
+                		
+                		resourcePath,
+                		resultAsString,
+                		metadataToPost
+                		) }
+              catch {
+                case e => { logger.error(e.getStackTrace().toString) ; null }
+              }
+            }
+            
+            // need to retry this a few times, potentially
+            var count = 0
+            var temp:String = null
+            while (temp == null && count < 10) {
+              temp = tryIt()
+              count = count + 1
+            }
+            if (temp == null) {
+              throw new RuntimeException("couldn't post resource to registry: "+(resourcePath,resultAsString,metadataToPost))
+            } else {
+              temp
+            }
+        }
+        
+        // used this before i had retries
+//        val resultPath = registryClient.postResourse(   
+//                		
+//                		resourcePath,
+//                		resultAsString,
+//                		metadataToPost
+//                		) 
+//        println("====> registry posting value is :"+resultPath)
+//        
+        
+        resultPath
+      }) 
       
 	  // for now we return none , until we can get a return val out of the above postResource call
-	  None
+	  registrySuccessPathList
+	  // above could have null vals!
 	  
 	    
   }
