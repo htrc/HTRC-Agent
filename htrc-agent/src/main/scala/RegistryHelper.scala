@@ -18,4 +18,8 @@ trait RegistryHelper {
 	
   def decodeUserURNFromRegistry(encodedUserString:String) : String
 
+  def postResultsToRegistry(userURN:String, 
+      algorithmID:String,
+      resultNameAndValueTuples:List[AlgorithmResult]) 
+              : Option[List[String]] // list of registry resource paths
 }

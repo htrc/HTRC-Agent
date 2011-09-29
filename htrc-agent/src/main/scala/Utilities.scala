@@ -48,6 +48,25 @@ import scala.xml.XML
 object AgentUtils  {
 	private val logger = LoggerFactory.getLogger(getClass)
 	
+	def findFilesMatchingPattern(pattern:String,dir:String) = {
+	  // helper class
+	  class RegexFilter (pat:String) extends java.io.FilenameFilter {
+		  override def accept(dir:java.io.File,name:String) = { 
+        	val PatAsRegexp = pat.r
+        	!PatAsRegexp.findAllIn(name).isEmpty
+		  } 
+	  }
+	  // ensure the directory exists and is readable
+	  val dirAsFile = new File(dir)
+	  if (dirAsFile.canRead() && dirAsFile.canExecute() && dirAsFile.isDirectory()) {
+	    val filesInDir = dirAsFile.listFiles(new RegexFilter(pattern))
+	    filesInDir.toList
+	  } else {
+	    // we couldn't read,execute dir or it's not a directory -- throw
+	    throw new java.io.IOException("cannot access directory: "+dirAsFile.getAbsolutePath())
+	  }
+	}
+	
 	def createWorkingDirectory: String = {
 			val algorithmWorkingDirectoryRoot = "htrc-agent-working-dir" 
 			val workDirRootFile = new File(algorithmWorkingDirectoryRoot)

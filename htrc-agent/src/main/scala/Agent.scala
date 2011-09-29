@@ -84,7 +84,7 @@ class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient,
       val workingDir = AgentUtils.createWorkingDirectory
       
       val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, logger, 
-          initialDir, workingDir, registryHelper, agentRef, launchScript, runtimeProps)
+          initialDir, workingDir, registryHelper, agentRef, userID, runtimeProps)
 	  algo.instantiate()
       
     }

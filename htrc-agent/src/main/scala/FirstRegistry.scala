@@ -234,24 +234,22 @@ class FirstRegistry(
   
   def postResultsToRegistry(userURN:String, 
       algorithmID:String,
-      resultNameAndValueTuples:List[(String,AlgorithmResult)],
-      metadataDescription:String) = {
+      resultNameAndValueTuples:List[AlgorithmResult]) = {
       // need to convert the user URN to an acceptable hex string
       // so that registry doesn't choke
       val userNameAsHex = encodeUserURNForRegistry(userURN)
-      resultNameAndValueTuples.foreach ((tup) => { 
-        val resultID = tup._1 
-        val result = tup._2
+      resultNameAndValueTuples.foreach ((result) => { 
+        
         logger.warn("!!!!> We stream in huge files when posting them to the registry")
         logger.warn("!!!!> This needs to be corrected..")
         // Yes, we will stream the entire thing in and post it.  This 
         // is a horrible idea, and needs to be corrected.
-        val resultAsString = result match {
+        val (resultID,resultAsString) = result match {
           case StdoutResult(outstring) => {
-            outstring
+            ("stdout",outstring)
           }
           case StderrResult(outstring) => {
-            outstring
+            ("stderr",outstring)
           }
           case FileResult(workingDir,fileName) => {
             val buf = (new BufferedReader(new FileReader(workingDir+File.separator+fileName)))
@@ -260,12 +258,12 @@ class FirstRegistry(
               strBuf.append(buf.readLine())
             }
             buf.close()
-            strBuf.toString
+            ("file/"+fileName,strBuf.toString)
             
           }
         }     
         val resourcePath = this.registryResultPathPrefix + "/"+userNameAsHex+"/"+algorithmID+"/"+resultID
-        logger.info("Posting a result for user "+userURN+" to this registry resource path : "+resourcePath)
+        logger.info("====> Posting a result for user "+userURN+" to this registry resource path : "+resourcePath)
       	registryClient.postResourse(   
 	        resourcePath,
 	        resultAsString,
@@ -274,11 +272,9 @@ class FirstRegistry(
       
       } )
       
+	  // for now we return none , until we can get a return val out of the above postResource call
+	  None
 	  
-	  
-	    // below also fails.
-	    //val resourcePath = "/results/"+fakeName
-	    //val fakeName = "simplename"
 	    
   }
 }

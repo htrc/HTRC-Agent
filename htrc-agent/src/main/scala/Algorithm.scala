@@ -49,7 +49,7 @@ abstract class Algorithm(
 	workingDir: String,
 	registryHelper: RegistryHelper,
 	agentRef: ActorRef,
-	launchScript: String,
+	userID: String,
 	runtimeProps: Properties
 ) {
 	

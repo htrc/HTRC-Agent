@@ -144,6 +144,20 @@ class AgentWebTemplateTestSpecs extends Specification {
 	  }
 	}
 	
+	"AgentUtils.findFilesMatchingPattern" should {
+	  "be an empty list when given a ridiculous pattern and the current directory" in {
+	    AgentUtils.findFilesMatchingPattern("""thisisAhorribleSillyPattern.xyz.123""",
+	         System.getProperty("user.dir")) must beEqualTo(List())
+	  }
+	  
+	  "have entries when matching against .*properties in current directory" in {
+	    val o = AgentUtils.findFilesMatchingPattern(
+	        """.*properties""",System.getProperty("user.dir")
+	        ) 
+	    o.length must be > 0
+	  }
+	}
+	
 	"The registryClient" should {
 	   val keyStore = "config" + File.separator + "wso2carbon.jks" 
        val keyStoreFile = (new File(keyStore))
@@ -192,10 +206,9 @@ class AgentWebTemplateTestSpecs extends Specification {
 	    tempFileWriter.close()
 	    myInterface.postResultsToRegistry(fakeName,
 	        algorithmID="fakeAlgoRun-"+UUID.randomUUID(),
-	        List(("stdout.txt",StdoutResult("this is a string from stdout")),
-	             ("stderr.txt",StderrResult("this is a string from stderr")),
-	             ("fileresult",FileResult("/tmp",tempFileName))),
-	        "<result><userURN>"+fakeName+"</userURN></result>")
+	        List(StdoutResult("this is a string from stdout"),
+	             StderrResult("this is a string from stderr"),
+	             FileResult("/tmp",tempFileName)))
   
 	  }
 	}

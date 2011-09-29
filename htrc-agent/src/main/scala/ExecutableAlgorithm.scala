@@ -49,7 +49,7 @@ class ExecutableAlgorithm(
 	workingDir: String,
 	registryHelper: RegistryHelper,
 	agentRef: ActorRef,
-	launchScript: String,
+	userID: String,
 	runtimeProps: Properties
 ) extends Algorithm(
 	algoID, 
@@ -62,7 +62,7 @@ class ExecutableAlgorithm(
 	workingDir,
 	registryHelper,
 	agentRef,
-	launchScript,
+	userID,
 	runtimeProps
 ) {
 
@@ -83,12 +83,12 @@ class ExecutableAlgorithm(
         case Some(f) => {
           // continue
           logger.debug("====> we successfully got the algorithm executable: "+algoExecutable)
-          doStartAlgorithmWithExecutable(f, workingDir, launchScript)
+          doStartAlgorithmWithExecutable(f, workingDir)
         }
         case _ => throw new RuntimeException("wth happened?!")
       }
 	    
-      def doStartAlgorithmWithExecutable(executable: String, workingDir: String, launchScript: String) {
+      def doStartAlgorithmWithExecutable(executable: String, workingDir: String) {
          
 	  //2.   get the collection volume IDs
       // note that this could be parallelized against steps 1 and 4!
@@ -98,8 +98,7 @@ class ExecutableAlgorithm(
          logger.debug("====> Got volume IDs from registry, from this collection: " + collectionName)
          val volumesTextFile = registryHelper.writeVolumesTextFile(volumeIDs,workingDir)
          logger.debug("====> Wrote volume IDs to a temp file in working dir ("+workingDir+")")
-         logger.debug("====> we will use launch script: "+launchScript)
-         logger.debug("====> launch script exists? " +(new File(launchScript)).exists())
+         
       //3.   create the properties file
          //logger.debug("!!!!> FIX ME: volumes should be written out to a vols.txt, and prop file should point there")
          
@@ -185,13 +184,16 @@ class ExecutableAlgorithm(
         if (exitCode == 0) {
           logger.debug("====> Exit code was 0")
           logger.debug("====> Updated run status for algoID "+algoID+" to Finished")
-          // begin 2011-09-22 changes
-          // trying to abstract over stdout console vs stderr console vs file result
+          // begin 2011-09-29 changes
+          // gather the algorithm's result set.  this is hardcoded for now
+          val fileResults = AgentUtils.findFilesMatchingPattern(pattern="""out-.*txt""",
+              dir=workingDir).map((f) => FileResult(workingDir,f.getName()))
+          val algoResultSet = new AlgorithmResultSet(StdoutResult(outlineString) :: fileResults)
           agentRef ! UpdateAlgorithmRunStatus(algoID,
-            Finished(new Date,workingDir,new AlgorithmResultSet(List(StdoutResult(outlineString)))))
+            Finished(new Date,workingDir,algoResultSet))
           // post results to registry
-          // write me!
-            
+          // fix me ... tuple stuff is dumb
+          registryHelper.postResultsToRegistry(userID,algoID,algoResultSet.l)
             
         } else {
           logger.warn("!!!!> exit code was " + exitCode)
