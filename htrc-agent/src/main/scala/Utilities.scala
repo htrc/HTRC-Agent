@@ -23,7 +23,6 @@ import java.util.UUID
 import edu.indiana.d2i.registry._
 import java.net.URI
 import java.util.Date
-//import org.wso2.carbon.registry.ws.client.solrsearchregistration.GetSOLRIndexWSRegistryClient
 import org.slf4j.{Logger,LoggerFactory}
 import java.util.Properties
 import java.io.{File, BufferedReader, InputStreamReader, FileOutputStream}
@@ -44,9 +43,48 @@ import java.io.InputStream
 import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
+import java.io.FileReader
 
 object AgentUtils  {
 	private val logger = LoggerFactory.getLogger(getClass)
+	
+	def renderResultOutput(myAlgoID:String,
+	                       requestedResult:AlgorithmResult): scala.xml.Elem = {
+	  	  
+	  // Get the whole damn thing as a string.  Bad idea... but we'll go with it for now.
+      val resultAsString = requestedResult match {
+        case FileResult(workDir,fileName) => {
+          val theFile = new File(workDir + File.separator + fileName)
+          if (!theFile.exists() || !theFile.canRead()) {
+            throw new RuntimeException("can't open result file for reading in "+myAlgoID)
+          }
+          try {
+            var stringOut = new StringBuilder("")
+            val br = new BufferedReader(new FileReader(theFile))
+            while (br.ready()) {
+              stringOut.append(br.readLine())
+            }
+            br.close()            
+            stringOut.toString  // this is the return value
+          } catch {
+            case e => throw new RuntimeException("couldn't read result file for "+myAlgoID)
+          }
+        }
+        case StdoutResult(s:String) => {
+          s
+        }
+        case StderrResult(s:String) => {
+          s
+        }
+        case _ => {
+          throw new RuntimeException("unspecified case in gathering result - 0x2")
+        }
+      }
+      
+      // maybe this should just come back as plain text..
+      <result>{resultAsString}</result>
+	}
+	
 	
 	def findFilesMatchingPattern(pattern:String,dir:String) = {
 	  // helper class

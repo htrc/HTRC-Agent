@@ -43,6 +43,7 @@ import java.io.InputStream
 import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
+import java.io.FileReader
 
 
 class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient, 
@@ -281,11 +282,12 @@ class Agent(userID: String,x509: String,privKey: String,
   }
   
   private def listAllAlgorithmRunIDs = {
-    logger.debug("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
+    logger.info("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
     for (k <- algorithmRunStatusMap.keys) yield k
   }
   
   private def formAlgorithmRunXMLResponse(algoID: String) = {
+    logger.info("====> in formAlgorithmRunXMLResponse")
 //     def runningResponseHelper = {
 //       
 //     }
@@ -297,7 +299,7 @@ class Agent(userID: String,x509: String,privKey: String,
 //     }
 //     
      def renderAlgorithmResultSetXML(algoResultSet:AlgorithmResultSet) = {
-       val hrefPrefix = "/agent/"+agentID+"/algorithm/"+algoID+"+/result/"
+       val hrefPrefix = "/agent/"+agentID+"/algorithm/"+algoID+"/result/"
        <results>
         {for (r <- algoResultSet.l) yield 
           r match {
@@ -397,6 +399,98 @@ class Agent(userID: String,x509: String,privKey: String,
 
   
   def receive = {
+    case GetAlgorithmRunResult(algoResultReq:AlgorithmResultRequest) => {  
+      logger.debug("===> trying to get algorithm result")
+      val myAlgoID = algoResultReq match {
+        case StdoutResultRequest(algoID) => {        
+          algoID
+        }
+        case StderrResultRequest(algoID) => {
+        
+          algoID
+        }
+        case FileResultRequest(algoID:String,filename:String) => {         
+          algoID
+        }
+        case _ => {
+          throw new RuntimeException ("unspecified case in gathering result - 0x1")
+        }
+      }
+      logger.debug("====> we matched the algoID: "+myAlgoID)
+      val myStatusMap = getAlgorithmRunStatus(myAlgoID)
+      // if the algorithm doesn't have finished or crashed status,
+      // this request doesn't make any sense -- return an error
+     
+
+      val myResultSet = myStatusMap match {
+        case Some(Finished(time: Date, 
+        		           workingDir: String, 
+        		           algorithmResults:AlgorithmResultSet)) => {
+           Some(algorithmResults)
+          
+        }
+        case Some(Crashed(time: Date, 
+        		          workingDir: String, 
+        		          algorithmResults:AlgorithmResultSet)) => {
+           Some(algorithmResults)
+        }
+        case _ => {
+          // algorithm ID doesn't exist, or it's not finished or crashed
+          logger.warn("couldn't find algo ID")
+          None
+        }
+      }
+      
+      logger.debug("====> we matched the results: "+myResultSet)
+      if (myResultSet == None) {
+        logger.warn("Result set was none.")
+        self reply <error>Couldn't obtain algorithm results for {myAlgoID}.</error> 
+      } else {
+        
+      logger.warn("===> find out what kind of request this is ")
+      // return the correct result  -- a specific file, or stdout or stderr
+      val requestedResult = algoResultReq match {
+        case StdoutResultRequest(algoID) => {            
+          myResultSet.get.l.find((res=>res match {
+            case StdoutResult(s)=>true
+            case _=>false}))
+        }
+        case StderrResultRequest(algoID) => {
+          myResultSet.get.l.find((res=>res match {
+            case StderrResult(s)=>true
+            case _=> false}))         
+        }
+        case FileResultRequest(algoID:String,filename:String) => {        
+          myResultSet.get.l.find((res=>res match {
+            case FileResult(wd,fn)=>{
+            	fn == filename
+            }
+            case _=>false}))
+           
+         
+          // need to get the working directory of the run
+          // then check whether the file exists
+           
+          // if it doesn't exist, check to see if it was put into the registry
+        }
+        case _ => {
+          throw new RuntimeException("unspecified case in gathering result - 0x0")
+        }
+      }
+      
+      if (requestedResult == None) {
+        self reply <error>Couldn't find requested result for algorithm {myAlgoID}.</error>
+      } else {
+      
+      val myResult = requestedResult.getOrElse(throw new RuntimeException("result didn't exist"))
+      
+      
+      // build the  the response
+      logger.warn("building response")
+      self reply AgentUtils.renderResultOutput(myAlgoID,myResult)
+      }
+      }
+    }
     case GetUserIDAsString => self.reply(userID)
     case GetAgentID => self.reply(<agentID>{getAgentID}</agentID>)
     case GetAgentIDAsString => self.reply(getAgentID)
@@ -413,7 +507,7 @@ class Agent(userID: String,x509: String,privKey: String,
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
       self reply (router !! SlaveListCollections).getOrElse(<error>Couldn't list collections</error>) 
     }
-    case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
+     case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
     case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?
     case GetCredentials=> self reply credentialsToXml
     case UpdateAlgorithmRunStatus(algoID: String,status: AlgorithmRunStatus) => {

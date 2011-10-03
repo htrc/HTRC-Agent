@@ -93,12 +93,75 @@ class AgentListCurrentAlgorithms {
 //   
 //}
 //
+
+// just added these three endpoints 2011-10-03
+@Path("/agent/{agentID}/algorithm/{algoID}/result/console/stdout")
+class AgentGetAlgorithmStdoutConsoleResultService {
+  // this method retrieves the stdout console result of an algorithm
+  
+  // in the medium-term, it should stream the result across.
+  // in the short term we may just return the entire thing at once
+  private val logger = LoggerFactory.getLogger(getClass)
+  @GET
+  @Produces(Array("text/xml"))
+  def getAlgoResult(@PathParam("agentID") agentID:String,
+                  @PathParam("algoID") algoID: String) = {
+    logger.debug("====> handle REST method for stdout result console")
+    val manager = actorsFor(classOf[Manager]).headOption.get
+    (manager !! TakeAction(agentID,
+        GetAlgorithmRunResult(StdoutResultRequest(algoID)))).getOrElse(
+            "Couldn't get algorithm run stdout  for agent "+agentID+ " with algorithm ID "+algoID)
+  
+  }
+}
+
+@Path("/agent/{agentID}/algorithm/{algoID}/result/console/stderr")
+class AgentGetAlgorithmStderrConsoleResultService {
+  // this method retrieves the stderr console result of an algorithm
+  
+  // in the medium-term, it should stream the result across.
+  // in the short term we may just return the entire thing at once
+  private val logger = LoggerFactory.getLogger(getClass)
+  @GET
+  @Produces(Array("text/xml"))
+  def getAlgoResult(@PathParam("agentID") agentID:String,
+                  @PathParam("algoID") algoID: String) = {
+    val manager = actorsFor(classOf[Manager]).headOption.get
+    (manager !! TakeAction(agentID,
+        GetAlgorithmRunResult(StderrResultRequest(algoID)))).getOrElse(
+            "Couldn't get algorithm run result stderr for agent "+agentID+ " with algorithm ID "+algoID)
+  
+  }
+}
+
+@Path("/agent/{agentID}/algorithm/{algoID}/result/file/{filename}")
+class AgentGetAlgorithmFileResultService {
+  // this method retrieves a file output result of an algorithm
+  // client specifies the filename.  will need to check if it exists
+  
+  // in the medium-term, it should stream the result across.
+  // in the short term we may just return the entire thing at once
+  private val logger = LoggerFactory.getLogger(getClass)
+  @GET
+  @Produces(Array("text/xml"))
+  def getAlgoResult(@PathParam("agentID") agentID:String,
+                  @PathParam("algoID") algoID: String,
+                  @PathParam("filename") filename: String) = {
+    val manager = actorsFor(classOf[Manager]).headOption.get
+    (manager !! TakeAction(agentID,
+        GetAlgorithmRunResult(FileResultRequest(algoID,filename)))).getOrElse(
+            "Couldn't get algorithm run result file for agent "+agentID+ " with algorithm ID "+algoID+" and filename "+filename)
+  }
+}
+
+// end new addition 2011-10-03
+
 @Path("/agent/{agentID}/algorithm/poll/{algoID}")
 class AgentPollAlgorithmRunStatusService {
   private val logger = LoggerFactory.getLogger(getClass)
   @GET
   @Produces(Array("text/xml"))
-  def getIndexEpr(@PathParam("agentID") agentID:String,
+  def getAlgoStatus(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
     val manager = actorsFor(classOf[Manager]).headOption.get
     (manager !! TakeAction(agentID, 
@@ -114,7 +177,7 @@ class AgentRunAlgorithmService {
   private val logger = LoggerFactory.getLogger(getClass)
   @GET
   @Produces(Array("text/xml"))
-  def getIndexEpr(@PathParam("agentID") agentID:String,
+  def runAlgo(@PathParam("agentID") agentID:String,
                   @PathParam("algoName") algoName: String,
                   @PathParam("collectionName") collectionName: String,
                   @PathParam("userArgs") userArgs: String) = {
@@ -146,7 +209,7 @@ class AgentListAvailablelgorithms {
 class AgentGetRepositoryEPRService {
   @GET
   @Produces(Array("text/xml"))
-  def getIndexEpr(@PathParam("agentID") agentID:String) = {
+  def getRepositoryEpr(@PathParam("agentID") agentID:String) = {
     val manager = actorsFor(classOf[Manager]).headOption.get
     (manager !! TakeAction(agentID, GetRepositoryEpr)).getOrElse("Couldn't get repository EPR from agent "+agentID)
   }
@@ -183,8 +246,6 @@ class AgentListCollections {
  }
 }
 
-
-
 @Path("/agent/{agentID}")
 class AgentPut {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -197,7 +258,6 @@ class AgentPut {
       input:String
       ) = {
     
-
     logger.debug("Welcome! This is our PUT's input: "+input)
 
     def checkAgentPutMethodInputAndReturnCerts(xmlString:String) : Option[(String,String)] = {
