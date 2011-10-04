@@ -42,9 +42,9 @@ import java.io.FileReader
 class FirstRegistry(
     
   copyAlgoJarToWorkingDir: Boolean,
-  launchScript: String,
+  timeStarted: Date,
   logger: Logger,
-  registryClient: RegistryClient,
+  registryClientInitializer: (()=>RegistryClient),
   runtimeProps: Properties
   
 ) extends RegistryHelper {
@@ -52,6 +52,12 @@ class FirstRegistry(
   // To make things easy I'm including all the startup props an agentSlave has here.
   // This makes registry a class not an object (questionable) and ties agent state to the registry.
   // The state-association may be useful but concerns me.
+  
+  var registryClient = registryClientInitializer()
+  
+  def reinitializeRegistryClient = {
+    registryClient = registryClientInitializer()
+  }
   
   def getAlgorithmExecutable(algoName: String, workingDir: String): Option[String] = {
     

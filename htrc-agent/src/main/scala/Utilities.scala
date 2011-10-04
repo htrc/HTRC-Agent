@@ -48,6 +48,29 @@ import java.io.FileReader
 object AgentUtils  {
 	private val logger = LoggerFactory.getLogger(getClass)
 	
+	def tryEPRCreatingURIFromStringResult(f:()=>String) = {
+		val out = AgentUtils.tryEPR(f)
+		new URI(out.asInstanceOf[String])
+	}
+	
+	def tryEPR(f:()=>Any) = {
+		//def tryMe() = f()
+		var c = 0
+				//var out = tryMe()
+		var out = f()
+		while (out == null && c < 10) {
+			c = c + 1
+			//out = tryMe()
+			out = f()
+		}
+
+
+		if (out == null ) 
+			throw new RuntimeException("couldn't contact registry - try using registryClientInitializer() next time to get a new one!")
+
+		out
+	}
+    
 	def renderResultOutput(myAlgoID:String,
 	                       requestedResult:AlgorithmResult): scala.xml.Elem = {
 	  	  

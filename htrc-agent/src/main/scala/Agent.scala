@@ -46,14 +46,17 @@ import scala.xml.XML
 import java.io.FileReader
 
 
-class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient, 
+class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryClient), 
     userID: String, x509: String, privKey: String,runtimeProps: Properties) extends Actor {
  
+  
   private val copyAlgoJarToWorkingDir = true
   private val launchScript:String = runtimeProps.get("algolaunchscript").toString()
   private val logger = LoggerFactory.getLogger(getClass)
   
-  private val registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, launchScript, logger, registryClient, runtimeProps)
+  // this is now a var.  so that we can make a new one when registry
+  // client dies due to extended time running
+  private var registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, new Date, logger, registryClientInitializer, runtimeProps)
   
   
   def receive = {
@@ -101,7 +104,8 @@ class AgentSlave(agentRef: ActorRef, registryClient: RegistryClient,
 class Agent(userID: String,x509: String,privKey: String,
     runtimeProps:Properties) extends Actor  {
   private val logger = LoggerFactory.getLogger(getClass)
-  val registryClient = new RegistryClient
+  val registryClientInitializer = (()=>new RegistryClient)
+  var registryClient = registryClientInitializer()
   val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
                           //e.g.   huetoanhu-4731sssa-fueoauht, 'Initializing                                  
 		     			  // 	   huetoanhu-4731sssa-fueoauht, 'Running
@@ -120,27 +124,19 @@ class Agent(userID: String,x509: String,privKey: String,
   
   //val cachedIndexEPR = new CachedEPR("index-epr",refreshEpr=refreshIndexEPR )
   
-  private def tryEPR(f:()=>String) = {
-    def tryMe() = f()
-    var c = 0
-    var out = tryMe()
-    while (out == null && c < 10) {
-      c = c + 1
-      out = tryMe()
-    }
-    if (out == null ) 
-      throw new RuntimeException("couldn't contact registry")
-    new URI(out)
-  }
+  
+  
   val refreshIndexEPR = {() =>  
     //println("RegistryClient object:"+registryClient.toString())      
     // TODO: need to handle NPE here, registry client can die
-    tryEPR(()=>{registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")})
+    AgentUtils.tryEPRCreatingURIFromStringResult(()=>
+      {registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")})
   }
+  
   val refreshRepositoryEPR = {() =>    
     //println("RegistryClient object:"+registryClient.toString())
     // TODO: need to handle NPE here, registry client can die
-    tryEPR(()=>{registryClient.getSolrIndexServiceURI("htrc-cassandra-repository")})
+    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{registryClient.getSolrIndexServiceURI("htrc-cassandra-repository")})
   }
   private def getAgentID = agentID
   private def credentialsToXml = {
@@ -391,7 +387,7 @@ class Agent(userID: String,x509: String,privKey: String,
   // create the workers
   val nrOfSlaves = 8
   val slaves = Vector.fill(nrOfSlaves)(actorOf
-		 (new AgentSlave(self,registryClient,
+		 (new AgentSlave(self,registryClientInitializer,
 		     userID, x509, privKey,runtimeProps)).start())
 
   // wrap them with a load-balancing router
