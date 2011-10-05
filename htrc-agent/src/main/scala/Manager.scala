@@ -50,9 +50,6 @@ class Manager extends Actor {
   
   private val logger = LoggerFactory.getLogger(getClass)
   private val agentMap = new HashMap[String,ActorRef]
-  private val ConfFile = "config.properties"
-  private val runtimeProps = new Properties
-  runtimeProps.load(new FileInputStream(ConfFile))
   
   def checkForAgentByUserID(userID: String): Boolean = {
     agentMap.values.exists((a => (a !! GetUserIDAsString) == userID))
@@ -72,12 +69,12 @@ class Manager extends Actor {
   def receive = {
     
     case VendAgent(uriName, x509, privKey) => {
-      //logger.debug("Vending agent for id: %s",id)
+      //logger.debug("VendinProtobufg agent for id: %s",id)
       if (validCredentials(uriName,x509,privKey)) // always succeeds :\
          { 
            getAgent(uriName) match {
              case None => {  
-               val newAgent = actorOf(new Agent(uriName,x509,privKey,runtimeProps)).start()
+               val newAgent = actorOf(new Agent(uriName,x509,privKey)).start()
                val newAgentID = (newAgent !! GetAgentIDAsString).getOrElse("Failed")
                if (newAgentID == "Failed") throw new RuntimeException            			 
                		logger.debug("===> putting a new agent to the agent map")

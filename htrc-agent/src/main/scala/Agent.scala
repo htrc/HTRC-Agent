@@ -47,16 +47,16 @@ import java.io.FileReader
 
 
 class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryClient), 
-    userID: String, x509: String, privKey: String,runtimeProps: Properties) extends Actor {
+    userID: String, x509: String, privKey: String) extends Actor {
  
   
   private val copyAlgoJarToWorkingDir = true
-  private val launchScript:String = runtimeProps.get("algolaunchscript").toString()
+  private val launchScript:String = RuntimeProperties.p.get("algolaunchscript").toString()
   private val logger = LoggerFactory.getLogger(getClass)
   
   // this is now a var.  so that we can make a new one when registry
   // client dies due to extended time running
-  private var registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, new Date, logger, registryClientInitializer, runtimeProps)
+  private var registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, new Date, logger, registryClientInitializer)
   
   
   def receive = {
@@ -88,7 +88,7 @@ class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryCli
       val workingDir = AgentUtils.createWorkingDirectory
       
       val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, logger, 
-          initialDir, workingDir, registryHelper, agentRef, userID, runtimeProps)
+          initialDir, workingDir, registryHelper, agentRef, userID)
 	  algo.instantiate()
       
     }
@@ -101,8 +101,7 @@ class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryCli
 }
   
   
-class Agent(userID: String,x509: String,privKey: String,
-    runtimeProps:Properties) extends Actor  {
+class Agent(userID: String,x509: String,privKey: String) extends Actor  {
   private val logger = LoggerFactory.getLogger(getClass)
   val registryClientInitializer = (()=>new RegistryClient)
   var registryClient = registryClientInitializer()
@@ -388,7 +387,7 @@ class Agent(userID: String,x509: String,privKey: String,
   val nrOfSlaves = 8
   val slaves = Vector.fill(nrOfSlaves)(actorOf
 		 (new AgentSlave(self,registryClientInitializer,
-		     userID, x509, privKey,runtimeProps)).start())
+		     userID, x509, privKey)).start())
 
   // wrap them with a load-balancing router
   val router = Routing.loadBalancerActor(CyclicIterator(slaves)).start()

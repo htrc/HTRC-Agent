@@ -1,5 +1,10 @@
 package htrcagent
 
+/*
+ * This is going to be turned into a globally available actor.
+ * That way akka can monitor it and ALL registry exceptions can be handled here.
+ */
+
 import akka.actor.Actor
 import akka.actor.Actor._
 import javax.ws.rs.{GET, Path, Produces}
@@ -39,13 +44,12 @@ import scala.xml.XML
 import org.apache.commons.codec.binary.Hex
 import java.io.FileReader
 
-class FirstRegistry(
+class FirstRegistry (
     
   copyAlgoJarToWorkingDir: Boolean,
   timeStarted: Date,
   logger: Logger,
-  registryClientInitializer: (()=>RegistryClient),
-  runtimeProps: Properties
+  registryClientInitializer: (()=>RegistryClient)
   
 ) extends RegistryHelper {
   
@@ -114,7 +118,7 @@ class FirstRegistry(
 	    }
 	    
 	    val SkipGettingAlgoExecutableFromRegistry = {
-	       val skipProp = runtimeProps.get("skipgettingalgoexecutablefromregistry")
+	       val skipProp = RuntimeProperties.p.get("skipgettingalgoexecutablefromregistry")
 	       logger.debug("====> runtime property of 'skipgettingalgoexecutablefromregistry' is " + skipProp.toString)
 		  
 	        skipProp match {
@@ -175,7 +179,7 @@ class FirstRegistry(
   def listCollections = {
     def listHardcodedCollections = {
       val listOfCollections = try {
-        runtimeProps.get("hardcodedcollectionnames").toString.split(",")
+        RuntimeProperties.p.get("hardcodedcollectionnames").toString.split(",")
       } catch {
         case e => {
           logger.error("couldn't get hardcoded collection names")
@@ -202,7 +206,7 @@ class FirstRegistry(
  def listAvailableAlgorithms = {
     def listHardcodedAlgorithms = {
       val listOfAlgorithms = try {
-        runtimeProps.get("hardcodedalgorithmsavailable").toString.split(",")
+        RuntimeProperties.p.get("hardcodedalgorithmsavailable").toString.split(",")
       } catch {
         case e => {
           logger.error("couldn't get hardcoded available algorithm names")

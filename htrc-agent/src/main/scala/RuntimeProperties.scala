@@ -1,5 +1,10 @@
 package htrcagent
 
+/* 
+ * These are the globally available pieces of startup information the system has.
+ * Currently specified in a startup file.
+ */
+
 import akka.actor.Actor
 import akka.actor.Actor._
 import javax.ws.rs.{GET, Path, Produces}
@@ -38,31 +43,10 @@ import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
 
-abstract class Algorithm(
-	algoID: String, 
-	algoName: String,  	    
-	eprMap: HashMap[String,String],
-	userArgs: List[String],
-	collectionName: String,
-	logger: Logger,
-	initialDir: String,
-	workingDir: String,
-	registryHelper: RegistryHelper,
-	agentRef: ActorRef,
-	userID: String
-) {
+object RuntimeProperties {
 	
-	// TODO : Do something clever here
-	val runner: Runner
-
-	//def status: AlgorithmRunStatus
-
-	def instantiate(): Boolean
-  
-}
-
-trait Runner {
-  
-  // methods to run an algorithm
+  private val ConfFile = "config.properties"
+  val p = new Properties
+  p.load(new FileInputStream(ConfFile))
   
 }

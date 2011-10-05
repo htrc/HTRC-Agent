@@ -49,8 +49,7 @@ class ExecutableAlgorithm(
 	workingDir: String,
 	registryHelper: RegistryHelper,
 	agentRef: ActorRef,
-	userID: String,
-	runtimeProps: Properties
+	userID: String
 ) extends Algorithm(
 	algoID, 
 	algoName,  	    
@@ -62,8 +61,7 @@ class ExecutableAlgorithm(
 	workingDir,
 	registryHelper,
 	agentRef,
-	userID,
-	runtimeProps
+	userID
 ) {
 
   val runner = ExecutableAlgorithmRunner
