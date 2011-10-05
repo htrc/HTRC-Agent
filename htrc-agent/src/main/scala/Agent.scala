@@ -46,14 +46,12 @@ import scala.xml.XML
 import java.io.FileReader
 
 
-class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryClient), 
-    userID: String, x509: String, privKey: String) extends Actor {
+class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: String) extends Actor with Loggable {
  
   val ourRegistry = actorFor[RegistryActor].get
   
   private val copyAlgoJarToWorkingDir = true
-  private val launchScript:String = RuntimeProperties("algolaunchscript").toString()
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val launchScript:String = RuntimeProperties("algolaunchscript").toString
   
   // this is now a var.  so that we can make a new one when registry
   // client dies due to extended time running
@@ -90,7 +88,7 @@ class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryCli
       val initialDir = System.getProperty("user.dir")
       val workingDir = AgentUtils.createWorkingDirectory
       
-      val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, logger, 
+      val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, 
           initialDir, workingDir, agentRef, userID)
 	  algo.instantiate()
       
@@ -394,8 +392,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
   // create the workers
   val nrOfSlaves = 8
   val slaves = Vector.fill(nrOfSlaves)(actorOf
-		 (new AgentSlave(self,registryClientInitializer,
-		     userID, x509, privKey)).start())
+		 (new AgentSlave(self, userID, x509, privKey)).start())
 
   // wrap them with a load-balancing router
   val router = Routing.loadBalancerActor(CyclicIterator(slaves)).start()

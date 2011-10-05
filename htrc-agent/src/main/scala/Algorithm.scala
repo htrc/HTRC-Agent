@@ -44,7 +44,6 @@ abstract class Algorithm(
 	eprMap: HashMap[String,String],
 	userArgs: List[String],
 	collectionName: String,
-	logger: Logger,
 	initialDir: String,
 	workingDir: String,
 	agentRef: ActorRef,

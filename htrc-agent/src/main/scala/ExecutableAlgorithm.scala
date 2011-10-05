@@ -44,23 +44,21 @@ class ExecutableAlgorithm(
 	eprMap: HashMap[String,String],
 	userArgs: List[String],
 	collectionName: String,
-	logger: Logger,
 	initialDir: String,
 	workingDir: String,
 	agentRef: ActorRef,
 	userID: String
-) extends Algorithm(
+) extends Algorithm (
 	algoID, 
 	algoName,  	    
 	eprMap,
 	userArgs,
 	collectionName,
-	logger,
 	initialDir,
 	workingDir,
 	agentRef,
 	userID
-) {
+) with Loggable {
   
   val ourRegistry = actorFor[RegistryActor].get
 
