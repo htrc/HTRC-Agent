@@ -90,45 +90,57 @@ class RegistryActor extends Actor with Loggable {
     
     case GetAlgorithmExecutable(algoName, workingDir) =>
       
-      self reply (getAlgorithmExecutable(algoName, workingDir))
+      spawn {
+        self reply (getAlgorithmExecutable(algoName, workingDir))
+      }
       
     case WriteVolumesTextFile(volumes, workingDir) =>
       
-      self reply writeVolumesTextFile(volumes, workingDir)
+      spawn {
+        self reply writeVolumesTextFile(volumes, workingDir)
+      }
       
     case RegistryListCollections =>
       
-      self reply availableCollectionList
+      spawn {
+        self reply availableCollectionList
+      }
       
     case RegistryListAvailableAlgorithms => 
       
-      self reply availableAlgorithmList
+      spawn {
+        self reply availableAlgorithmList
+      }
       
     case GetCollectionVolumeIDs(collectionName) =>
       
-      logger.debug("!!!!> inside getCollectionVolumeIDs, asked for "+collectionName)
-	  val volumeIDs:java.util.List[String] = registryClient.getVolumeIDsFromCollection(collectionName)
-	  logger.debug("!!!!> got the list of volumes, size is"+volumeIDs.toList.length)
+      spawn {
+        logger.debug("!!!!> inside getCollectionVolumeIDs, asked for "+collectionName)
+    	val volumeIDs:java.util.List[String] = registryClient.getVolumeIDsFromCollection(collectionName)
+    	logger.debug("!!!!> got the list of volumes, size is"+volumeIDs.toList.length)
 	  	
-	  self reply volumeIDs.toList
+    	self reply volumeIDs.toList
+      }
 	  	
     case EncodeUserURNForRegistry(userURN) =>
 
-      self reply new String(Hex.encodeHex(userURN.getBytes()))
+      spawn {
+        self reply new String(Hex.encodeHex(userURN.getBytes()))
+      }
       
     case DecodeUserURNFromRegistry(encodedUserString) =>
       
-      logger.warn("!!!!> Need to test decodeUserURNFromRegistry")
-      
-      self reply Hex.decodeHex(encodedUserString.toCharArray()).toString
+      spawn {
+        logger.warn("!!!!> Need to test decodeUserURNFromRegistry")
+        self reply Hex.decodeHex(encodedUserString.toCharArray()).toString
+      }
       
     case PostResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) =>
       
-      self reply postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples)
+      spawn {
+        self reply postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples)
+      }
       
-      // none
-      
-    
   }
   
   // A wrapper function to provide registry exception handling
