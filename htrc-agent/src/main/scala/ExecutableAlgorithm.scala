@@ -47,7 +47,6 @@ class ExecutableAlgorithm(
 	logger: Logger,
 	initialDir: String,
 	workingDir: String,
-	registryHelper: RegistryHelper,
 	agentRef: ActorRef,
 	userID: String
 ) extends Algorithm(
@@ -59,10 +58,11 @@ class ExecutableAlgorithm(
 	logger,
 	initialDir,
 	workingDir,
-	registryHelper,
 	agentRef,
 	userID
 ) {
+  
+  val ourRegistry = actorFor[RegistryActor].get
 
   val runner = ExecutableAlgorithmRunner
     
@@ -70,7 +70,7 @@ class ExecutableAlgorithm(
     
     try {
       //1. Get the algorithm executable
-        val algoExecutable = registryHelper.getAlgorithmExecutable(algoName,workingDir)
+        val algoExecutable: Option[String] = (ourRegistry !! GetAlgorithmExecutable(algoName,workingDir)).asInstanceOf[Option[String]]
         //System.exit(4)
        
       algoExecutable match {
@@ -92,9 +92,9 @@ class ExecutableAlgorithm(
       // note that this could be parallelized against steps 1 and 4!
         // below could be really bad, junk the message passing BS if you need to
          logger.debug("====> Trying to get volume IDs from registry.")
-	     val volumeIDs:List[String] = registryHelper.getCollectionVolumeIDs(collectionName)
+	     val volumeIDs:List[String] = (ourRegistry !!! GetCollectionVolumeIDs(collectionName)).get
          logger.debug("====> Got volume IDs from registry, from this collection: " + collectionName)
-         val volumesTextFile = registryHelper.writeVolumesTextFile(volumeIDs,workingDir)
+         val volumesTextFile = (ourRegistry !!! WriteVolumesTextFile(volumeIDs,workingDir)).get
          logger.debug("====> Wrote volume IDs to a temp file in working dir ("+workingDir+")")
          
       //3.   create the properties file
@@ -191,7 +191,7 @@ class ExecutableAlgorithm(
             Finished(new Date,workingDir,algoResultSet))
           // post results to registry
           // fix me ... tuple stuff is dumb
-          registryHelper.postResultsToRegistry(userID,algoID,algoResultSet.l)
+          ourRegistry !! PostResultsToRegistry(userID,algoID,algoResultSet.l)
             
         } else {
           logger.warn("!!!!> exit code was " + exitCode)

@@ -1,5 +1,8 @@
 package htrcagent
 
+// a trait that provides a logger
+// easier than instantiating one every time
+
 import akka.actor.Actor
 import akka.actor.Actor._
 import javax.ws.rs.{GET, Path, Produces}
@@ -16,7 +19,6 @@ import java.util.UUID
 import edu.indiana.d2i.registry._
 import java.net.URI
 import java.util.Date
-//import org.wso2.carbon.registry.ws.client.solrsearchregistration.GetSOLRIndexWSRegistryClient
 import org.slf4j.{Logger,LoggerFactory}
 import java.util.Properties
 import java.io.{File, BufferedReader, InputStreamReader, FileOutputStream}
@@ -37,31 +39,10 @@ import java.io.InputStream
 import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
+import java.io.FileReader
 
-abstract class Algorithm(
-	algoID: String, 
-	algoName: String,  	    
-	eprMap: HashMap[String,String],
-	userArgs: List[String],
-	collectionName: String,
-	logger: Logger,
-	initialDir: String,
-	workingDir: String,
-	agentRef: ActorRef,
-	userID: String
-) {
-	
-	// TODO : Do something clever here
-	val runner: Runner
+trait Loggable {
 
-	//def status: AlgorithmRunStatus
-
-	def instantiate(): Boolean
-  
-}
-
-trait Runner {
-  
-  // methods to run an algorithm
+  val logger = LoggerFactory.getLogger(getClass)
   
 }

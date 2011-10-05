@@ -118,7 +118,7 @@ class FirstRegistry (
 	    }
 	    
 	    val SkipGettingAlgoExecutableFromRegistry = {
-	       val skipProp = RuntimeProperties.p.get("skipgettingalgoexecutablefromregistry")
+	       val skipProp = RuntimeProperties("skipgettingalgoexecutablefromregistry")
 	       logger.debug("====> runtime property of 'skipgettingalgoexecutablefromregistry' is " + skipProp.toString)
 		  
 	        skipProp match {
@@ -179,7 +179,7 @@ class FirstRegistry (
   def listCollections = {
     def listHardcodedCollections = {
       val listOfCollections = try {
-        RuntimeProperties.p.get("hardcodedcollectionnames").toString.split(",")
+        RuntimeProperties("hardcodedcollectionnames").toString.split(",")
       } catch {
         case e => {
           logger.error("couldn't get hardcoded collection names")
@@ -206,7 +206,7 @@ class FirstRegistry (
  def listAvailableAlgorithms = {
     def listHardcodedAlgorithms = {
       val listOfAlgorithms = try {
-        RuntimeProperties.p.get("hardcodedalgorithmsavailable").toString.split(",")
+        RuntimeProperties("hardcodedalgorithmsavailable").toString.split(",")
       } catch {
         case e => {
           logger.error("couldn't get hardcoded available algorithm names")

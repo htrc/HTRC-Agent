@@ -46,7 +46,9 @@ import scala.xml.XML
 object RuntimeProperties {
 	
   private val ConfFile = "config.properties"
-  val p = new Properties
+  private val p = new Properties
   p.load(new FileInputStream(ConfFile))
+  
+  def apply(query: String) = p.get(query)
   
 }

@@ -49,24 +49,27 @@ import java.io.FileReader
 class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryClient), 
     userID: String, x509: String, privKey: String) extends Actor {
  
+  val ourRegistry = actorFor[RegistryActor].get
   
   private val copyAlgoJarToWorkingDir = true
-  private val launchScript:String = RuntimeProperties.p.get("algolaunchscript").toString()
+  private val launchScript:String = RuntimeProperties("algolaunchscript").toString()
   private val logger = LoggerFactory.getLogger(getClass)
   
   // this is now a var.  so that we can make a new one when registry
   // client dies due to extended time running
-  private var registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, new Date, logger, registryClientInitializer)
+  //private var registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, new Date, logger, registryClientInitializer)
   
   
   def receive = {
     case SlaveListAvailableAlgorithms => {
       logger.debug("INSIDE AGENTSLAVE SlaveListAvailableAlgorithms")
-      self reply registryHelper.listAvailableAlgorithms
+      val res = ourRegistry !! RegistryListAvailableAlgorithms
+      self reply res
     }
     case SlaveListCollections => {
       logger.debug("INSIDE AGENTSLAVE SlaveListCollections")
-      self reply registryHelper.listCollections
+      val res = ourRegistry !! RegistryListCollections
+      self reply res
     }
     case StartAlgorithm(algoID: String, 
 		  				    algoName: String, 
@@ -88,12 +91,13 @@ class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryCli
       val workingDir = AgentUtils.createWorkingDirectory
       
       val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, logger, 
-          initialDir, workingDir, registryHelper, agentRef, userID)
+          initialDir, workingDir, agentRef, userID)
 	  algo.instantiate()
       
     }
     case GetCollectionVolumeIDs(collectionName: String) => {
-      self reply registryHelper.getCollectionVolumeIDs(collectionName)
+      ourRegistry.forward(GetCollectionVolumeIDs(collectionName))
+      //self reply registryHelper.getCollectionVolumeIDs(collectionName)
     }
       
     case _ => self reply <error>Unknown algorithm control message</error>
@@ -102,6 +106,10 @@ class AgentSlave(agentRef: ActorRef, registryClientInitializer: (()=>RegistryCli
   
   
 class Agent(userID: String,x509: String,privKey: String) extends Actor  {
+  
+  // the new registry actor
+  val ourRegistry = actorFor[RegistryActor].get
+  
   private val logger = LoggerFactory.getLogger(getClass)
   val registryClientInitializer = (()=>new RegistryClient)
   var registryClient = registryClientInitializer()
