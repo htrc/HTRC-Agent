@@ -58,12 +58,6 @@ case object RegistryListAvailableAlgorithms // scala.xml.Elem
   
 //case class GetCollectionVolumeIDs(collectionName:String) // List[String]
 
-// storing URNs for users doesn't work; 
-// the next two methods turn them into something the registry API can deal with
-case class EncodeUserURNForRegistry(userURN:String) // String 
-	
-case class DecodeUserURNFromRegistry(encodedUserString:String) // String
-
 case class PostResultsToRegistry(userURN:String, 
       algorithmID:String,
       resultNameAndValueTuples:List[AlgorithmResult]) 
@@ -88,11 +82,10 @@ class RegistryActor extends Actor with Loggable {
   
   def receive = {
     
+    // this is not a spawn call because no registry manipulation can happen inside one
     case GetAlgorithmExecutable(algoName, workingDir) =>
       
-      spawn {
-        self reply (getAlgorithmExecutable(algoName, workingDir))
-      }
+      self reply (getAlgorithmExecutable(algoName, workingDir))
       
     case WriteVolumesTextFile(volumes, workingDir) =>
       
@@ -121,25 +114,11 @@ class RegistryActor extends Actor with Loggable {
 	  	
     	self reply volumeIDs.toList
       }
-	  	
-    case EncodeUserURNForRegistry(userURN) =>
-
-      spawn {
-        self reply new String(Hex.encodeHex(userURN.getBytes()))
-      }
-      
-    case DecodeUserURNFromRegistry(encodedUserString) =>
-      
-      spawn {
-        logger.warn("!!!!> Need to test decodeUserURNFromRegistry")
-        self reply Hex.decodeHex(encodedUserString.toCharArray()).toString
-      }
-      
+    
+    // this is not a spawn call because no registry manipulation can happen inside one
     case PostResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) =>
       
-      spawn {
-        self reply postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples)
-      }
+      self reply postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples)
       
   }
   
@@ -150,13 +129,15 @@ class RegistryActor extends Actor with Loggable {
     try {
       func()
     } catch {
-      case npe: NullPointerException => {
-        logger.warn("====> RegistryClient threw a NPE, recovering...")
-        restartRegistryClient()
+      case e => {
+        logger.warn("====> RegistryClient threw an exception, retrying...")
+        // this line can be an error handling function if one is needed
         if(retries < 10)
         	registryExceptionHandler(func, retries+1)
-        else
-          throw npe
+        else {
+          logger.warn("====> RegistryClient still failing after 10 retries, aborting")
+          throw e
+        }
       }
     }
     
