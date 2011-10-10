@@ -106,7 +106,12 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
 class Agent(userID: String,x509: String,privKey: String) extends Actor  {
   
   // the new registry actor
-  val ourRegistry = actorFor[RegistryActor].get
+  val registryOption = actorFor[RegistryActor]
+  val ourRegistry = 
+    if(registryOption == None)
+    	actorOf[RegistryActor]
+    else
+    	registryOption.get
   
   private val logger = LoggerFactory.getLogger(getClass)
   val registryClientInitializer = (()=>new RegistryClient)
