@@ -71,13 +71,13 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
   def receive = {
     case SlaveListAvailableAlgorithms => {
       logger.debug("INSIDE AGENTSLAVE SlaveListAvailableAlgorithms")
-      val res = ourRegistry !!! RegistryListAvailableAlgorithms
-      self reply res.get
+      val res : xml.Elem = (ourRegistry !!! RegistryListAvailableAlgorithms).get
+      self reply res
     }
     case SlaveListCollections => {
       logger.debug("INSIDE AGENTSLAVE SlaveListCollections")
-      val res = ourRegistry !!! RegistryListCollections
-      self reply res.get
+      val res : xml.Elem = (ourRegistry !!! RegistryListCollections).get
+      self reply res
     }
     case StartAlgorithm(algoID: String, 
 		  				    algoName: String, 
@@ -519,12 +519,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     }
     case ListAvailableAlgorithms => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      val res : Future[xml.Elem] = ( router !!! SlaveListAvailableAlgorithms)
-      self reply res.get //getOrElse( <error>couldn't list available algorithms</error>)
+      val res : xml.Elem = ( router !!! SlaveListAvailableAlgorithms).get
+      self reply res //getOrElse( <error>couldn't list available algorithms</error>)
     }
     case ListCollections => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      self reply (router !!! SlaveListCollections).get //OrElse(<error>Couldn't list collections</error>) 
+      val res : xml.Elem = (router !!! SlaveListCollections).get //OrElse(<error>Couldn't list collections</error>)
+      res
     }
      case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
     case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?

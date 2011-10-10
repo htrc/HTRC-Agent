@@ -104,7 +104,7 @@ class Manager extends Actor {
     case TakeAction(agentID: String, action: AgentAction) => {
       // does this agent exist?
       if (agentExists(agentID)) {
-        val result = (getAgent(agentID).head !! action).getOrElse(<error>Couldn't resolve action</error>)
+        val result: xml.Elem = (getAgent(agentID).head !!! action).get  //OrElse(<error>Couldn't resolve action</error>)
         self reply result
       } else {
         self reply <error>No such agent</error> // should be a 404 not found

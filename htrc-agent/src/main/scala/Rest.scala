@@ -201,7 +201,8 @@ class AgentListAvailablelgorithms {
   @Produces(Array("text/xml"))
   def listRunningAlgorithms(@PathParam("agentID") agentID:String) = {
     val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager !!! TakeAction(agentID, ListAvailableAlgorithms)).get //OrElse("couldn't find available algorithms")
+    val res: xml.Elem = (manager !!! TakeAction(agentID, ListAvailableAlgorithms)).get //OrElse("couldn't find available algorithms")
+    res
   }
 }
 
@@ -242,7 +243,8 @@ class AgentListCollections {
  @Produces(Array("text/xml"))
  def listCollections(@PathParam("agentID") agentID:String) = {
   val manager = actorsFor(classOf[Manager]).headOption.get
-  val res = (manager !!! TakeAction(agentID, ListCollections)).get
+  val res: xml.Elem = (manager !!! TakeAction(agentID, ListCollections)).get
+  res
   /*if(res == None) {
     <error>"Couldn't get a list of collections from agent "+{agentID}</error>
   } else {
@@ -317,7 +319,7 @@ class AgentPut {
     // this should equal '3':
     val splitOnCData = xmlString.split("<!\\[CDATA\\[")
     if (splitOnCData.length != 3) {
-      logger.error("couldn't find <![CDATA[ tokens in XML input: "+xmlString)
+      logger.error("couldn't find <![CDATA[ tohttps://silktree.cs.indiana.edu:8443/htrc_portal/kens in XML input: "+xmlString)
       return None
     }
     

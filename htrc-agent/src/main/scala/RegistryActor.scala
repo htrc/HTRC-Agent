@@ -100,11 +100,15 @@ class RegistryActor extends Actor with Loggable {
       
     case RegistryListCollections =>
       
-      asyncReply { availableCollectionList }
+      //asyncReply { availableCollectionList }
+      val res: xml.Elem = availableCollectionList
+      self reply res
       
     case RegistryListAvailableAlgorithms => 
       
-      asyncReply { availableAlgorithmList }
+      //asyncReply { availableAlgorithmList }
+      val res: xml.Elem = availableAlgorithmList
+      self reply res
       
     case GetCollectionVolumeIDs(collectionName) =>
       
