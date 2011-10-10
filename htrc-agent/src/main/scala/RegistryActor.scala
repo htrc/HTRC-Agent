@@ -80,39 +80,40 @@ class RegistryActor extends Actor with Loggable {
     }
   }
   
+  def asyncReply[T](f: =>T) = {
+    val messageDestination = self.channel
+    spawn {
+      messageDestination ! f
+    }
+  }
+  
   def receive = {
     
     // this is not a spawn call because no registry manipulation can happen inside one
     case GetAlgorithmExecutable(algoName, workingDir) =>
       
-      self reply (getAlgorithmExecutable(algoName, workingDir))
+      self reply getAlgorithmExecutable(algoName, workingDir)
       
     case WriteVolumesTextFile(volumes, workingDir) =>
-      
-      spawn {
-        self reply writeVolumesTextFile(volumes, workingDir)
-      }
+     
+        asyncReply { writeVolumesTextFile(volumes, workingDir) }
       
     case RegistryListCollections =>
       
-      spawn {
-        self reply availableCollectionList
-      }
+      asyncReply { availableCollectionList }
       
     case RegistryListAvailableAlgorithms => 
       
-      spawn {
-        self reply availableAlgorithmList
-      }
+      asyncReply { availableAlgorithmList }
       
     case GetCollectionVolumeIDs(collectionName) =>
       
-      spawn {
+      asyncReply {
         logger.debug("!!!!> inside getCollectionVolumeIDs, asked for "+collectionName)
     	val volumeIDs:java.util.List[String] = registryClient.getVolumeIDsFromCollection(collectionName)
     	logger.debug("!!!!> got the list of volumes, size is"+volumeIDs.toList.length)
 	  	
-    	self reply volumeIDs.toList
+    	volumeIDs.toList
       }
     
     // this is not a spawn call because no registry manipulation can happen inside one
@@ -160,7 +161,7 @@ class RegistryActor extends Actor with Loggable {
   // Currently uses props file and not the registry
   def availableAlgorithmList: xml.Elem = {
     
-    val algorithms = RuntimeProperties("hardcodedalgorithmsavailable").toString.split(",").toList
+    val algorithms:List[String] = RuntimeProperties("hardcodedalgorithmsavailable").toString.split(",").toList
     
     <availableAlgorithms>
       {for (a <- algorithms) yield <algorithm>{Text(a)}</algorithm>}

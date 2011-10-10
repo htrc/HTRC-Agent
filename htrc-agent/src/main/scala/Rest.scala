@@ -45,6 +45,7 @@ import java.io.InputStream
 import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
+import akka.dispatch.Future
 
 @Path("/agent/{agentID}/algorithm/poll")
 class AgentListCurrentAlgorithms {
@@ -200,8 +201,7 @@ class AgentListAvailablelgorithms {
   @Produces(Array("text/xml"))
   def listRunningAlgorithms(@PathParam("agentID") agentID:String) = {
     val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager !! TakeAction(agentID,
-        ListAvailableAlgorithms)).getOrElse("couldn't find available algorithms")
+    (manager !!! TakeAction(agentID, ListAvailableAlgorithms)).get //OrElse("couldn't find available algorithms")
   }
 }
 
@@ -242,7 +242,15 @@ class AgentListCollections {
  @Produces(Array("text/xml"))
  def listCollections(@PathParam("agentID") agentID:String) = {
   val manager = actorsFor(classOf[Manager]).headOption.get
-  (manager !! TakeAction(agentID, ListCollections)).getOrElse("Couldn't get a list of collections from agent "+agentID)
+  val res = (manager !!! TakeAction(agentID, ListCollections)).get
+  /*if(res == None) {
+    <error>"Couldn't get a list of collections from agent "+{agentID}</error>
+  } else {
+    val res2 : xml.Elem = res.get.asInstanceOf[xml.Elem]
+    res2
+  }
+  */
+  //val res2:String = res.getOrElse("Couldn't get a list of collections from agent "+agentID)
  }
 }
 

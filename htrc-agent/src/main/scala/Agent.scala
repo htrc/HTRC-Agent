@@ -44,11 +44,21 @@ import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
 import java.io.FileReader
+import akka.dispatch.Future
 
 
 class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: String) extends Actor with Loggable {
  
-  val ourRegistry = actorFor[RegistryActor].get
+  // the new registry actor
+  val registryOption = actorFor[RegistryActor]
+  val ourRegistry = 
+    if(registryOption == None) {
+    	val preInit = actorOf[RegistryActor]
+    	preInit.start()
+    	preInit
+    }
+    else
+    	registryOption.get
   
   private val copyAlgoJarToWorkingDir = true
   private val launchScript:String = RuntimeProperties("algolaunchscript").toString
@@ -61,13 +71,13 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
   def receive = {
     case SlaveListAvailableAlgorithms => {
       logger.debug("INSIDE AGENTSLAVE SlaveListAvailableAlgorithms")
-      val res = ourRegistry !! RegistryListAvailableAlgorithms
-      self reply res
+      val res = ourRegistry !!! RegistryListAvailableAlgorithms
+      self reply res.get
     }
     case SlaveListCollections => {
       logger.debug("INSIDE AGENTSLAVE SlaveListCollections")
-      val res = ourRegistry !! RegistryListCollections
-      self reply res
+      val res = ourRegistry !!! RegistryListCollections
+      self reply res.get
     }
     case StartAlgorithm(algoID: String, 
 		  				    algoName: String, 
@@ -108,8 +118,11 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
   // the new registry actor
   val registryOption = actorFor[RegistryActor]
   val ourRegistry = 
-    if(registryOption == None)
-    	actorOf[RegistryActor]
+    if(registryOption == None) {
+    	val preInit = actorOf[RegistryActor]
+    	preInit.start()
+    	preInit
+    }
     else
     	registryOption.get
   
@@ -506,11 +519,12 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     }
     case ListAvailableAlgorithms => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      self reply ( router !! SlaveListAvailableAlgorithms).getOrElse( <error>couldn't list available algorithms</error>)
+      val res : Future[xml.Elem] = ( router !!! SlaveListAvailableAlgorithms)
+      self reply res.get //getOrElse( <error>couldn't list available algorithms</error>)
     }
     case ListCollections => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      self reply (router !! SlaveListCollections).getOrElse(<error>Couldn't list collections</error>) 
+      self reply (router !!! SlaveListCollections).get //OrElse(<error>Couldn't list collections</error>) 
     }
      case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
     case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?
