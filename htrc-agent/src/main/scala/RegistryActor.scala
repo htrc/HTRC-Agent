@@ -58,6 +58,9 @@ case object RegistryListAvailableAlgorithms // scala.xml.Elem
   
 //case class GetCollectionVolumeIDs(collectionName:String) // List[String]
 
+case object CassandraURI
+case object SolrURI
+
 case class PostResultsToRegistry(userURN:String, 
       algorithmID:String,
       resultNameAndValueTuples:List[AlgorithmResult]) 
@@ -89,6 +92,13 @@ class RegistryActor extends Actor with Loggable {
   
   def receive = {
     
+    // epr stuff
+    case SolrURI =>
+    	self reply registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")
+    case CassandraURI =>
+    	self reply registryClient.getSolrIndexServiceURI("htrc-cassandra-repository")
+    	
+    	
     // this is not a spawn call because no registry manipulation can happen inside one
     case GetAlgorithmExecutable(algoName, workingDir) =>
       

@@ -127,8 +127,8 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     	registryOption.get
   
   private val logger = LoggerFactory.getLogger(getClass)
-  val registryClientInitializer = (()=>new RegistryClient)
-  var registryClient = registryClientInitializer()
+  //val registryClientInitializer = (()=>new RegistryClient)
+  //var registryClient = registryClientInitializer()
   val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
                           //e.g.   huetoanhu-4731sssa-fueoauht, 'Initializing                                  
 		     			  // 	   huetoanhu-4731sssa-fueoauht, 'Running
@@ -153,13 +153,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     //println("RegistryClient object:"+registryClient.toString())      
     // TODO: need to handle NPE here, registry client can die
     AgentUtils.tryEPRCreatingURIFromStringResult(()=>
-      {registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")})
+      {(ourRegistry !!! SolrURI).get})
   }
   
   val refreshRepositoryEPR = {() =>    
     //println("RegistryClient object:"+registryClient.toString())
     // TODO: need to handle NPE here, registry client can die
-    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{registryClient.getSolrIndexServiceURI("htrc-cassandra-repository")})
+    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{( ourRegistry !!! CassandraURI ).get})
   }
   private def getAgentID = agentID
   private def credentialsToXml = {
