@@ -363,25 +363,14 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
   
   // end 2011-09-22 changes
   
+  def algoResultMessage(algoResultReq: AlgorithmResultRequest) = {
   
-  // create the workers
-  val nrOfSlaves = 8
-  val slaves = Vector.fill(nrOfSlaves)(actorOf
-		 (new AgentSlave(self, self.id, x509, privKey)).start())
-
-  // wrap them with a load-balancing router
-  val router = Routing.loadBalancerActor(CyclicIterator(slaves)).start()
-
-  
-  def receive = {
-    case GetAlgorithmRunResult(algoResultReq:AlgorithmResultRequest) => {  
-      logger.debug("===> trying to get algorithm result")
+        logger.debug("===> trying to get algorithm result")
       val myAlgoID = algoResultReq match {
         case StdoutResultRequest(algoID) => {        
           algoID
         }
         case StderrResultRequest(algoID) => {
-        
           algoID
         }
         case FileResultRequest(algoID:String,filename:String) => {         
@@ -462,34 +451,12 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
       
       // build the  the response
       logger.warn("building response")
-      self reply AgentUtils.renderResultOutput(myAlgoID,myResult)
+      AgentUtils.renderResultOutput(myAlgoID,myResult)
       }
       }
     }
-    case GetUserIDAsString => self.reply(self.id)
-    case GetAgentID => self.reply(<agentID>{self.id}</agentID>)
-    case GetAgentIDAsString => self.reply(self.id)
-    /*case GetIndexEpr => {  
-     self reply <index>{getIndexEPR()}</index>
-     // caching EPRs is still broken
-     //self.reply(<index>{cachedIndexEPR.getEPR.toString()}</index>)
-    }
-    */
-    case ListAvailableAlgorithms => {
-      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      val res : xml.Elem = ( router ? SlaveListAvailableAlgorithms).as[xml.Elem].get
-      self reply res //getOrElse( <error>couldn't list available algorithms</error>)
-    }
-    case ListCollections => {
-      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      val res : xml.Elem = (router ? SlaveListCollections).as[xml.Elem].get //OrElse(<error>Couldn't list collections</error>)
-      self reply res
-    }
-    //case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
-    //case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?
-    
-    case GetCredentials=> self reply credentialsToXml
-    case UpdateAlgorithmRunStatus(algoID: String,status: AlgorithmRunStatus) => {
+  
+  def updateAlgorithmRunStatusMessage(algoID: String, status: AlgorithmRunStatus) = {
       status match {
         case s: Prestart => updateAlgorithmRunStatus(algoID,s)
         case s: Initializing => updateAlgorithmRunStatus(algoID,s)
@@ -506,13 +473,8 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
         case _ => throw new RuntimeException("unknown algorithm run status!")
       }
     }
-    case PollAlgorithmRunStatus(algoID: String) => {
-       self reply formAlgorithmRunXMLResponse(algoID)
-    }
-    case ListCurrentAlgorithms => {
-      self reply formAlgorithmRunListXMLResponse()
-    }
-    case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
+  
+  def runAlgorithmMessage(algorithmName: String, collectionName: String, userArguments: List[String]) = {
       logger.debug("====> We're in RunAlgorithm case of Agent's receive block")
       // we then generate an algorithRunID which will be used to check up on this algorithm run
       val algoID = generateAlgorithmRunID
@@ -530,9 +492,65 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
         userArguments,
         collectionName)
         
-      self reply formAlgorithmRunXMLResponse(algoID)
+        formAlgorithmRunXMLResponse(algoID)
            
     }
+
+  // create the workers
+  val nrOfSlaves = 8
+  val slaves = Vector.fill(nrOfSlaves)(actorOf
+		 (new AgentSlave(self, self.id, x509, privKey)).start())
+
+  // wrap them with a load-balancing router
+  val router = Routing.loadBalancerActor(CyclicIterator(slaves)).start()
+
+  // AGENT RECEIVE BLOCK
+  // AGENT RECEIVE BLOCK
+  // AGENT RECEIVE BLOCK
+  // AGENT REVEICE BLOCK
+  
+  def receive = {
+    
+    case GetAlgorithmRunResult(algoResultReq: AlgorithmResultRequest) => {
+      	self reply algoResultMessage(algoResultReq)
+    }
+      	
+    // these need to be collapsed
+    case GetUserIDAsString => self.reply(self.id)
+    case GetAgentIDAsString => self.reply(self.id)
+    
+    case GetAgentID => self.reply(<agentID>{self.id}</agentID>)
+
+    case ListAvailableAlgorithms => {
+      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
+      self reply ( router ? SlaveListAvailableAlgorithms).as[xml.Elem].get
+    }
+    
+    case ListCollections => {
+      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
+      val res : xml.Elem = (router ? SlaveListCollections).as[xml.Elem].get //OrElse(<error>Couldn't list collections</error>)
+      self reply res
+    }
+    
+    case GetCredentials=> self reply credentialsToXml
+    
+    case UpdateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) => {
+      updateAlgorithmRunStatusMessage(algoID, status)
+    }
+    
+    case PollAlgorithmRunStatus(algoID: String) => {
+       self reply formAlgorithmRunXMLResponse(algoID)
+    }
+    
+    case ListCurrentAlgorithms => {
+      self reply formAlgorithmRunListXMLResponse()
+    }
+    
+    case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
+      self reply runAlgorithmMessage(algorithmName, collectionName, userArguments)   
+    }
+    
     case _ => self.reply(<error>Invalid action</error>)
+    
   }
 }
