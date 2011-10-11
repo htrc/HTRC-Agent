@@ -149,6 +149,7 @@ class RegistryActor extends Actor with Loggable {
    * Receive is going to have some naive behavior for now.
    * 
    *   The registry access calls are made asynchronously, but with a dummy message sent first.
+   *   Options have been partially stripped out to make behavior easier to debug
    *   
    */
   
