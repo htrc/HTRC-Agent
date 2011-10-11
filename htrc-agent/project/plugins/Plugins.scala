@@ -6,7 +6,7 @@ class Plugins(info: ProjectInfo) extends PluginDefinition(info) {
 
   override def ivyXML =
         <dependencies>
-          <dependency org="se.scalablesolutions.akka" name="akka-http" rev="1.1.2">
+          <dependency org="se.scalablesolutions.akka" name="akka-http" rev="1.2">
             <exclude module="jetty"/>
           </dependency>
         </dependencies>
