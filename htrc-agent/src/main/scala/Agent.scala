@@ -525,7 +525,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     case ListCollections => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
       val res : xml.Elem = (router !!! SlaveListCollections).get //OrElse(<error>Couldn't list collections</error>)
-      res
+      self reply res
     }
      case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
     case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?

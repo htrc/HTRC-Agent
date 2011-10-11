@@ -71,6 +71,7 @@ class RegistryActor extends Actor with Loggable {
   val registryClientInitializer = (()=>new RegistryClient)
   var registryClient = registryClientInitializer()
   
+  
   def restartRegistryClient(): Boolean = {
     try {
     	registryClient = registryClientInitializer()
@@ -83,6 +84,24 @@ class RegistryActor extends Actor with Loggable {
     }
   }
   
+  // check the registry status with a dummy call
+  // if it fails restart the registry
+  def checkRegistry(): Boolean = {
+    
+    try {
+      registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")
+      true
+    } catch {
+      case e => {
+        logger.warn("====> checkRegistry caught exception, about to call restartRegistryClient")
+        restartRegistryClient()
+      }
+    }
+    
+  }
+  
+  
+  // spawns a child actor tasked with asynchronously handling and responding to the message
   def asyncReply[T](f: =>T) = {
     val messageDestination = self.channel
     spawn {
@@ -90,59 +109,12 @@ class RegistryActor extends Actor with Loggable {
     }
   }
   
-  def receive = {
-    
-    // epr stuff
-    case SolrURI =>
-    	self reply registryClient.getSolrIndexServiceURI("htrc-apache-solr-search")
-    case CassandraURI =>
-    	self reply registryClient.getSolrIndexServiceURI("htrc-cassandra-repository")
-    	
-    	
-    // this is not a spawn call because no registry manipulation can happen inside one
-    case GetAlgorithmExecutable(algoName, workingDir) =>
-      
-      self reply getAlgorithmExecutable(algoName, workingDir)
-      
-    case WriteVolumesTextFile(volumes, workingDir) =>
-     
-        asyncReply { writeVolumesTextFile(volumes, workingDir) }
-      
-    case RegistryListCollections =>
-      
-      //asyncReply { availableCollectionList }
-      val res: xml.Elem = availableCollectionList
-      self reply res
-      
-    case RegistryListAvailableAlgorithms => 
-      
-      //asyncReply { availableAlgorithmList }
-      val res: xml.Elem = availableAlgorithmList
-      self reply res
-      
-    case GetCollectionVolumeIDs(collectionName) =>
-      
-      asyncReply {
-        logger.debug("!!!!> inside getCollectionVolumeIDs, asked for "+collectionName)
-    	val volumeIDs:java.util.List[String] = registryClient.getVolumeIDsFromCollection(collectionName)
-    	logger.debug("!!!!> got the list of volumes, size is"+volumeIDs.toList.length)
-	  	
-    	volumeIDs.toList
-      }
-    
-    // this is not a spawn call because no registry manipulation can happen inside one
-    case PostResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) =>
-      
-      self reply postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples)
-      
-  }
-  
-  // A wrapper function to provide registry exception handling
-  // Provides features like client restart
-  def registryExceptionHandler[T](func: () => T, retries: Int = 0): T = {
+    // A wrapper function to provide registry exception handling
+  // Currently provides retry functionality
+  def registryExceptionHandler[T](func: => T, retries: Int = 0): T = {
     
     try {
-      func()
+      func
     } catch {
       case e => {
         logger.warn("====> RegistryClient threw an exception, retrying...")
@@ -158,6 +130,72 @@ class RegistryActor extends Actor with Loggable {
     
   }
   
+  
+  // our reply behavior packeged up nicely
+  def ourReply[T](func: => T) {
+
+    // naive registryCheck call
+    checkRegistry()
+    
+    asyncReply {
+      registryExceptionHandler {
+        func
+      }
+    }
+    
+  }
+  
+  /*
+   * Receive is going to have some naive behavior for now.
+   * 
+   *   The registry access calls are made asynchronously, but with a dummy message sent first.
+   *   
+   */
+  
+
+  def receive = {
+    
+    // epr stuff
+    case SolrURI =>
+    	ourReply { registryClient.getSolrIndexServiceURI("htrc-apache-solr-search") }
+    	
+    case CassandraURI =>
+    	ourReply { registryClient.getSolrIndexServiceURI("htrc-cassandra-repository") }
+    	
+    case GetAlgorithmExecutable(algoName, workingDir) =>
+      
+      ourReply { getAlgorithmExecutable(algoName, workingDir) }
+      
+    case WriteVolumesTextFile(volumes, workingDir) =>
+     
+        ourReply { writeVolumesTextFile(volumes, workingDir) }
+      
+    case RegistryListCollections =>
+      
+      ourReply { availableCollectionList }
+      
+    case RegistryListAvailableAlgorithms => 
+      
+      ourReply { availableAlgorithmList }
+      
+    case GetCollectionVolumeIDs(collectionName) =>
+      
+      ourReply {
+        logger.debug("!!!!> inside getCollectionVolumeIDs, asked for "+collectionName)
+    	val volumeIDs:java.util.List[String] = registryClient.getVolumeIDsFromCollection(collectionName)
+    	logger.debug("!!!!> got the list of volumes, size is"+volumeIDs.toList.length)
+	  	
+    	volumeIDs.toList
+      }
+    
+    case PostResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) =>
+      
+      ourReply { postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) }
+      
+  }
+  
+  
+  // this method currently is not used, plan is to replace getAlgo with this when I get around to finishing it
   def fetchAlgorithm(algoName: String, workingDir: String): Option[String] = {
     
     val algorithm = registryClient.getScriptFile(algoName)
@@ -244,6 +282,8 @@ class RegistryActor extends Actor with Loggable {
         val resourcePath = this.registryResultPathPrefix + "/"+userNameAsHex+"/"+algorithmID+"/"+resultID
         logger.info("====> Posting a result for user "+userURN+" to this registry resource path : "+resourcePath)
         val metadataToPost = "<result><userURN>"+userURN+"</userURN></result>"
+        
+        /*
         val resultPath= { 
             def tryIt() = { 
               try {
@@ -269,18 +309,18 @@ class RegistryActor extends Actor with Loggable {
               throw new RuntimeException("couldn't post resource to registry: "+(resourcePath,resultAsString,metadataToPost))
             } else {
               temp
-            }
+            }  
         }
+        */
         
-        // used this before i had retries
-//        val resultPath = registryClient.postResourse(   
-//                		
-//                		resourcePath,
-//                		resultAsString,
-//                		metadataToPost
-//                		) 
-//        println("====> registry posting value is :"+resultPath)
-//        
+        val resultPath = registryClient.postResourse(   
+                		
+                		resourcePath,
+                		resultAsString,
+                		metadataToPost
+                		) 
+        println("====> registry posting value is :"+resultPath)
+        
         
         resultPath
       }) 
@@ -315,7 +355,7 @@ class RegistryActor extends Actor with Loggable {
 	    def getAlgoFromRegistryHelper = {
 	    // this method should contact the registry and return a file(executable)
 	      
-		    val jarFile:String = try {
+/*		    val jarFile:String = try {
 		      registryClient.getScriptFile(algoName)
 		     
 		    } catch {
@@ -333,9 +373,11 @@ class RegistryActor extends Actor with Loggable {
 		      logger.debug("====> Successfully found algorithm executable in registry: "+jarFile)
 		      //val f = new File(workingDir + File.separator + jarFile)
 		      //val f = new File(jarFile)
-		      
-		      Some(jarFile)
-		    }
+		 }
+		     
+*/		  
+	      val jarFile = registryClient.getScriptFile(algoName)
+		  Some(jarFile)
 	    }
 	    
 	    def getAlgoButUseLocalCopySinceRegistryIsBroken = {     
