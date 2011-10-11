@@ -45,71 +45,6 @@ import javax.xml.bind.JAXBElement
 import scala.xml.XML
 import java.io.FileReader
 import akka.dispatch.Future
-
-
-class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: String) extends Actor with Loggable {
- 
-  // the new registry actor
-  val registryOption = actorFor[RegistryActor]
-  val ourRegistry = 
-    if(registryOption == None) {
-    	val preInit = actorOf[RegistryActor]
-    	preInit.start()
-    	preInit
-    }
-    else
-    	registryOption.get
-  
-  private val copyAlgoJarToWorkingDir = true
-  private val launchScript:String = RuntimeProperties("algolaunchscript").toString
-  
-  // this is now a var.  so that we can make a new one when registry
-  // client dies due to extended time running
-  //private var registryHelper: RegistryHelper = new FirstRegistry(copyAlgoJarToWorkingDir, new Date, logger, registryClientInitializer)
-  
-  
-  def receive = {
-    case SlaveListAvailableAlgorithms => {
-      logger.debug("INSIDE AGENTSLAVE SlaveListAvailableAlgorithms")
-      val res : xml.Elem = (ourRegistry ? RegistryListAvailableAlgorithms).as[xml.Elem].get
-      self reply res
-    }
-    case SlaveListCollections => {
-      logger.debug("INSIDE AGENTSLAVE SlaveListCollections")
-      val res : xml.Elem = (ourRegistry ? RegistryListCollections).as[xml.Elem].get
-      self reply res
-    }
-    case StartAlgorithm(algoID: String, 
-		  				    algoName: String, 
-		  				    userArgs: List[String],
-		  				    collectionName: String) => {
-	  
-	  logger.debug("====> AgentSlave received StartAlgorithm message")
-	  //0. Let the agent know that we're initializing the algorithm
-	  agentRef ! UpdateAlgorithmRunStatus(algoID,Initializing(new Date))	
-	  
-      logger.debug("====> Check 1...")
-      //0.5.   create the working directory and change to it 
-      //     WARNING -- CHANGING TO THAT DIRECTORY WILL SCREW UP
-      //     CONCURRENTLY RUNNING ACTORS.  FIGURE THIS OUT.
-      // MAKE THIS ATOMIC?
-      logger.warn("====> Need to make directory change section atomic!")
-      val initialDir = System.getProperty("user.dir")
-      val workingDir = AgentUtils.createWorkingDirectory
-      
-      val algo = new ExecutableAlgorithm(algoID, algoName, userArgs, collectionName, 
-          initialDir, workingDir, agentRef, userID)
-	  algo.instantiate()
-      
-    }
-    case GetCollectionVolumeIDs(collectionName: String) => {
-      ourRegistry.forward(GetCollectionVolumeIDs(collectionName))
-      //self reply registryHelper.getCollectionVolumeIDs(collectionName)
-    }
-      
-    case _ => self reply <error>Unknown algorithm control message</error>
-  }
-}
   
   
 class Agent(userID: String,x509: String,privKey: String) extends Actor with Loggable {
@@ -128,6 +63,10 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
     }
     else
     	registryOption.get
+    	
+  private val copyAlgoJarToWorkingDir = true
+  private val launchScript:String = RuntimeProperties("algolaunchscript").toString
+  val agentRef = self
   
   // algorithm status is here, we don't have compute actors yet
   val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
@@ -487,23 +426,39 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
       logger.debug("    ====> Updated algorithm run status to Prestart")
 
       logger.debug("    ====> Telling a slave to start the algorithm "+algoID+" '%s'".format(algorithmName))
-      router ! StartAlgorithm(algoID,
-        algorithmName,
-        userArguments,
-        collectionName)
+      
+      logger.debug("====> AgentSlave received StartAlgorithm message")
+	  //0. Let the agent know that we're initializing the algorithm
+	  agentRef ! UpdateAlgorithmRunStatus(algoID,Initializing(new Date))	
+	  
+      logger.debug("====> Check 1...")
+      //0.5.   create the working directory and change to it 
+      //     WARNING -- CHANGING TO THAT DIRECTORY WILL SCREW UP
+      //     CONCURRENTLY RUNNING ACTORS.  FIGURE THIS OUT.
+      // MAKE THIS ATOMIC?
+      logger.warn("====> Need to make directory change section atomic!")
+      val initialDir = System.getProperty("user.dir")
+      val workingDir = AgentUtils.createWorkingDirectory
+      
+      val algo = new ExecutableAlgorithm(algoID, algorithmName, userArguments, collectionName, 
+          initialDir, workingDir, agentRef, userID)
+	  
+      spawn {
+        algo.instantiate()
+      }
         
-        formAlgorithmRunXMLResponse(algoID)
+      formAlgorithmRunXMLResponse(algoID)
            
     }
-
-  // create the workers
-  val nrOfSlaves = 8
-  val slaves = Vector.fill(nrOfSlaves)(actorOf
-		 (new AgentSlave(self, self.id, x509, privKey)).start())
-
-  // wrap them with a load-balancing router
-  val router = Routing.loadBalancerActor(CyclicIterator(slaves)).start()
-
+  
+    // spawns a child actor tasked with asynchronously handling and responding to the message
+  def asyncReply[T](f: =>T) = {
+    val messageDestination = self.channel
+    spawn {
+      messageDestination ! f
+    }
+  }
+  
   // AGENT RECEIVE BLOCK
   // AGENT RECEIVE BLOCK
   // AGENT RECEIVE BLOCK
@@ -512,7 +467,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
   def receive = {
     
     case GetAlgorithmRunResult(algoResultReq: AlgorithmResultRequest) => {
-      	self reply algoResultMessage(algoResultReq)
+      	asyncReply { algoResultMessage(algoResultReq) }
     }
       	
     // these need to be collapsed
@@ -523,13 +478,12 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
 
     case ListAvailableAlgorithms => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      self reply ( router ? SlaveListAvailableAlgorithms).as[xml.Elem].get
+      asyncReply { (ourRegistry ? RegistryListAvailableAlgorithms).as[xml.Elem].get }
     }
     
     case ListCollections => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      val res : xml.Elem = (router ? SlaveListCollections).as[xml.Elem].get //OrElse(<error>Couldn't list collections</error>)
-      self reply res
+      asyncReply { (ourRegistry ? RegistryListCollections).as[xml.Elem].get }
     }
     
     case GetCredentials=> self reply credentialsToXml
@@ -547,7 +501,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
     }
     
     case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
-      self reply runAlgorithmMessage(algorithmName, collectionName, userArguments)   
+      asyncReply { runAlgorithmMessage(algorithmName, collectionName, userArguments) }   
     }
     
     case _ => self.reply(<error>Invalid action</error>)
