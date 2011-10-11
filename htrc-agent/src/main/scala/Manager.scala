@@ -61,11 +61,9 @@ class Manager extends Actor with Loggable {
       
       if (validCredentials(uriName,x509,privKey)) { 
         
-        if(agentExists(uriName))
-          actorsFor(uriName).head
-        else {
-          agentList = uriName :: agentList 
+        if(!agentExists(uriName)) {
           actorOf(new Agent(uriName, x509, privKey)).start()
+          agentList = uriName :: agentList 
         }
         self reply <agentID>{uriName}</agentID>
               
