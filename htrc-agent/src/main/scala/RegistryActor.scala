@@ -68,7 +68,7 @@ case class PostResultsToRegistry(userURN:String,
 
 class RegistryActor extends Actor with Loggable {
 
-  val registryClientInitializer = (()=>new RegistryClient)
+  val registryClientInitializer = ( () => new RegistryClient )
   var registryClient = registryClientInitializer()
   
   

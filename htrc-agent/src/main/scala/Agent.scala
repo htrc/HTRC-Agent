@@ -53,6 +53,9 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
   // we use URIName of the x509 cert for the id
   self.id = userID
   
+  // A self reference to provide to children
+  val agentRef = self
+  
   // the new registry actor
   val registryOption = actorFor[RegistryActor]
   val ourRegistry = 
@@ -64,15 +67,70 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
     else
     	registryOption.get
     	
-  private val copyAlgoJarToWorkingDir = true
-  private val launchScript:String = RuntimeProperties("algolaunchscript").toString
-  val agentRef = self
-  
+    	
   // algorithm status is here, we don't have compute actors yet
   val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
                           //e.g.   huetoanhu-4731sssa-fueoauht, 'Initializing                                  
 		     			  // 	   huetoanhu-4731sssa-fueoauht, 'Running
                           //       huetoanhu-4731sssa-fueoauht, 'Finished
+  
+  
+  // spawns a child actor tasked with asynchronously handling and responding to the message
+  def asyncReply[T](f: =>T) = {
+    val messageDestination = self.channel
+    spawn {
+      messageDestination ! f
+    }
+  }
+  
+  // AGENT RECEIVE BLOCK
+  // AGENT RECEIVE BLOCK
+  // AGENT RECEIVE BLOCK
+  // AGENT REVEICE BLOCK
+  
+  def receive = {
+    
+    case GetAlgorithmRunResult(algoResultReq: AlgorithmResultRequest) => {
+      	asyncReply { algoResultMessage(algoResultReq) }
+    }
+      	
+    // these need to be collapsed
+    case GetUserIDAsString => self.reply(self.id)
+    case GetAgentIDAsString => self.reply(self.id)
+    
+    case GetAgentID => self.reply(<agentID>{self.id}</agentID>)
+
+    case ListAvailableAlgorithms => {
+      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
+      asyncReply { (ourRegistry ? RegistryListAvailableAlgorithms).as[xml.Elem].get }
+    }
+    
+    case ListCollections => {
+      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
+      asyncReply { (ourRegistry ? RegistryListCollections).as[xml.Elem].get }
+    }
+    
+    case GetCredentials=> self reply credentialsToXml
+    
+    case UpdateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) => {
+      updateAlgorithmRunStatusMessage(algoID, status)
+    }
+    
+    case PollAlgorithmRunStatus(algoID: String) => {
+       self reply formAlgorithmRunXMLResponse(algoID)
+    }
+    
+    case ListCurrentAlgorithms => {
+      self reply formAlgorithmRunListXMLResponse()
+    }
+    
+    case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
+      asyncReply { runAlgorithmMessage(algorithmName, collectionName, userArguments) }   
+    }
+    
+    case _ => self.reply(<error>Invalid action</error>)
+    
+  }
   
   // helpers for basic tasks
   
@@ -108,9 +166,6 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
     logger.info("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
     for (k <- algorithmRunStatusMap.keys) yield k
   }
-
-  
-  // begin 2011-09-22 changes 
   
   // documentation: a call to list all running algorithms results in this xml output:
   // <algorithmRunList>
@@ -300,8 +355,6 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
     </algorithmRunList>
   }
   
-  // end 2011-09-22 changes
-  
   def algoResultMessage(algoResultReq: AlgorithmResultRequest) = {
   
         logger.debug("===> trying to get algorithm result")
@@ -450,61 +503,4 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
       formAlgorithmRunXMLResponse(algoID)
            
     }
-  
-    // spawns a child actor tasked with asynchronously handling and responding to the message
-  def asyncReply[T](f: =>T) = {
-    val messageDestination = self.channel
-    spawn {
-      messageDestination ! f
-    }
-  }
-  
-  // AGENT RECEIVE BLOCK
-  // AGENT RECEIVE BLOCK
-  // AGENT RECEIVE BLOCK
-  // AGENT REVEICE BLOCK
-  
-  def receive = {
-    
-    case GetAlgorithmRunResult(algoResultReq: AlgorithmResultRequest) => {
-      	asyncReply { algoResultMessage(algoResultReq) }
-    }
-      	
-    // these need to be collapsed
-    case GetUserIDAsString => self.reply(self.id)
-    case GetAgentIDAsString => self.reply(self.id)
-    
-    case GetAgentID => self.reply(<agentID>{self.id}</agentID>)
-
-    case ListAvailableAlgorithms => {
-      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      asyncReply { (ourRegistry ? RegistryListAvailableAlgorithms).as[xml.Elem].get }
-    }
-    
-    case ListCollections => {
-      logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      asyncReply { (ourRegistry ? RegistryListCollections).as[xml.Elem].get }
-    }
-    
-    case GetCredentials=> self reply credentialsToXml
-    
-    case UpdateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) => {
-      updateAlgorithmRunStatusMessage(algoID, status)
-    }
-    
-    case PollAlgorithmRunStatus(algoID: String) => {
-       self reply formAlgorithmRunXMLResponse(algoID)
-    }
-    
-    case ListCurrentAlgorithms => {
-      self reply formAlgorithmRunListXMLResponse()
-    }
-    
-    case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
-      asyncReply { runAlgorithmMessage(algorithmName, collectionName, userArguments) }   
-    }
-    
-    case _ => self.reply(<error>Invalid action</error>)
-    
-  }
 }

@@ -46,59 +46,39 @@ import scala.xml.Node
 import javax.xml.bind.JAXBElement
 import scala.xml.XML
 
-class Manager extends Actor {
+class Manager extends Actor with Loggable {
   
-  private val logger = LoggerFactory.getLogger(getClass)
-  private val agentMap = new HashMap[String,ActorRef]
-  
-  def checkForAgentByUserID(userID: String): Boolean = {
-    agentMap.values.exists((a => (a !! GetUserIDAsString) == userID))
-  }
-  
-  /*def getAgentIDByUserID(userID: String): String = {
-    // write me
-    //(agentMap.values.filter((a => (a !! GetAgentIDAsString) == userID))) !! GetAgentIDAsString
-  }*/
-  
-  def getAgent(id:String) = agentMap.get(id)
   
   def validCredentials(id: String, x509: String, privKey: String): Boolean = { true  } // always succeed, for now
   
-  def agentExists(agentID: String): Boolean = agentMap.contains(agentID)
+  def agentExists(agentID: String): Boolean = actorsFor(agentID).length != 0
+  
+  var agentList: List[String] = null
   
   def receive = {
     
     case VendAgent(uriName, x509, privKey) => {
-      //logger.debug("VendinProtobufg agent for id: %s",id)
-      if (validCredentials(uriName,x509,privKey)) // always succeeds :\
-         { 
-           getAgent(uriName) match {
-             case None => {  
-               val newAgent = actorOf(new Agent(uriName,x509,privKey)).start()
-               val newAgentID = (newAgent ? GetAgentIDAsString).get //OrElse("Failed")
-               if (newAgentID == "Failed") throw new RuntimeException            			 
-               		logger.debug("===> putting a new agent to the agent map")
-               agentMap.put(newAgentID.toString(),newAgent)
-               self reply <agentID>{newAgentID}</agentID>
-             }
-             case Some(agentActorRef) => {
-               logger.debug("===> an agent already existed for this uriName: "+uriName)
-               self reply <agentID>{uriName}</agentID>
-             }
-           }
-         } else if (checkForAgentByUserID(uriName)) {
-           //self reply <agentID>{getAgentIDByUserID}</agentID>
-           self reply <error>Implement me</error>
-         }
-         else { 
-           // invalid Credentials
-           self reply <error>Vending agent failed</error>
-         }
+      
+      if (validCredentials(uriName,x509,privKey)) { 
+        
+        if(agentExists(uriName))
+          actorsFor(uriName).head
+        else {
+          agentList = uriName :: agentList 
+          actorOf(new Agent(uriName, x509, privKey)).start()
+        }
+        self reply <agentID>{uriName}</agentID>
+              
+      } else {
+        self reply <error>Vending agent failed due to invalid credentials</error>
+      }
+      
     }
+    
     case ListAgents => {
       self reply 
          <agents>
-              {for (agent <- agentMap.keys) yield <agent>{agent}</agent>}
+              {for (agent <- agentList) yield <agent>{agent}</agent>}
          </agents> 
     }
       
