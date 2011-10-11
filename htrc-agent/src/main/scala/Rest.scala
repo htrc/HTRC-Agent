@@ -200,6 +200,9 @@ class AgentListAvailablelgorithms {
   }
 }
 
+// Why are these EPR calls needed? This information should be ENTIRELY internal to the agent.
+
+/*
 @Path("/agent/{agentID}/repository-epr")
 class AgentGetRepositoryEPRService {
   @GET
@@ -219,6 +222,7 @@ class AgentGetIndexEPRService {
     (manager ? TakeAction(agentID, GetIndexEpr)).get //OrElse("Couldn't get index EPR from agent "+agentID)
   }
 }
+*/
 
 @Path("/agent/{agentID}/credentials")
 class AgentGetCredentialsService {

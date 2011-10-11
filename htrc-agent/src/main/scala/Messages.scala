@@ -98,7 +98,6 @@ case class FileResultRequest(algoID:String, fileName:String) extends AlgorithmRe
 sealed trait AgentSlaveAction 
 case class StartAlgorithm(algoID: String, 
 		algoName: String, 
-		eprMap: HashMap[String,String],
 		userArgs: List[String],
 		collectionName: String) extends AgentSlaveAction
 case class GetCollectionVolumeIDs(collectionName: String) extends AgentSlaveAction

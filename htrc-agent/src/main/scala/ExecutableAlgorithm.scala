@@ -41,7 +41,6 @@ import scala.xml.XML
 class ExecutableAlgorithm(    
     algoID: String, 
 	algoName: String,  	    
-	eprMap: HashMap[String,String],
 	userArgs: List[String],
 	collectionName: String,
 	initialDir: String,
@@ -51,7 +50,6 @@ class ExecutableAlgorithm(
 ) extends Algorithm (
 	algoID, 
 	algoName,  	    
-	eprMap,
 	userArgs,
 	collectionName,
 	initialDir,
@@ -63,6 +61,65 @@ class ExecutableAlgorithm(
   val ourRegistry = actorFor[RegistryActor].get
 
   val runner = ExecutableAlgorithmRunner
+  
+  // START COPY PASTA
+  // START COPY PASTA
+  // START COPY PASTA
+  // START COPY PASTA
+  
+  // eprMap code copy-pasta'd from agent
+  
+  val refreshIndexEPR = {() =>  
+    //println("RegistryClient object:"+registryClient.toString())      
+    // TODO: need to handle NPE here, registry client can die
+    AgentUtils.tryEPRCreatingURIFromStringResult(()=>
+      {(ourRegistry ? SolrURI).as[String].get})
+  }
+  
+  val refreshRepositoryEPR = {() =>    
+    //println("RegistryClient object:"+registryClient.toString())
+    // TODO: need to handle NPE here, registry client can die
+    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{( ourRegistry ? CassandraURI ).as[String].get})
+  }
+  
+  private def getIndexEPR():String = refreshIndexEPR().toString() // this is a network call that should be handled by a worker
+  private def getRepositoryEPR():String = refreshRepositoryEPR().toString() // this is a network call that should be handled by a worker
+  private def getRegistryEPR():String = { logger.warn("====> fix fake response to getRegistryEPR()");"greetings."}
+  
+  
+    def generateServiceEPRMap: HashMap[String,String] = {
+    val map = new HashMap[String,String]
+    
+    // get the values... we'll do this in as  simple  a manner as possible for now
+    logger.debug("    ====> This agent is trying to get index EPR from itself")
+    // below three didn't work At All !
+
+    val indexEpr = getIndexEPR()
+    val repositoryEpr = getRepositoryEPR()
+    val registryEpr = getRegistryEPR()
+
+    
+    // Jiaan HTRCApp expects this format
+//  solrEPR = http://coffeetree.cs.indiana.edu:8888/solr
+//  cassandraEPR = smoketree.cs.indiana.edu:9160
+//  clusterName = Test Cluster
+//  keyspaceName = HTRCCorpus
+//  volumeListPath = ./FullIUCollection.txt
+//  usrArg = w.*\t5    
+    
+    map.put("solrEPR",indexEpr)
+    map.put("cassandraEPR",repositoryEpr)
+    map.put("registryEPR",registryEpr)
+    
+    map
+  }
+    
+    val eprMap = generateServiceEPRMap
+    
+    // END COPY PASTA
+    // END COPY PASTA
+    // END COPY PASTA
+    // END COPY PASTA
     
   def instantiate(): Boolean = {
     

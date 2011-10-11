@@ -41,7 +41,6 @@ import scala.xml.XML
 abstract class Algorithm(
 	algoID: String, 
 	algoName: String,  	    
-	eprMap: HashMap[String,String],
 	userArgs: List[String],
 	collectionName: String,
 	initialDir: String,

@@ -81,7 +81,6 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
     }
     case StartAlgorithm(algoID: String, 
 		  				    algoName: String, 
-		  				    eprMap: HashMap[String,String],
 		  				    userArgs: List[String],
 		  				    collectionName: String) => {
 	  
@@ -98,7 +97,7 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
       val initialDir = System.getProperty("user.dir")
       val workingDir = AgentUtils.createWorkingDirectory
       
-      val algo = new ExecutableAlgorithm(algoID, algoName, eprMap, userArgs, collectionName, 
+      val algo = new ExecutableAlgorithm(algoID, algoName, userArgs, collectionName, 
           initialDir, workingDir, agentRef, userID)
 	  algo.instantiate()
       
@@ -113,7 +112,11 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
 }
   
   
-class Agent(userID: String,x509: String,privKey: String) extends Actor  {
+class Agent(userID: String,x509: String,privKey: String) extends Actor with Loggable {
+  
+  // since akka provides an actor registry we can use that for look ups and eliminate our own agentID book keeping
+  // we use URIName of the x509 cert for the id
+  self.id = userID
   
   // the new registry actor
   val registryOption = actorFor[RegistryActor]
@@ -126,42 +129,24 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     else
     	registryOption.get
   
-  private val logger = LoggerFactory.getLogger(getClass)
-  //val registryClientInitializer = (()=>new RegistryClient)
-  //var registryClient = registryClientInitializer()
+  // algorithm status is here, we don't have compute actors yet
   val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
                           //e.g.   huetoanhu-4731sssa-fueoauht, 'Initializing                                  
 		     			  // 	   huetoanhu-4731sssa-fueoauht, 'Running
                           //       huetoanhu-4731sssa-fueoauht, 'Finished
+  
+  // helpers for basic tasks
+  
   private def generateAlgorithmRunID: String = UUID.randomUUID().toString
+  
   private def updateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) = {
     logger.debug("algorithmRunStatusMap before put of "+(algoID,status)+": "+algorithmRunStatusMap)
     algorithmRunStatusMap.put(algoID,status)
     logger.debug("algorithmRunStatusMap after put of "+(algoID,status)+": "+algorithmRunStatusMap)
   }
+  
   private def getAlgorithmRunStatus(algoID:String): Option[AlgorithmRunStatus] = algorithmRunStatusMap.get(algoID)
-  
-  //we now use the URIName of x509 cert to set the agent's ID
-  //val agentID = UUID.randomUUID()
-  val agentID = userID
-  
-  //val cachedIndexEPR = new CachedEPR("index-epr",refreshEpr=refreshIndexEPR )
-  
-  
-  
-  val refreshIndexEPR = {() =>  
-    //println("RegistryClient object:"+registryClient.toString())      
-    // TODO: need to handle NPE here, registry client can die
-    AgentUtils.tryEPRCreatingURIFromStringResult(()=>
-      {(ourRegistry ? SolrURI).as[String].get})
-  }
-  
-  val refreshRepositoryEPR = {() =>    
-    //println("RegistryClient object:"+registryClient.toString())
-    // TODO: need to handle NPE here, registry client can die
-    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{( ourRegistry ? CassandraURI ).as[String].get})
-  }
-  private def getAgentID = agentID
+   
   private def credentialsToXml = {
     <credentials>
         <x509certificate>{x509}</x509certificate>
@@ -170,38 +155,21 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
   }
   private def toXml: scala.xml.Elem = {
     <agent>
-      <agentID>{getAgentID}</agentID>
-	  <userID>{userID}</userID>
+      <agentID>{self.id}</agentID>
+	  <userID>{self.id}</userID>
       {credentialsToXml}
 	</agent>
   }
   
-  def generateServiceEPRMap: HashMap[String,String] = {
-    val map = new HashMap[String,String]
-    
-    // get the values... we'll do this in as  simple  a manner as possible for now
-    logger.debug("    ====> This agent is trying to get index EPR from itself")
-    // below three didn't work At All !
-
-    val indexEpr = getIndexEPR()
-    val repositoryEpr = getRepositoryEPR()
-    val registryEpr = getRegistryEPR()
-
-    
-    // Jiaan HTRCApp expects this format
-//  solrEPR = http://coffeetree.cs.indiana.edu:8888/solr
-//  cassandraEPR = smoketree.cs.indiana.edu:9160
-//  clusterName = Test Cluster
-//  keyspaceName = HTRCCorpus
-//  volumeListPath = ./FullIUCollection.txt
-//  usrArg = w.*\t5    
-    
-    map.put("solrEPR",indexEpr)
-    map.put("cassandraEPR",repositoryEpr)
-    map.put("registryEPR",registryEpr)
-    
-    map
+  private def algorithmRunExists(algoID:String) = {
+    algorithmRunStatusMap.contains(algoID)
   }
+  
+  private def listAllAlgorithmRunIDs = {
+    logger.info("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
+    for (k <- algorithmRunStatusMap.keys) yield k
+  }
+
   
   // begin 2011-09-22 changes 
   
@@ -296,14 +264,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
    * 
    * 
    */
-  private def algorithmRunExists(algoID:String) = {
-    algorithmRunStatusMap.contains(algoID)
-  }
-  
-  private def listAllAlgorithmRunIDs = {
-    logger.info("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
-    for (k <- algorithmRunStatusMap.keys) yield k
-  }
+
   
   private def formAlgorithmRunXMLResponse(algoID: String) = {
     logger.info("====> in formAlgorithmRunXMLResponse")
@@ -318,7 +279,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
 //     }
 //     
      def renderAlgorithmResultSetXML(algoResultSet:AlgorithmResultSet) = {
-       val hrefPrefix = "/agent/"+agentID+"/algorithm/"+algoID+"/result/"
+       val hrefPrefix = "/agent/"+self.id+"/algorithm/"+algoID+"/result/"
        <results>
         {for (r <- algoResultSet.l) yield 
           r match {
@@ -388,7 +349,7 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
            // but just trust me that it conforms to the documented form of the xml ;)
       } else {
         // error response
-        throw new RuntimeException("no such algorithm "+algoID+ " for agent "+agentID)
+        throw new RuntimeException("no such algorithm "+algoID+ " for agent "+self.id)
       }
     
   }
@@ -403,14 +364,10 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
   // end 2011-09-22 changes
   
   
-  private def getIndexEPR():String = refreshIndexEPR().toString() // this is a network call that should be handled by a worker
-  private def getRepositoryEPR():String = refreshRepositoryEPR().toString() // this is a network call that should be handled by a worker
-  private def getRegistryEPR():String = { logger.warn("====> fix fake response to getRegistryEPR()");"greetings."}
-  
   // create the workers
   val nrOfSlaves = 8
   val slaves = Vector.fill(nrOfSlaves)(actorOf
-		 (new AgentSlave(self, userID, x509, privKey)).start())
+		 (new AgentSlave(self, self.id, x509, privKey)).start())
 
   // wrap them with a load-balancing router
   val router = Routing.loadBalancerActor(CyclicIterator(slaves)).start()
@@ -509,14 +466,15 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
       }
       }
     }
-    case GetUserIDAsString => self.reply(userID)
-    case GetAgentID => self.reply(<agentID>{getAgentID}</agentID>)
-    case GetAgentIDAsString => self.reply(getAgentID)
-    case GetIndexEpr => {  
+    case GetUserIDAsString => self.reply(self.id)
+    case GetAgentID => self.reply(<agentID>{self.id}</agentID>)
+    case GetAgentIDAsString => self.reply(self.id)
+    /*case GetIndexEpr => {  
      self reply <index>{getIndexEPR()}</index>
      // caching EPRs is still broken
      //self.reply(<index>{cachedIndexEPR.getEPR.toString()}</index>)
     }
+    */
     case ListAvailableAlgorithms => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
       val res : xml.Elem = ( router ? SlaveListAvailableAlgorithms).as[xml.Elem].get
@@ -527,8 +485,9 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
       val res : xml.Elem = (router ? SlaveListCollections).as[xml.Elem].get //OrElse(<error>Couldn't list collections</error>)
       self reply res
     }
-     case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
-    case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?
+    //case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)
+    //case GetRepositoryEpr => self.reply(<repository>{getRepositoryEPR()}</repository>) // needs .toString ?
+    
     case GetCredentials=> self reply credentialsToXml
     case UpdateAlgorithmRunStatus(algoID: String,status: AlgorithmRunStatus) => {
       status match {
@@ -555,11 +514,6 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     }
     case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
       logger.debug("====> We're in RunAlgorithm case of Agent's receive block")
-      // we need to make sure we have a hashmap containing IndexEPR, RepositoryEPR, and RegistryEPR
-      // eg. "index" -> "http://coffeetree:9992/solr"
-      // etc.
-      val eprMap:HashMap[String,String] = generateServiceEPRMap
-      logger.debug("    ====> Generated service epr map")
       // we then generate an algorithRunID which will be used to check up on this algorithm run
       val algoID = generateAlgorithmRunID
       logger.debug("    ====> Generated algorithm run ID: "+algoID)
@@ -573,7 +527,6 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
       logger.debug("    ====> Telling a slave to start the algorithm "+algoID+" '%s'".format(algorithmName))
       router ! StartAlgorithm(algoID,
         algorithmName,
-        eprMap,
         userArguments,
         collectionName)
         
