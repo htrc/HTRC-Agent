@@ -75,7 +75,7 @@ class Manager extends Actor {
            getAgent(uriName) match {
              case None => {  
                val newAgent = actorOf(new Agent(uriName,x509,privKey)).start()
-               val newAgentID = (newAgent !! GetAgentIDAsString).getOrElse("Failed")
+               val newAgentID = (newAgent ? GetAgentIDAsString).get //OrElse("Failed")
                if (newAgentID == "Failed") throw new RuntimeException            			 
                		logger.debug("===> putting a new agent to the agent map")
                agentMap.put(newAgentID.toString(),newAgent)
@@ -104,7 +104,7 @@ class Manager extends Actor {
     case TakeAction(agentID: String, action: AgentAction) => {
       // does this agent exist?
       if (agentExists(agentID)) {
-        val result: xml.Elem = (getAgent(agentID).head !!! action).get  //OrElse(<error>Couldn't resolve action</error>)
+        val result = (getAgent(agentID).head ? action).get  //OrElse(<error>Couldn't resolve action</error>)
         self reply result
       } else {
         self reply <error>No such agent</error> // should be a 404 not found
