@@ -68,7 +68,7 @@ class ExecutableAlgorithm(
     
     try {
       //1. Get the algorithm executable
-        val algoExecutable: Option[String] = (ourRegistry !! GetAlgorithmExecutable(algoName,workingDir)).asInstanceOf[Option[String]]
+        val algoExecutable: Option[String] = (ourRegistry ? GetAlgorithmExecutable(algoName,workingDir)).as[Option[String]].get
         //System.exit(4)
        
       algoExecutable match {
