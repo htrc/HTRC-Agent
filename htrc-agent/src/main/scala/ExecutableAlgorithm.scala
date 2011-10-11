@@ -192,7 +192,7 @@ class ExecutableAlgorithm(
             Finished(new Date,workingDir,algoResultSet))
           // post results to registry
           // fix me ... tuple stuff is dumb
-          ourRegistry !! PostResultsToRegistry(userID,algoID,algoResultSet.l)
+          (ourRegistry ? PostResultsToRegistry(userID,algoID,algoResultSet.l)).as[List[String]].get
             
         } else {
           logger.warn("!!!!> exit code was " + exitCode)
