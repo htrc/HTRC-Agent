@@ -71,12 +71,12 @@ class AgentSlave(agentRef: ActorRef, userID: String, x509: String, privKey: Stri
   def receive = {
     case SlaveListAvailableAlgorithms => {
       logger.debug("INSIDE AGENTSLAVE SlaveListAvailableAlgorithms")
-      val res : xml.Elem = (ourRegistry !!! RegistryListAvailableAlgorithms).get
+      val res : xml.Elem = (ourRegistry ? RegistryListAvailableAlgorithms).as[xml.Elem].get
       self reply res
     }
     case SlaveListCollections => {
       logger.debug("INSIDE AGENTSLAVE SlaveListCollections")
-      val res : xml.Elem = (ourRegistry !!! RegistryListCollections).get
+      val res : xml.Elem = (ourRegistry ? RegistryListCollections).as[xml.Elem].get
       self reply res
     }
     case StartAlgorithm(algoID: String, 
@@ -153,13 +153,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     //println("RegistryClient object:"+registryClient.toString())      
     // TODO: need to handle NPE here, registry client can die
     AgentUtils.tryEPRCreatingURIFromStringResult(()=>
-      {(ourRegistry !!! SolrURI).get})
+      {(ourRegistry ? SolrURI).as[String].get})
   }
   
   val refreshRepositoryEPR = {() =>    
     //println("RegistryClient object:"+registryClient.toString())
     // TODO: need to handle NPE here, registry client can die
-    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{( ourRegistry !!! CassandraURI ).get})
+    AgentUtils.tryEPRCreatingURIFromStringResult(()=>{( ourRegistry ? CassandraURI ).as[String].get})
   }
   private def getAgentID = agentID
   private def credentialsToXml = {
@@ -519,12 +519,12 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor  {
     }
     case ListAvailableAlgorithms => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      val res : xml.Elem = ( router !!! SlaveListAvailableAlgorithms).get
+      val res : xml.Elem = ( router ? SlaveListAvailableAlgorithms).as[xml.Elem].get
       self reply res //getOrElse( <error>couldn't list available algorithms</error>)
     }
     case ListCollections => {
       logger.debug("INSIDE **AGENT** ListAvailableAlgorithms")
-      val res : xml.Elem = (router !!! SlaveListCollections).get //OrElse(<error>Couldn't list collections</error>)
+      val res : xml.Elem = (router ? SlaveListCollections).as[xml.Elem].get //OrElse(<error>Couldn't list collections</error>)
       self reply res
     }
      case GetRegistryEpr => self.reply(<registry>{getRegistryEPR()}</registry>)

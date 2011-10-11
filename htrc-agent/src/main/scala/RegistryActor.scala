@@ -157,10 +157,10 @@ class RegistryActor extends Actor with Loggable {
     
     // epr stuff
     case SolrURI =>
-    	ourReply { registryClient.getSolrIndexServiceURI("htrc-apache-solr-search") }
+    	ourReply { registryClient.getSolrIndexServiceURI("htrc-apache-solr-search").toString }
     	
     case CassandraURI =>
-    	ourReply { registryClient.getSolrIndexServiceURI("htrc-cassandra-repository") }
+    	ourReply { registryClient.getSolrIndexServiceURI("htrc-cassandra-repository").toString }
     	
     case GetAlgorithmExecutable(algoName, workingDir) =>
       
