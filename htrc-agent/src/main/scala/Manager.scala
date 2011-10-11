@@ -101,16 +101,7 @@ class Manager extends Actor {
               {for (agent <- agentMap.keys) yield <agent>{agent}</agent>}
          </agents> 
     }
-    case TakeAction(agentID: String, action: AgentAction) => {
-      // does this agent exist?
-      if (agentExists(agentID)) {
-        val result = (getAgent(agentID).head ? action).get  //OrElse(<error>Couldn't resolve action</error>)
-        self reply result
-      } else {
-        self reply <error>No such agent</error> // should be a 404 not found
-      }
       
-    }
     case _ => self reply <error>This is not a valid command</error>
   }
 }

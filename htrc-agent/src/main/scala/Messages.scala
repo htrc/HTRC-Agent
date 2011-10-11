@@ -57,7 +57,6 @@ import scala.xml.XML
 sealed trait ManagerAction
 case class VendAgent(userID: String, x509: String, privKey: String) extends ManagerAction // org.cilogon.portal.util._
 // have the agent call its preStart method to get data from registry
-case class TakeAction(agentID: String, action: AgentAction) extends ManagerAction
 case object ListAgents extends ManagerAction
 case class DestroyAgent(id: String) extends ManagerAction
 
@@ -75,9 +74,11 @@ case object ListCurrentAlgorithms extends AgentAction
 case class ListCurrentAlgorithms(status: AlgorithmRunStatus)
 case class StoreToRegistry(resourceType: String, resourceObject: Any) extends AgentAction
 case class PollAlgorithmRunStatus(algoID: String) extends AgentAction
-// just added this... 2011-10-03
+
 case class GetAlgorithmRunResult(algoResultReq:AlgorithmResultRequest) extends AgentAction
-// end new change 2011-10-03
+
+case class GetCollectionVolumeIDs(collectionName: String) extends AgentAction
+
 //utility messages... less interesting:
 case object GetCredentials extends AgentAction
 case object GetAgentID extends AgentAction
@@ -89,20 +90,6 @@ sealed trait AlgorithmResultRequest
 case class StdoutResultRequest(algoID:String) extends AlgorithmResultRequest
 case class StderrResultRequest(algoID:String) extends AlgorithmResultRequest
 case class FileResultRequest(algoID:String, fileName:String) extends AlgorithmResultRequest
-
-
-//
-// third class of Actor -- ones that run algorithms on behalf of an agent
-// by the time this Actor is invoked, the Agent should have assigned this run
-// of the given algorithm a unique ID string
-sealed trait AgentSlaveAction 
-case class StartAlgorithm(algoID: String, 
-		algoName: String, 
-		userArgs: List[String],
-		collectionName: String) extends AgentSlaveAction
-case class GetCollectionVolumeIDs(collectionName: String) extends AgentSlaveAction
-case object SlaveListCollections extends AgentSlaveAction
-case object SlaveListAvailableAlgorithms extends AgentSlaveAction
 
 
 //
