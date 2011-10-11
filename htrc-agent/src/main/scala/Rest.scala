@@ -56,9 +56,8 @@ class AgentListCurrentAlgorithms {
   @GET
   @Produces(Array("text/xml"))
   def listCurrentSessionAlgorithms(@PathParam("agentID") agentID:String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
     println("==========> List current algorithms REST query was called")
-    (manager ? TakeAction(agentID, ListCurrentAlgorithms)).get
+    (actorsFor(agentID).head ? ListCurrentAlgorithms).get
   }
 }
 
@@ -108,9 +107,7 @@ class AgentGetAlgorithmStdoutConsoleResultService {
   def getAlgoResult(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
     logger.debug("====> handle REST method for stdout result console")
-    val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager ? TakeAction(agentID, GetAlgorithmRunResult(StdoutResultRequest(algoID)))).get //OrElse("Couldn't get algorithm run stdout  for agent "+agentID+ " with algorithm ID "+algoID)
-  
+    (actorsFor(agentID).head ? GetAlgorithmRunResult(StdoutResultRequest(algoID))).get
   }
 }
 
@@ -125,8 +122,7 @@ class AgentGetAlgorithmStderrConsoleResultService {
   @Produces(Array("text/xml"))
   def getAlgoResult(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager ? TakeAction(agentID, GetAlgorithmRunResult(StderrResultRequest(algoID)))).get //OrElse("Couldn't get algorithm run result stderr for agent "+agentID+ " with algorithm ID "+algoID)
+    (actorsFor(agentID).head ? GetAlgorithmRunResult(StderrResultRequest(algoID))).get
   
   }
 }
@@ -144,8 +140,7 @@ class AgentGetAlgorithmFileResultService {
   def getAlgoResult(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String,
                   @PathParam("filename") filename: String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager ? TakeAction(agentID, GetAlgorithmRunResult(FileResultRequest(algoID,filename)))).get //OrElse("Couldn't get algorithm run result file for agent "+agentID+ " with algorithm ID "+algoID+" and filename "+filename)
+    (actorsFor(agentID).head ? GetAlgorithmRunResult(FileResultRequest(algoID,filename))).get
   }
 }
 
@@ -158,12 +153,7 @@ class AgentPollAlgorithmRunStatusService {
   @Produces(Array("text/xml"))
   def getAlgoStatus(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager ? TakeAction(agentID, 
-                     PollAlgorithmRunStatus(algoID))).get
-                     //getOrElse("Couldn't get algorithm run status for algoID "
-                     //    + algoID + " against agent " +agentID)
-  
+    (actorsFor(agentID).head ? PollAlgorithmRunStatus(algoID)).get 
   }
 }
 
@@ -176,12 +166,9 @@ class AgentRunAlgorithmService {
                   @PathParam("algoName") algoName: String,
                   @PathParam("collectionName") collectionName: String,
                   @PathParam("userArgs") userArgs: String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
     val userArgList=List(userArgs)
     logger.warn("====> REST Endpoint for RunAlgorithm can only accept a single argument -- fix this!")
-    (manager ? TakeAction(agentID, 
-                     RunAlgorithm(algoName,collectionName,userArgList))).get
-                     //getOrElse("Couldn't get repository EPR from agent "+agentID)
+    (actorsFor(agentID).head ? RunAlgorithm(algoName,collectionName,userArgList)).get
   }
 }
 
@@ -194,9 +181,7 @@ class AgentListAvailablelgorithms {
   @GET
   @Produces(Array("text/xml"))
   def listRunningAlgorithms(@PathParam("agentID") agentID:String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
-    val res: xml.Elem = (manager ? TakeAction(agentID, ListAvailableAlgorithms)).as[xml.Elem].getOrElse(<error>couldn't find available algorithms</error>)
-    res
+    (actorsFor(agentID).head ? ListAvailableAlgorithms).as[xml.Elem].get
   }
 }
 
@@ -229,29 +214,17 @@ class AgentGetCredentialsService {
   @GET
   @Produces(Array("text/xml"))
   def getCredentials(@PathParam("agentID") agentID:String) = {
-    val manager = actorsFor(classOf[Manager]).headOption.get
-    (manager ? TakeAction(agentID, GetCredentials)).get //OrElse("Couldn't get credentials from agent "+agentID)
+    (actorsFor(agentID).head ? GetCredentials).get
   }
 }
 
 @Path("/agent/{agentID}/collection/list")
 class AgentListCollections {
- private val logger = LoggerFactory.getLogger(getClass)
- @GET
- @Produces(Array("text/xml"))
- def listCollections(@PathParam("agentID") agentID:String) = {
-  val manager = actorsFor(classOf[Manager]).headOption.get
-  val res: xml.Elem = (manager ? TakeAction(agentID, ListCollections)).as[xml.Elem].getOrElse(<error>failed to list collections</error>)
-  res
-  /*if(res == None) {
-    <error>"Couldn't get a list of collections from agent "+{agentID}</error>
-  } else {
-    val res2 : xml.Elem = res.get.asInstanceOf[xml.Elem]
-    res2
-  }
-  */
-  //val res2:String = res.getOrElse("Couldn't get a list of collections from agent "+agentID)
- }
+  private val logger = LoggerFactory.getLogger(getClass)
+  @GET
+  @Produces(Array("text/xml"))
+  def listCollections(@PathParam("agentID") agentID:String) = 
+    (actorsFor(agentID).head ? ListCollections).as[xml.Elem].get
 }
 
 @Path("/agent/{agentID}")
