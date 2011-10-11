@@ -68,10 +68,10 @@ class ExecutableAlgorithm(
     
     try {
       //1. Get the algorithm executable
-        val algoExecutable: Option[String] = (ourRegistry ? GetAlgorithmExecutable(algoName,workingDir)).as[Option[String]].get
+        val algoExecutable: String = (ourRegistry ? GetAlgorithmExecutable(algoName,workingDir)).as[String].get
         //System.exit(4)
        
-      algoExecutable match {
+      /*algoExecutable match {
         case None => {
           logger.warn("!!!!> couldnt find algorithm executable for " + algoName)
           agentRef ! UpdateAlgorithmRunStatus(algoID, UnableToFindAlgorithm(algoName, new Date))
@@ -83,6 +83,8 @@ class ExecutableAlgorithm(
         }
         case _ => throw new RuntimeException("wth happened?!")
       }
+      */
+        doStartAlgorithmWithExecutable(algoExecutable, workingDir)
 	    
       def doStartAlgorithmWithExecutable(executable: String, workingDir: String) {
          
