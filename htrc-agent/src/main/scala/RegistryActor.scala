@@ -164,7 +164,11 @@ class RegistryActor extends Actor with Loggable {
     	
     case GetAlgorithmExecutable(algoName, workingDir) =>
       
-      ourReply { getAlgorithmExecutable(algoName, workingDir).getOrElse("======> Failed to pull algo name string from the registry") }
+      ourReply { 
+        val res: String = getAlgorithmExecutable(algoName, workingDir).getOrElse("======> Failed to pull algo name string from the registry")
+        println("======> Got a string to send back to the algorith")
+        res
+      }
       
     case WriteVolumesTextFile(volumes, workingDir) =>
      

@@ -69,6 +69,7 @@ class ExecutableAlgorithm(
     try {
       //1. Get the algorithm executable
         val algoExecutable: String = (ourRegistry ? GetAlgorithmExecutable(algoName,workingDir)).as[String].get
+        println("======> successfully pulled a string algoExecutable from the registryActor")
         //System.exit(4)
        
       /*algoExecutable match {
@@ -92,9 +93,9 @@ class ExecutableAlgorithm(
       // note that this could be parallelized against steps 1 and 4!
         // below could be really bad, junk the message passing BS if you need to
          logger.debug("====> Trying to get volume IDs from registry.")
-	     val volumeIDs:List[String] = (ourRegistry !!! GetCollectionVolumeIDs(collectionName)).get
+	     val volumeIDs:List[String] = (ourRegistry ? GetCollectionVolumeIDs(collectionName)).as[List[String]].get
          logger.debug("====> Got volume IDs from registry, from this collection: " + collectionName)
-         val volumesTextFile = (ourRegistry !!! WriteVolumesTextFile(volumeIDs,workingDir)).get
+         val volumesTextFile = (ourRegistry ? WriteVolumesTextFile(volumeIDs,workingDir)).as[String].get
          logger.debug("====> Wrote volume IDs to a temp file in working dir ("+workingDir+")")
          
       //3.   create the properties file
