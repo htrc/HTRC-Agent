@@ -194,7 +194,7 @@ class AgentListAvailablelgorithms {
   @Produces(Array("text/xml"))
   def listRunningAlgorithms(@PathParam("agentID") agentID:String) = {
     val manager = actorsFor(classOf[Manager]).headOption.get
-    val res: xml.Elem = (manager ? TakeAction(agentID, ListAvailableAlgorithms)).get //OrElse("couldn't find available algorithms")
+    val res: xml.Elem = (manager ? TakeAction(agentID, ListAvailableAlgorithms)).as[xml.Elem].getOrElse(<error>couldn't find available algorithms</error>)
     res
   }
 }
@@ -236,7 +236,7 @@ class AgentListCollections {
  @Produces(Array("text/xml"))
  def listCollections(@PathParam("agentID") agentID:String) = {
   val manager = actorsFor(classOf[Manager]).headOption.get
-  val res: xml.Elem = (manager ? TakeAction(agentID, ListCollections)).get
+  val res: xml.Elem = (manager ? TakeAction(agentID, ListCollections)).as[xml.Elem].getOrElse(<error>failed to list collections</error>)
   res
   /*if(res == None) {
     <error>"Couldn't get a list of collections from agent "+{agentID}</error>
