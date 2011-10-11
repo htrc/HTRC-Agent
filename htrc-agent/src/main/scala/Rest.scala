@@ -47,6 +47,19 @@ import javax.xml.bind.JAXBElement
 import scala.xml.XML
 import akka.dispatch.Future
 
+object RestHelpers {
+  
+  def getActor(agentID: String) = {
+    val li = actorsFor(agentID)
+    if(li.length == 0)
+      actorFor[Manager].get
+      else
+        li.head
+  }
+  
+}
+
+
 @Path("/agent/{agentID}/algorithm/poll")
 class AgentListCurrentAlgorithms {
   // list all algorithms attempted during this agent's session
@@ -57,7 +70,7 @@ class AgentListCurrentAlgorithms {
   @Produces(Array("text/xml"))
   def listCurrentSessionAlgorithms(@PathParam("agentID") agentID:String) = {
     println("==========> List current algorithms REST query was called")
-    (actorsFor(agentID).head ? ListCurrentAlgorithms).get
+    (RestHelpers.getActor(agentID) ? ListCurrentAlgorithms).get
   }
 }
 
@@ -107,7 +120,7 @@ class AgentGetAlgorithmStdoutConsoleResultService {
   def getAlgoResult(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
     logger.debug("====> handle REST method for stdout result console")
-    (actorsFor(agentID).head ? GetAlgorithmRunResult(StdoutResultRequest(algoID))).get
+    (RestHelpers.getActor(agentID) ? GetAlgorithmRunResult(StdoutResultRequest(algoID))).get
   }
 }
 
@@ -122,7 +135,7 @@ class AgentGetAlgorithmStderrConsoleResultService {
   @Produces(Array("text/xml"))
   def getAlgoResult(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
-    (actorsFor(agentID).head ? GetAlgorithmRunResult(StderrResultRequest(algoID))).get
+    (RestHelpers.getActor(agentID) ? GetAlgorithmRunResult(StderrResultRequest(algoID))).get
   
   }
 }
@@ -140,7 +153,7 @@ class AgentGetAlgorithmFileResultService {
   def getAlgoResult(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String,
                   @PathParam("filename") filename: String) = {
-    (actorsFor(agentID).head ? GetAlgorithmRunResult(FileResultRequest(algoID,filename))).get
+    (RestHelpers.getActor(agentID) ? GetAlgorithmRunResult(FileResultRequest(algoID,filename))).get
   }
 }
 
@@ -153,7 +166,7 @@ class AgentPollAlgorithmRunStatusService {
   @Produces(Array("text/xml"))
   def getAlgoStatus(@PathParam("agentID") agentID:String,
                   @PathParam("algoID") algoID: String) = {
-    (actorsFor(agentID).head ? PollAlgorithmRunStatus(algoID)).get 
+    (RestHelpers.getActor(agentID) ? PollAlgorithmRunStatus(algoID)).get 
   }
 }
 
@@ -168,7 +181,7 @@ class AgentRunAlgorithmService {
                   @PathParam("userArgs") userArgs: String) = {
     val userArgList=List(userArgs)
     logger.warn("====> REST Endpoint for RunAlgorithm can only accept a single argument -- fix this!")
-    (actorsFor(agentID).head ? RunAlgorithm(algoName,collectionName,userArgList)).get
+    (RestHelpers.getActor(agentID) ? RunAlgorithm(algoName,collectionName,userArgList)).get
   }
 }
 
@@ -181,7 +194,7 @@ class AgentListAvailablelgorithms {
   @GET
   @Produces(Array("text/xml"))
   def listRunningAlgorithms(@PathParam("agentID") agentID:String) = {
-    (actorsFor(agentID).head ? ListAvailableAlgorithms).as[xml.Elem].get
+    (RestHelpers.getActor(agentID) ? ListAvailableAlgorithms).as[xml.Elem].get
   }
 }
 
@@ -214,7 +227,7 @@ class AgentGetCredentialsService {
   @GET
   @Produces(Array("text/xml"))
   def getCredentials(@PathParam("agentID") agentID:String) = {
-    (actorsFor(agentID).head ? GetCredentials).get
+    (RestHelpers.getActor(agentID) ? GetCredentials).get
   }
 }
 
@@ -224,7 +237,7 @@ class AgentListCollections {
   @GET
   @Produces(Array("text/xml"))
   def listCollections(@PathParam("agentID") agentID:String) = 
-    (actorsFor(agentID).head ? ListCollections).as[xml.Elem].get
+    (RestHelpers.getActor(agentID) ? ListCollections).as[xml.Elem].get
 }
 
 @Path("/agent/{agentID}")
