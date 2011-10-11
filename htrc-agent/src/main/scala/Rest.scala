@@ -57,6 +57,7 @@ class AgentListCurrentAlgorithms {
   @Produces(Array("text/xml"))
   def listCurrentSessionAlgorithms(@PathParam("agentID") agentID:String) = {
     val manager = actorsFor(classOf[Manager]).headOption.get
+    println("==========> List current algorithms REST query was called")
     (manager ? TakeAction(agentID, ListCurrentAlgorithms)).get
   }
 }
