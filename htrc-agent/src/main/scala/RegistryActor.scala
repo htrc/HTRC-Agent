@@ -45,6 +45,7 @@ import scala.xml.XML
 import org.apache.commons.codec.binary.Hex
 import java.io.FileReader
 import scala.xml._
+import akka.actor.UntypedChannel
 
 // Messages the RegistryActor responds to
   
@@ -67,14 +68,14 @@ case class PostResultsToRegistry(userURN:String,
               // List[String] // list of registry resource paths
       
    
-case class RegRestartRetry[T](msg: Message, dest: UntypedChannel, func: =>T) 
+case class RegRestartRetry[T](msg: Any, dest: UntypedChannel, func: ()=>T) 
 
 
 class RegistryActor extends Actor with Loggable {
 
   val registryClientInitializer = {
-    () => new RegistryClient
     lastRestart = System.currentTimeMillis / 1000
+    () => new RegistryClient
   }
   
   var registryClient = registryClientInitializer()
@@ -114,19 +115,21 @@ class RegistryActor extends Actor with Loggable {
   
     // A wrapper function to provide registry exception handling
   // Currently provides retry functionality
-  def registryExceptionHandler[T](message: Any, dest: UntypedChannel, retries: Int = 0)(func: => T): T = {
+  def registryExceptionHandler[T](message: Any, dest: UntypedChannel, retries: Int = 0)(func: => T): Option[T] = {
     
     try {
-      func
+      Some(func)
     } catch {
       case e => {
         logger.warn("====> RegistryClient threw an exception, retrying...")
         // this line can be an error handling function if one is needed
         if(retries < 5)
-        	registryExceptionHandler(message, retries+1)(func)
+        	registryExceptionHandler(message, dest, retries+1)(func)
         else {
-          registry ! RegRestartRetry(message, dest, func)         
+          val thunked = () => func
+          registry ! RegRestartRetry(message, dest, thunked)
           logger.warn("====> RegistryClient still failing after 5 retries, notifying registry actor")
+          None
         }
       }
     }
@@ -138,7 +141,9 @@ class RegistryActor extends Actor with Loggable {
   def ourReply[T](message: Any, dest: UntypedChannel = self.channel)(func: => T) {
     
     spawn { 
-      dest ! registryExceptionHandler(message, dest) { func }
+      val res = registryExceptionHandler(message, dest) { func }
+      if(res != None)
+    	  dest ! res.get
     }
     
   }
