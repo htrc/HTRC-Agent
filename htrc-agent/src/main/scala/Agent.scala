@@ -136,6 +136,7 @@ class Agent(userID: String, x509: String, privKey: String) extends Actor with Lo
         
       val algoID = generateAlgorithmRunID
       val computeChild = Actor.actorOf(new ComputeChild(algorithmName, self, algoID, self.id, collectionName, userArguments))
+      computeChild.start()
       algorithmLocationMap += (algoID -> computeChild)
       
     }
