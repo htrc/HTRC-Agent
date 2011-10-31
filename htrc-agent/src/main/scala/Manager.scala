@@ -53,7 +53,7 @@ class Manager extends Actor with Loggable {
   
   def agentExists(agentID: String): Boolean = actorsFor(agentID).length != 0
   
-  var agentList: List[String] = null
+  var agentList: List[String] = Nil
   
   def receive = {
     
