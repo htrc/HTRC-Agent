@@ -47,7 +47,7 @@ import java.io.FileReader
 import akka.dispatch.Future
   
   
-class Agent(userID: String,x509: String,privKey: String) extends Actor with Loggable {
+class Agent(userID: String, x509: String, privKey: String) extends Actor with Loggable {
   
   // since akka provides an actor registry we can use that for look ups and eliminate our own agentID book keeping
   // we use URIName of the x509 cert for the id
@@ -67,13 +67,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
     else
     	registryOption.get
     	
-    	
   // algorithm status is here, we don't have compute actors yet
-  val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
+//  val algorithmRunStatusMap = new HashMap[String,AlgorithmRunStatus]
                           //e.g.   huetoanhu-4731sssa-fueoauht, 'Initializing                                  
 		     			  // 	   huetoanhu-4731sssa-fueoauht, 'Running
                           //       huetoanhu-4731sssa-fueoauht, 'Finished
   
+  val algorithmLocationMap = new HashMap[String,ActorRef]
   
   // spawns a child actor tasked with asynchronously handling and responding to the message
   def asyncReply[T](f: =>T) = {
@@ -91,7 +91,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
   def receive = {
     
     case GetAlgorithmRunResult(algoResultReq: AlgorithmResultRequest) => {
-      	asyncReply { algoResultMessage(algoResultReq) }
+      
+      asyncReply {
+        
+        (algorithmLocationMap(algoResultReq.algoID) ? algoResultReq).as[xml.Elem].get
+        
+      }
+      
     }
       	
     // these need to be collapsed
@@ -110,22 +116,28 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
       asyncReply { (ourRegistry ? RegistryListCollections).as[xml.Elem].get }
     }
     
-    case GetCredentials=> self reply credentialsToXml
-    
-    case UpdateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) => {
-      updateAlgorithmRunStatusMessage(algoID, status)
-    }
+    case GetCredentials => self reply credentialsToXml
     
     case PollAlgorithmRunStatus(algoID: String) => {
-       self reply formAlgorithmRunXMLResponse(algoID)
+      
+      asyncReply {
+    	  (algorithmLocationMap(algoID) ? PollAlgorithmRunStatus(algoID)).as[xml.Elem].get
+      }
     }
     
-    case ListCurrentAlgorithms => {
-      self reply formAlgorithmRunListXMLResponse()
+    case ListCurrentAlgorithms => 
+    asyncReply {
+      <algorithmRunList>
+	    {for (a <- algorithmLocationMap.keys) yield (algorithmLocationMap(a) ? PollAlgorithmRunStatus(a)).as[xml.Elem].get}
+	  </algorithmRunList>
     }
     
     case RunAlgorithm(algorithmName: String, collectionName: String, userArguments: List[String]) => {
-      asyncReply { runAlgorithmMessage(algorithmName, collectionName, userArguments) }   
+        
+      val algoID = generateAlgorithmRunID
+      val computeChild = new ComputeChild(algorithmName, self, algoID, self.id, collectionName, userArguments)
+      algorithmLocationMap += (algoID -> computeChild.selfRef)
+      
     }
     
     case _ => self.reply(<error>Invalid action</error>)
@@ -136,13 +148,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
   
   private def generateAlgorithmRunID: String = UUID.randomUUID().toString
   
-  private def updateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) = {
-    logger.debug("algorithmRunStatusMap before put of "+(algoID,status)+": "+algorithmRunStatusMap)
-    algorithmRunStatusMap.put(algoID,status)
-    logger.debug("algorithmRunStatusMap after put of "+(algoID,status)+": "+algorithmRunStatusMap)
-  }
-  
-  private def getAlgorithmRunStatus(algoID:String): Option[AlgorithmRunStatus] = algorithmRunStatusMap.get(algoID)
+//  private def updateAlgorithmRunStatus(algoID: String, status: AlgorithmRunStatus) = {
+//    logger.debug("algorithmRunStatusMap before put of "+(algoID,status)+": "+algorithmRunStatusMap)
+//    algorithmRunStatusMap.put(algoID,status)
+//    logger.debug("algorithmRunStatusMap after put of "+(algoID,status)+": "+algorithmRunStatusMap)
+//  }
+//  
+//  private def getAlgorithmRunStatus(algoID:String): Option[AlgorithmRunStatus] = algorithmRunStatusMap.get(algoID)
    
   private def credentialsToXml = {
     <credentials>
@@ -158,13 +170,13 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
 	</agent>
   }
   
-  private def algorithmRunExists(algoID:String) = {
-    algorithmRunStatusMap.contains(algoID)
-  }
+//  private def algorithmRunExists(algoID:String) = {
+//    algorithmRunStatusMap.contains(algoID)
+//  }
   
   private def listAllAlgorithmRunIDs = {
-    logger.info("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
-    for (k <- algorithmRunStatusMap.keys) yield k
+    //logger.info("===> what keys are inside the algorithm run status map ? "+algorithmRunStatusMap.keys)
+    for (k <- algorithmLocationMap.keys) yield k
   }
   
   // documentation: a call to list all running algorithms results in this xml output:
@@ -260,8 +272,8 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
    */
 
   
-  private def formAlgorithmRunXMLResponse(algoID: String) = {
-    logger.info("====> in formAlgorithmRunXMLResponse")
+//  private def formAlgorithmRunXMLResponse(algoID: String) = {
+//    logger.info("====> in formAlgorithmRunXMLResponse")
 //     def runningResponseHelper = {
 //       
 //     }
@@ -272,235 +284,253 @@ class Agent(userID: String,x509: String,privKey: String) extends Actor with Logg
 //       
 //     }
 //     
-     def renderAlgorithmResultSetXML(algoResultSet:AlgorithmResultSet) = {
-       val hrefPrefix = "/agent/"+self.id+"/algorithm/"+algoID+"/result/"
-       <results>
-        {for (r <- algoResultSet.l) yield 
-          r match {
-           case StdoutResult(s) =>  {
-             <consoleStdout><href>{hrefPrefix+"console/stdout"}</href></consoleStdout>
-           }
-           case StderrResult(s) => {
-             <consoleStderr><href>{hrefPrefix+"console/stderr"}</href></consoleStderr>
-           }
-           case FileResult(wrkDir,fName) => {
-             <file><href>{hrefPrefix+"file/"+fName}</href></file>
-           }
-        }
-        }
-       </results>
-       
-     }
-     
-     def unableToFindAlgorithmResponseHelper(n:String) = {
-       <algorithmName>
-         {n}
-       </algorithmName>
-     }
-     // determine whether that algorithm exists
-      if (algorithmRunExists(algoID)) {
-        // if it does, render it
-        // following is common to all
-        <algorithmRun>
-          <id>{ algoID }</id>
-         { for ( element <-  getAlgorithmRunStatus(algoID).head match {          
-            case Prestart(d) => { List(
-              <status>Prestart</status>,
-              <lastStatusChange> {d} </lastStatusChange>)
-            }
-            case Initializing(d) => {
-             List( <status>Initializing</status>,
-              <lastStatusChange> {d} </lastStatusChange>)
-            }
-            case Running(d,workingDir) => {
-              List(<status>Running</status>,
-              <lastStatusChange> {d} </lastStatusChange>,
-              <workingDir>{workingDir}</workingDir>)
-            }
-            case Finished(d,workingDir:String,algorithmResults:AlgorithmResultSet) => {
-              List(
-                <status>Finished</status>,
-                <lastStatusChange> {d} </lastStatusChange>,
-                <workingDir>{workingDir}</workingDir>,
-                {renderAlgorithmResultSetXML(algorithmResults)}
-                )
-                
-            }
-            case Crashed(d,workingDir:String,algorithmResults:AlgorithmResultSet) => {
-               List( <status>Finished</status>,
-                <lastStatusChange> {d} </lastStatusChange>,
-                <workingDir>{workingDir}</workingDir>,
-                {renderAlgorithmResultSetXML(algorithmResults)})
-            }
-            case UnableToFindAlgorithm(algoName,time) => {
-              List(<status>UnableToFindAlgorithm</status>,
-                  <lastStatusChange>{time}</lastStatusChange>,
-                  <algorithmName>{algoName}</algorithmName>)
-            }
-          }) yield element }
-         </algorithmRun>
-           // above is a bit abstruse
-           // but just trust me that it conforms to the documented form of the xml ;)
-      } else {
-        // error response
-        throw new RuntimeException("no such algorithm "+algoID+ " for agent "+self.id)
-      }
+//     def renderAlgorithmResultSetXML(algoResultSet:AlgorithmResultSet) = {
+//       val hrefPrefix = "/agent/"+self.id+"/algorithm/"+algoID+"/result/"
+//       <results>
+//        {for (r <- algoResultSet.l) yield 
+//          r match {
+//           case StdoutResult(s) =>  {
+//             <consoleStdout><href>{hrefPrefix+"console/stdout"}</href></consoleStdout>
+//           }
+//           case StderrResult(s) => {
+//             <consoleStderr><href>{hrefPrefix+"console/stderr"}</href></consoleStderr>
+//           }
+//           case FileResult(wrkDir,fName) => {
+//             <file><href>{hrefPrefix+"file/"+fName}</href></file>
+//           }
+//        }
+//        }
+//       </results>
+//       
+//     }
     
-  }
-  
-  private def formAlgorithmRunListXMLResponse() = {
-    //logger.debug("===> listAllAlgorithmRunIDs: "+listAllAlgorithmRunIDs)
-    <algorithmRunList>
-	  {for (a <- listAllAlgorithmRunIDs) yield formAlgorithmRunXMLResponse(a)}
-    </algorithmRunList>
-  }
-  
-  def algoResultMessage(algoResultReq: AlgorithmResultRequest) = {
-  
-        logger.debug("===> trying to get algorithm result")
-      val myAlgoID = algoResultReq match {
-        case StdoutResultRequest(algoID) => {        
-          algoID
-        }
-        case StderrResultRequest(algoID) => {
-          algoID
-        }
-        case FileResultRequest(algoID:String,filename:String) => {         
-          algoID
-        }
-        case _ => {
-          throw new RuntimeException ("unspecified case in gathering result - 0x1")
-        }
-      }
-      logger.debug("====> we matched the algoID: "+myAlgoID)
-      val myStatusMap = getAlgorithmRunStatus(myAlgoID)
-      // if the algorithm doesn't have finished or crashed status,
-      // this request doesn't make any sense -- return an error
+//    def renderAlgorithmResultSetXML(algoResultSet: AlgorithmResultSet) = {
+//      val hrefPrefix = "/agent/"+self.id+"/algorithm/"+algoID+"/result/"
+//      <results>
+//<consoleStdout><href>{hrefPrefix+"console/stdout"}</href></consoleStdout>
+//<consoleStderr><href>{hrefPrefix+"console/stderr"}</href></consoleStderr>
+//<file><href>{hrefPrefix+"file/"+fName}</href></file>
+        
+  //  }
+    
      
-
-      val myResultSet = myStatusMap match {
-        case Some(Finished(time: Date, 
-        		           workingDir: String, 
-        		           algorithmResults:AlgorithmResultSet)) => {
-           Some(algorithmResults)
-          
-        }
-        case Some(Crashed(time: Date, 
-        		          workingDir: String, 
-        		          algorithmResults:AlgorithmResultSet)) => {
-           Some(algorithmResults)
-        }
-        case _ => {
-          // algorithm ID doesn't exist, or it's not finished or crashed
-          logger.warn("couldn't find algo ID")
-          None
-        }
-      }
-      
-      logger.debug("====> we matched the results: "+myResultSet)
-      if (myResultSet == None) {
-        logger.warn("Result set was none.")
-        self reply <error>Couldn't obtain algorithm results for {myAlgoID}.</error> 
-      } else {
-        
-      logger.warn("===> find out what kind of request this is ")
-      // return the correct result  -- a specific file, or stdout or stderr
-      val requestedResult = algoResultReq match {
-        case StdoutResultRequest(algoID) => {            
-          myResultSet.get.l.find((res=>res match {
-            case StdoutResult(s)=>true
-            case _=>false}))
-        }
-        case StderrResultRequest(algoID) => {
-          myResultSet.get.l.find((res=>res match {
-            case StderrResult(s)=>true
-            case _=> false}))         
-        }
-        case FileResultRequest(algoID:String,filename:String) => {        
-          myResultSet.get.l.find((res=>res match {
-            case FileResult(wd,fn)=>{
-            	fn == filename
-            }
-            case _=>false}))
-           
-         
-          // need to get the working directory of the run
-          // then check whether the file exists
-           
-          // if it doesn't exist, check to see if it was put into the registry
-        }
-        case _ => {
-          throw new RuntimeException("unspecified case in gathering result - 0x0")
-        }
-      }
-      
-      if (requestedResult == None) {
-        self reply <error>Couldn't find requested result for algorithm {myAlgoID}.</error>
-      } else {
-      
-      val myResult = requestedResult.getOrElse(throw new RuntimeException("result didn't exist"))
-      
-      
-      // build the  the response
-      logger.warn("building response")
-      AgentUtils.renderResultOutput(myAlgoID,myResult)
-      }
-      }
-    }
+//     def unableToFindAlgorithmResponseHelper(n:String) = {
+//       <algorithmName>
+//         {n}
+ //      </algorithmName>
+//     }
+     // determine whether that algorithm exists
+//      if (algorithmRunExists(algoID)) {
+//        // if it does, render it
+//        // following is common to all
+//        <algorithmRun>
+ //         <id>{ algoID }</id>
+//         { for ( element <-  getAlgorithmRunStatus(algoID).head match {          
+//            case Prestart(d) => { List(
+//              <status>Prestart</status>,
+//              <lastStatusChange> {d} </lastStatusChange>)
+//            }
+//            case Initializing(d) => {
+//             List( <status>Initializing</status>,
+//              <lastStatusChange> {d} </lastStatusChange>)
+//            }
+//            case Running(d,workingDir) => {
+//              List(<status>Running</status>,
+//              <lastStatusChange> {d} </lastStatusChange>,
+//              <workingDir>{workingDir}</workingDir>)
+//            }
+//            case Finished(d,workingDir:String,algorithmResults:AlgorithmResultSet) => {
+//              List(
+//                <status>Finished</status>,
+//                <lastStatusChange> {d} </lastStatusChange>,
+//                <workingDir>{workingDir}</workingDir>,
+//                {renderAlgorithmResultSetXML(algorithmResults)}
+//                )
+//                
+//            }
+//            case Crashed(d,workingDir:String,algorithmResults:AlgorithmResultSet) => {
+//               List( <status>Finished</status>,
+//                <lastStatusChange> {d} </lastStatusChange>,
+//                <workingDir>{workingDir}</workingDir>,
+//                {renderAlgorithmResultSetXML(algorithmResults)})
+//            }
+//            case UnableToFindAlgorithm(algoName,time) => {
+//              List(<status>UnableToFindAlgorithm</status>,
+//                  <lastStatusChange>{time}</lastStatusChange>,
+//                  <algorithmName>{algoName}</algorithmName>)
+//            }
+//          }) yield element }
+    //     </algorithmRun>
+//           // above is a bit abstruse
+//           // but just trust me that it conforms to the documented form of the xml ;)
+//      } else {
+//        // error response
+//        throw new RuntimeException("no such algorithm "+algoID+ " for agent "+self.id)
+//      }
+    
+ // }
   
-  def updateAlgorithmRunStatusMessage(algoID: String, status: AlgorithmRunStatus) = {
-      status match {
-        case s: Prestart => updateAlgorithmRunStatus(algoID,s)
-        case s: Initializing => updateAlgorithmRunStatus(algoID,s)
-        case s: Running => updateAlgorithmRunStatus(algoID,s)
-        case s: Finished => {
-          logger.info("====> ATTENTION <====\nThis is the output:\n"+s+
-              "=====================\n")
-          updateAlgorithmRunStatus(algoID,s)
-        }
-        case s: Crashed => updateAlgorithmRunStatus(algoID,s)
-        // begin 2011-09-22 changes 
-        case s: UnableToFindAlgorithm => updateAlgorithmRunStatus(algoID,s)
-        // end 2011-09-22 changes 
-        case _ => throw new RuntimeException("unknown algorithm run status!")
-      }
-    }
+ // private def formAlgorithmRunListXMLResponse() = {
+//    //logger.debug("===> listAllAlgorithmRunIDs: "+listAllAlgorithmRunIDs)
+//    <algorithmRunList>
+//	  {for (a <- listAllAlgorithmRunIDs) yield formAlgorithmRunXMLResponse(a)}
+ //   </algorithmRunList>
+//  }
   
-  def runAlgorithmMessage(algorithmName: String, collectionName: String, userArguments: List[String]) = {
-      logger.debug("====> We're in RunAlgorithm case of Agent's receive block")
-      // we then generate an algorithRunID which will be used to check up on this algorithm run
-      val algoID = generateAlgorithmRunID
-      logger.debug("    ====> Generated algorithm run ID: "+algoID)
-      // parallelize this when you get a chance
-      //val volumeIDs = slaveRouter !! GetCollectionVolumeIDs(collectionName)
-      
-      // update the run status to prestart -- nothing has happened yet, but we have an ID for the algorithm
-      updateAlgorithmRunStatus(algoID,Prestart(new Date))
-      logger.debug("    ====> Updated algorithm run status to Prestart")
-
-      logger.debug("    ====> Telling a slave to start the algorithm "+algoID+" '%s'".format(algorithmName))
-      
-      logger.debug("====> AgentSlave received StartAlgorithm message")
-	  //0. Let the agent know that we're initializing the algorithm
-	  agentRef ! UpdateAlgorithmRunStatus(algoID,Initializing(new Date))	
-	  
-      logger.debug("====> Check 1...")
-      //0.5.   create the working directory and change to it 
-      //     WARNING -- CHANGING TO THAT DIRECTORY WILL SCREW UP
-      //     CONCURRENTLY RUNNING ACTORS.  FIGURE THIS OUT.
-      // MAKE THIS ATOMIC?
-      logger.warn("====> Need to make directory change section atomic!")
-      val initialDir = System.getProperty("user.dir")
-      val workingDir = AgentUtils.createWorkingDirectory
-      
-      val algo = new ExecutableAlgorithm(algoID, algorithmName, userArguments, collectionName, 
-          initialDir, workingDir, agentRef, userID)
-	  
-      spawn {
-        algo.instantiate()
-      }
-        
-      formAlgorithmRunXMLResponse(algoID)
-           
-    }
+//  def algoResultMessage(algoResultReq: AlgorithmResultRequest) = {
+//  
+//        logger.debug("===> trying to get algorithm result")
+//      val myAlgoID = algoResultReq match {
+//        case StdoutResultRequest(algoID) => {        
+//          algoID
+//        }
+//        case StderrResultRequest(algoID) => {
+//          algoID
+//        }
+//        case FileResultRequest(algoID:String,filename:String) => {         
+//          algoID
+//        }
+//        case _ => {
+//          throw new RuntimeException ("unspecified case in gathering result - 0x1")
+//        }
+//      }
+//      logger.debug("====> we matched the algoID: "+myAlgoID)
+//      val myStatusMap = getAlgorithmRunStatus(myAlgoID)
+//      // if the algorithm doesn't have finished or crashed status,
+//      // this request doesn't make any sense -- return an error
+//     
+//
+//      val myResultSet = myStatusMap match {
+//        case Some(Finished(time: Date, 
+//        		           workingDir: String, 
+//        		           algorithmResults:AlgorithmResultSet)) => {
+//           Some(algorithmResults)
+//          
+//        }
+//        case Some(Crashed(time: Date, 
+//        		          workingDir: String, 
+//        		          algorithmResults:AlgorithmResultSet)) => {
+//           Some(algorithmResults)
+//        }
+//        case _ => {
+//          // algorithm ID doesn't exist, or it's not finished or crashed
+//          logger.warn("couldn't find algo ID")
+//          None
+//        }
+//      }
+//      
+//      logger.debug("====> we matched the results: "+myResultSet)
+//      if (myResultSet == None) {
+//        logger.warn("Result set was none.")
+//        self reply <error>Couldn't obtain algorithm results for {myAlgoID}.</error> 
+//      } else {
+//        
+//      logger.warn("===> find out what kind of request this is ")
+////      // return the correct result  -- a specific file, or stdout or stderr
+////      val requestedResult = algoResultReq match {
+////        case StdoutResultRequest(algoID) => {            
+////          myResultSet.get.l.find((res=>res match {
+////            case StdoutResult(s)=>true
+////            case _=>false}))
+////        }
+////        case StderrResultRequest(algoID) => {
+////          myResultSet.get.l.find((res=>res match {
+////            case StderrResult(s)=>true
+////            case _=> false}))         
+////        }
+////        case FileResultRequest(algoID:String,filename:String) => {        
+////          myResultSet.get.l.find((res=>res match {
+////            case FileResult(wd,fn)=>{
+////            	fn == filename
+////            }
+////            case _=>false}))
+////           
+////         
+////          // need to get the working directory of the run
+////          // then check whether the file exists
+////           
+////          // if it doesn't exist, check to see if it was put into the registry
+////        }
+////        case _ => {
+////          throw new RuntimeException("unspecified case in gathering result - 0x0")
+////        }
+////      }
+//      
+//      val requestedResult = algoResultReq match {
+//        case StdoutResultRequest(_) => myResultSet.get.outResult
+//        case StderrResultRequest(_) => myResultSet.get.errResult
+//        case FileResultRequest(_,_) => myResultSet.get.fileResult
+//      }
+//      
+//      if (requestedResult == None) {
+//        self reply <error>Couldn't find requested result for algorithm {myAlgoID}.</error>
+//      } else {
+//      
+//      val myResult = requestedResult //.getOrElse(throw new RuntimeException("result didn't exist"))
+//      
+//      
+//      // build the  the response
+//      logger.warn("building response")
+//      AgentUtils.renderResultOutput(myAlgoID,myResult)
+//      }
+//      }
+//    }
+  
+//  def updateAlgorithmRunStatusMessage(algoID: String, status: AlgorithmRunStatus) = {
+//      status match {
+//        case s: Prestart => updateAlgorithmRunStatus(algoID,s)
+//        case s: Initializing => updateAlgorithmRunStatus(algoID,s)
+//        case s: Running => updateAlgorithmRunStatus(algoID,s)
+//        case s: Finished => {
+//          logger.info("====> ATTENTION <====\nThis is the output:\n"+s+
+//              "=====================\n")
+//          updateAlgorithmRunStatus(algoID,s)
+//        }
+//        case s: Crashed => updateAlgorithmRunStatus(algoID,s)
+//        // begin 2011-09-22 changes 
+//        case s: UnableToFindAlgorithm => updateAlgorithmRunStatus(algoID,s)
+//        // end 2011-09-22 changes 
+//        case _ => throw new RuntimeException("unknown algorithm run status!")
+//      }
+//    }
+  
+//  def runAlgorithmMessage(algorithmName: String, collectionName: String, userArguments: List[String]) = {
+//      logger.debug("====> We're in RunAlgorithm case of Agent's receive block")
+//      // we then generate an algorithRunID which will be used to check up on this algorithm run
+//      val algoID = generateAlgorithmRunID
+//      logger.debug("    ====> Generated algorithm run ID: "+algoID)
+//      // parallelize this when you get a chance
+//      //val volumeIDs = slaveRouter !! GetCollectionVolumeIDs(collectionName)
+//      
+//      // update the run status to prestart -- nothing has happened yet, but we have an ID for the algorithm
+//      updateAlgorithmRunStatus(algoID,Prestart(new Date))
+//      logger.debug("    ====> Updated algorithm run status to Prestart")
+//
+//      logger.debug("    ====> Telling a slave to start the algorithm "+algoID+" '%s'".format(algorithmName))
+//      
+//      logger.debug("====> AgentSlave received StartAlgorithm message")
+//	  //0. Let the agent know that we're initializing the algorithm
+//	  agentRef ! UpdateAlgorithmRunStatus(algoID,Initializing(new Date))	
+//	  
+//      logger.debug("====> Check 1...")
+//      //0.5.   create the working directory and change to it 
+//      //     WARNING -- CHANGING TO THAT DIRECTORY WILL SCREW UP
+//      //     CONCURRENTLY RUNNING ACTORS.  FIGURE THIS OUT.
+//      // MAKE THIS ATOMIC?
+//      logger.warn("====> Need to make directory change section atomic!")
+//      
+//            val algoID = generateAlgorithmRunID
+//      val initialDir = System.getProperty("user.dir")
+//      val workingDir = AgentUtils.createWorkingDirectory
+//      
+//      val algo = new ExecutableAlgorithm(algoID, algorithmName, userArguments, collectionName, 
+//          initialDir, workingDir, agentRef, userID)
+//	  
+//      spawn {
+//        algo.instantiate()
+//      }
+//        
+//      formAlgorithmRunXMLResponse(algoID)
+//           
+//    }
 }

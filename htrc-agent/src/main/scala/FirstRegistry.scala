@@ -1,4 +1,4 @@
-package htrcagent
+/*package htrcagent
 
 /*
  * This is going to be turned into a globally available actor.
@@ -327,3 +327,4 @@ class FirstRegistry (
 	    
   }
 }
+*/

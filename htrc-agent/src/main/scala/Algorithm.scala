@@ -1,4 +1,6 @@
-package htrcagent
+/*
+ * package htrcagent
+
 
 import akka.actor.Actor
 import akka.actor.Actor._
@@ -63,3 +65,5 @@ trait Runner {
   // methods to run an algorithm
   
 }
+
+*/

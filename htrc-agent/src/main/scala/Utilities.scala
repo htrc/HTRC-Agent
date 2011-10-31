@@ -76,7 +76,7 @@ object AgentUtils  {
 	  	  
 	  // Get the whole damn thing as a string.  Bad idea... but we'll go with it for now.
       val resultAsString = requestedResult match {
-        case FileResult(workDir,fileName) => {
+        case FileResult(userID, algID, workDir,fileName) => {
           val theFile = new File(workDir + File.separator + fileName)
           if (!theFile.exists() || !theFile.canRead()) {
             throw new RuntimeException("can't open result file for reading in "+myAlgoID)
@@ -93,10 +93,10 @@ object AgentUtils  {
             case e => throw new RuntimeException("couldn't read result file for "+myAlgoID)
           }
         }
-        case StdoutResult(s:String) => {
+        case StdoutResult(userID, algID, s:String) => {
           s
         }
-        case StderrResult(s:String) => {
+        case StderrResult(userID, algID, s:String) => {
           s
         }
         case _ => {

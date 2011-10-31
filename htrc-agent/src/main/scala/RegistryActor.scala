@@ -276,13 +276,13 @@ class RegistryActor extends Actor with Loggable {
         // Yes, we will stream the entire thing in and post it.  This 
         // is a horrible idea, and needs to be corrected.
         val (resultID,resultAsString) = result match {
-          case StdoutResult(outstring) => {
+          case StdoutResult(userID, algID, outstring) => {
             ("stdout",outstring)
           }
-          case StderrResult(outstring) => {
+          case StderrResult(userID, algID, outstring) => {
             ("stderr",outstring)
           }
-          case FileResult(workingDir,fileName) => {
+          case FileResult(userID, algID, workingDir,fileName) => {
             val buf = (new BufferedReader(new FileReader(workingDir+File.separator+fileName)))
             val strBuf = new StringBuffer
             while (buf.ready) {

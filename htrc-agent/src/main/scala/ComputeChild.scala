@@ -1,0 +1,116 @@
+package htrcagent
+
+import akka.actor.Actor
+import akka.actor.Actor._
+import javax.ws.rs.{GET, Path, Produces}
+import akka.actor.Actor.registry._
+import akka.routing.Routing.Broadcast
+import akka.routing.Routing
+import akka.routing.CyclicIterator
+import java.security.cert.X509Certificate
+import java.security.PrivateKey
+import scala.collection.mutable.HashMap
+import akka.actor.ActorRef
+import javax.ws.rs.PathParam
+import java.util.UUID
+import edu.indiana.d2i.registry._
+import java.net.URI
+import java.util.Date
+import org.slf4j.{Logger,LoggerFactory}
+import java.util.Properties
+import java.io.{File, BufferedReader, InputStreamReader, FileOutputStream}
+import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
+import java.io.FileInputStream
+import java.io.FileWriter
+import java.io.BufferedWriter
+import java.util.ArrayList
+import org.apache.commons.io.FileUtils
+import java.lang.ProcessBuilder
+import java.lang.Process
+import javax.ws.rs.PUT
+import javax.ws.rs.Consumes
+import scala.xml.NodeSeq
+import javax.xml.bind.annotation.XmlRootElement
+import java.io.InputStream
+import scala.xml.Node
+import javax.xml.bind.JAXBElement
+import scala.xml.XML
+import java.io.FileReader
+import akka.dispatch.Future
+  
+/*
+ * A simple child actor that manages a computation.
+ * Provides status information and will eventually be made remote.
+ * 
+ */
+
+class ComputeChild(algName: String, parent: ActorRef, algID: String, userID: String, collectionName: String, userArgs: List[String]) extends Actor {
+  
+  var status: AlgorithmRunStatus = Prestart(new Date, algID)
+  var results = AlgorithmResultSet(userID, algID)
+  val workingDir = AgentUtils.createWorkingDirectory
+  
+  val alg = new ExecutableAlgorithmTwo(		
+		  			userID,
+		  			algID,
+		  			workingDir,
+		  			algName,
+		  			collectionName,
+		  			userArgs: List[String])
+  
+  val selfRef = self
+  
+  // Can receive:
+  //   Run command
+  //   Status query
+  //   Result request
+  
+  def receive = {
+    
+    // run
+    case ExecuteAlgorithm =>
+      
+      spawn {
+      
+        selfRef ! Initializing(new Date, algID)
+        alg.initialize()
+        selfRef ! Running(new Date, algID, "workingDir")
+        val result = alg.run()
+        selfRef ! result
+        
+      }
+      
+    // alg finished
+    case msg @ Finished(_,_,_,res) => 
+      status = msg
+      results = res
+    
+    case msg @ Crashed(_,_,_,res) =>
+      status = msg
+      results = res
+      
+    // status update from child
+    case statusUpdate: AlgorithmRunStatus => status = statusUpdate
+    
+    // status request from parent
+    case PollAlgorithmRunStatus(_) => self reply status.toXML
+    
+    case StdoutResultRequest => AgentUtils.renderResultOutput(algID, results.getStdout)
+    case StderrResultRequest => AgentUtils.renderResultOutput(algID, results.getStderr)
+    case FileResultRequest => AgentUtils.renderResultOutput(algID, results.getFile)
+    
+
+      
+    case GetAlgorithmRunResult =>
+      	status match { 
+      	  case Finished(_,_,_,_) => self reply status.toXML
+      	  case Crashed(_,_,_,_) => self reply status.toXML
+      	  case _ => <error>Algorithm Not finished</error>
+      	}
+    
+    
+  }
+  
+  
+}
