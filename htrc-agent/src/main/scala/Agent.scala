@@ -139,7 +139,7 @@ class Agent(userID: String, x509: String, privKey: String) extends Actor with Lo
       computeChild.start()
       algorithmLocationMap += (algoID -> computeChild)
       asyncReply {
-    	  (computeChild ? PollAlgorithmRunStatus).as[xml.Elem].get
+    	  (computeChild ? PollAlgorithmRunStatus(algoID)).as[xml.Elem].get
       }
       
     }
