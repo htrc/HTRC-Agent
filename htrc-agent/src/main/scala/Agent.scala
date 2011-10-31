@@ -141,6 +141,7 @@ class Agent(userID: String, x509: String, privKey: String) extends Actor with Lo
       asyncReply {
     	  (computeChild ? PollAlgorithmRunStatus(algoID)).as[xml.Elem].get
       }
+      computeChild ! ExecuteAlgorithm
       
     }
     
