@@ -84,13 +84,21 @@ class ExecutableAlgorithmTwo(
   
   def run(): AlgorithmRunResultStatus = {
     
+	  println("About to start running process object")
+    
       val exitCode = sysprocess ! plogger
+      
+      println("Algorithm Finished running")
       
       val fileResults = AgentUtils.findFilesMatchingPattern(pattern="""out-.*txt""", dir=workingDir).map((f) => FileResult(userID, algID, workingDir, f.getName()))
       
       val algoResults = AlgorithmResultSet(userID, algID, (StdoutResult(userID, algID, out.toString) :: StderrResult(userID, algID, err.toString) :: fileResults) :_*)
       
+      println("Built results objects")
+      
       ourRegistry ! PostResultsToRegistry(userID, algID, algoResults.results.toList)
+      
+      println("Sent results to registry")
       
       if(exitCode == 0) {
           Finished(new Date, algID, workingDir, algoResults)

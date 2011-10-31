@@ -96,9 +96,9 @@ class ComputeChild(algName: String, parent: ActorRef, algID: String, userID: Str
     // status request from parent
     case PollAlgorithmRunStatus(_) => self reply status.toXML
     
-    case StdoutResultRequest => AgentUtils.renderResultOutput(algID, results.getStdout)
-    case StderrResultRequest => AgentUtils.renderResultOutput(algID, results.getStderr)
-    case FileResultRequest => AgentUtils.renderResultOutput(algID, results.getFile)
+    case StdoutResultRequest => self reply AgentUtils.renderResultOutput(algID, results.getStdout)
+    case StderrResultRequest => self reply AgentUtils.renderResultOutput(algID, results.getStderr)
+    case FileResultRequest => self reply AgentUtils.renderResultOutput(algID, results.getFile)
     
 
       
