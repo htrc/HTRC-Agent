@@ -86,7 +86,7 @@ class ExecutableAlgorithmTwo(
     
 	  println("About to start running process object")
     
-      val exitCode = sysprocess ! plogger
+      val exitCode: Int = sysprocess ! plogger
       
       println("Algorithm Finished running")
       
@@ -96,7 +96,7 @@ class ExecutableAlgorithmTwo(
       
       println("Built results objects")
       
-      ourRegistry ! PostResultsToRegistry(userID, algID, algoResults.results.toList)
+      ourRegistry ! PostResultsToRegistry(userID, algID, algoResults)
       
       println("Sent results to registry")
       

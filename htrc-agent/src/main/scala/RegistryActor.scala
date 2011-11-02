@@ -64,7 +64,7 @@ case object SolrURI
 
 case class PostResultsToRegistry(userURN:String, 
       algorithmID:String,
-      resultNameAndValueTuples:List[AlgorithmResult]) 
+      resultSet: AlgorithmResultSet) 
               // List[String] // list of registry resource paths
       
    
@@ -202,9 +202,9 @@ class RegistryActor extends Actor with Loggable {
     	volumeIDs.toList
       }
     
-    case msg @ PostResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) =>
+    case msg @ PostResultsToRegistry(userURN, algorithmID, resultSet) =>
       
-      ourReply(msg) { postResultsToRegistry(userURN, algorithmID, resultNameAndValueTuples) }
+      ourReply(msg) { postResults(userURN, algorithmID, resultSet) }
       
   }
   
@@ -455,6 +455,76 @@ class RegistryActor extends Actor with Loggable {
 	    } else 
 	    	None
   	}
+  
+  def postResults(userID: String, algID: String, res: AlgorithmResultSet): List[String] = {
+    
+    // convert userID to hex for the registry
+    val userIDasHex = encodeUserURNForRegistry(userID)
+    
+    val pathList = for ((label, resultString) <- res.postableResults) yield {
+      
+      val resourcePath = registryResultPathPrefix + "/" + userIDasHex + "/" + algID + "/" +  label
+      
+      val metadataToPost = "<result><userURN>"+userID+"</userURN></results>"
+      
+      val resultPath = registryClient.postResourse(resourcePath, resultString, metadataToPost)
+      
+      resultPath
+      
+    }
+    
+    pathList.toList
+    
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   

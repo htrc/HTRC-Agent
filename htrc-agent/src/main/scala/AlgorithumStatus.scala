@@ -2,6 +2,7 @@
 
 package htrcagent
 
+import scala.io.Source
 import akka.actor.Actor
 import akka.actor.Actor._
 import javax.ws.rs.{GET, Path, Produces}
@@ -126,6 +127,8 @@ abstract class AlgorithmResult(agentID: String, algID: String) {
   
   def toXML: scala.xml.Elem
   
+  def postable: (String, String)
+  
 }
 
 case class StderrResult(agentID: String, algID: String, stderrString:String) extends AlgorithmResult(agentID, algID) {
@@ -137,6 +140,8 @@ case class StderrResult(agentID: String, algID: String, stderrString:String) ext
 	</consoleStderr>
 	
   }
+  
+  def postable: (String, String) = ("stderr", stderrString)
   
 }
 
@@ -150,6 +155,8 @@ case class StdoutResult(agentID: String, algID: String, stdoutString: String) ex
 	
   }
   
+  def postable: (String, String) = ("stdout", stdoutString)
+  
 }
 
 case class FileResult(agentID: String, algID: String, workingDir: String, fileName: String) extends AlgorithmResult(agentID, algID) {
@@ -160,6 +167,13 @@ case class FileResult(agentID: String, algID: String, workingDir: String, fileNa
 		<href>{hrefPrefix + "file/" + fileName}</href>
 	</file>
 	
+  }
+  
+  def postable: (String, String) = {
+    
+    val fileString = Source.fromFile(fileName).toString
+    ("file/" + fileName, fileString)
+    
   }
   
 }
@@ -178,6 +192,10 @@ case class AlgorithmResultSet(agentID: String, algID: String, results: Algorithm
   def getStderr = (results find (m => m match {case m: StderrResult => true; case _ => false} )).get
   def getFile = (results find (m => m match {case m: FileResult => true; case _ => false} )).get
 
+  def postableResults = results map { _.postable }
+  
+  // THIS IS CHEATING IT DOESN'T ACTUALLY WORK / SHOULD NOT BE USED!!!!!!
+  def postable = results.head.postable
   
 }
 
