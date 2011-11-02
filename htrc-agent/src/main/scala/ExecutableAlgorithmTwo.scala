@@ -56,8 +56,8 @@ class ExecutableAlgorithmTwo(
   val err = new StringBuilder
   
   val plogger = ProcessLogger(
-      (o: String) => out.append(o),
-      (e: String) => err.append(e))
+      (o: String) => out.append(o + "\n"),
+      (e: String) => err.append(e + "\n"))
   
   var sysprocess: scala.sys.process.ProcessBuilder = null
       
@@ -84,22 +84,14 @@ class ExecutableAlgorithmTwo(
   
   def run(): AlgorithmRunResultStatus = {
     
-	  println("About to start running process object")
-    
       val exitCode: Int = sysprocess ! plogger
-      
-      println("Algorithm Finished running")
-      
+     
       val fileResults = AgentUtils.findFilesMatchingPattern(pattern="""out-.*txt""", dir=workingDir).map((f) => FileResult(userID, algID, workingDir, f.getName()))
       
       val algoResults = AlgorithmResultSet(userID, algID, (StdoutResult(userID, algID, out.toString) :: StderrResult(userID, algID, err.toString) :: fileResults) :_*)
       
-      println("Built results objects")
-      
       ourRegistry ! PostResultsToRegistry(userID, algID, algoResults)
-      
-      println("Sent results to registry")
-      
+         
       if(exitCode == 0) {
           Finished(new Date, algID, workingDir, algoResults)
       } else {

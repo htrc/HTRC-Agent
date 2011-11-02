@@ -204,7 +204,7 @@ class RegistryActor extends Actor with Loggable {
     
     case msg @ PostResultsToRegistry(userURN, algorithmID, resultSet) =>
       
-      ourReply(msg) { postResults(userURN, algorithmID, resultSet) }
+      spawn { postResults(userURN, algorithmID, resultSet) }
       
   }
   
