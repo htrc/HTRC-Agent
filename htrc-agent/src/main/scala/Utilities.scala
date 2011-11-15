@@ -197,7 +197,8 @@ object AgentUtils  {
     
     val HardcodedArguments:HashMap[String,String] = new HashMap
     HardcodedArguments += "clusterName" -> "Test Cluster"
-    HardcodedArguments += "keyspaceName" -> "HTRCCorpus"
+    //HardcodedArguments += "keyspaceName" -> "HTRCCorpus"
+    HardcodedArguments += "keyspaceName" -> "Yimdata"	
 
     for (keyVal <- HardcodedArguments) props.put(keyVal._1,
         AgentUtils.fixEscaped(keyVal._2))
