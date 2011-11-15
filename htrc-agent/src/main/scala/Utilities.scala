@@ -196,7 +196,8 @@ object AgentUtils  {
     
     
     val HardcodedArguments:HashMap[String,String] = new HashMap
-    HardcodedArguments += "clusterName" -> "Test Cluster"
+    //HardcodedArguments += "clusterName" -> "Test Cluster"
+    HardcodedArguments += "clusterName" -> "Yiming Coffeetree Cluster"
     //HardcodedArguments += "keyspaceName" -> "HTRCCorpus"
     HardcodedArguments += "keyspaceName" -> "Yimdata"	
 
