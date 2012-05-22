@@ -1,1 +1,0 @@
-There were conflicting SLF4J implementations.  One came from the registryclient originially being packaged with  opensaml2-2.0.0.alpha1-wso2v1.jar.  If you see this jar in lib_unmanaged/registry_libs/*, you should be able to safely remove it.
