@@ -1,4 +1,4 @@
-This is a fresh repo for the hathitrust research center agent code. Created to replace the old git repo because using version control wrong is my favorite thing.
+This was the agent repository from IU github. Now in the d2i svn.
 
 There are two main projects. Both are currently set up as independent sbt projects as I do not yet want to deal with mixing the two. 
 
