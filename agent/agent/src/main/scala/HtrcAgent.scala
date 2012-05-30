@@ -47,11 +47,17 @@ class HtrcAgent(credentials: HtrcCredentials) extends Actor {
       } 
 
     case msg @ RunAlgorithm(algName, colName, args) => 
+
+      // node allocation disabled for single machine use
+
       val algId = newAlgId
-      val nodeAllocator = system.actorFor("user/nodeAllocator")
+      // val nodeAllocator = system.actorFor("user/nodeAllocator")
       val dest = sender
    
-      val child = (nodeAllocator ? ChildRequest(msg, algId)).mapTo[ActorRef]
+      // val child = (nodeAllocator ? ChildRequest(msg, algId)).mapTo[ActorRef]
+
+      val c = system.actorOf(Props(new ComputeChild(msg, algId)))
+      val child = Future(c)
       algorithms += (algId -> child)
  
       child.map { child =>
@@ -59,6 +65,9 @@ class HtrcAgent(credentials: HtrcCredentials) extends Actor {
           status.renderXml
         } pipeTo dest
       }
+      
+      
+  
 
     case msg @ AlgStdout(algId) =>
        val dest = sender
@@ -84,7 +93,7 @@ class HtrcAgent(credentials: HtrcCredentials) extends Actor {
     case AlgFile(algId, filename) =>
       sender ! <algFile>{filename}</algFile>
 
-    case ListAgentAlgorithms =>
+/*    case ListAgentAlgorithms =>
       val dest = sender
       val f:List[Future[AlgorithmStatus]] = algorithms.toList map { case (id,ref) =>
                   val res = ref.map(_ ? PollAlg(id)).mapTo[AlgorithmStatus] 
@@ -98,9 +107,8 @@ class HtrcAgent(credentials: HtrcCredentials) extends Actor {
          {for (a <- li) yield {a.renderXml}}
         </algorithms>
       } pipeTo dest
-
+*/
   }
-
   // a means to create unique algorithm ids
   var count = 0
   def newAlgId: String = {

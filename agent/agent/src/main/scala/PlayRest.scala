@@ -31,20 +31,22 @@ object PlayRest extends Application {
   // this is the base path for agents
   private val pbase = "akka://htrc/user/"
 
+  // the initialization for multiple machines has been disabled
+
   // the actor system
-  private val system = ActorSystem("htrc", ConfigFactory.load.getConfig("htrchead"))
+  private val system = ActorSystem("htrc", ConfigFactory.load.getConfig("htrcsingle"))
 
   // create a worker node on another jvm
-  val nodeAllocator = system.actorOf(Props[NodeAllocator], "nodeAllocator")
+  // val nodeAllocator = system.actorOf(Props[NodeAllocator], "nodeAllocator")
 
   // test it a bit!
-  for(i <- 1 to 20) yield { ping }
-  def ping = {
-    val reply = (nodeAllocator ? "hello other jvm")
-    reply.mapTo[String].map { r =>
-      println(r)
-    }
-  }
+  // for(i <- 1 to 20) yield { ping }
+  // def ping = {
+  //   val reply = (nodeAllocator ? "hello other jvm")
+  //   reply.mapTo[String].map { r =>
+  //     println(r)
+  //   }
+  // }
 
   // create an actor proxy of the registry
   private val registryActor = system.actorOf(Props[RegistryActor], name = "registryActor")
@@ -185,7 +187,7 @@ object PlayRest extends Application {
 
 }
 
-case class Po(str: String, num: Int)
+// case class Po(str: String, num: Int)
 
 // curl syntax for testing the service:
 // curl -d "str=factorial5is" -d "num=120" localhost:9000/agent/120/posted
