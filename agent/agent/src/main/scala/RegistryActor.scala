@@ -19,6 +19,8 @@ import org.apache.axis2.context.ConfigurationContextFactory
 import org.wso2.carbon.registry.core.{ Registry, Comment, Resource }
 import org.wso2.carbon.registry.ws.client.registry.WSRegistryServiceClient
 
+import scala.xml._
+
 class RegistryActor extends Actor with Wso2Registry {
 
   implicit val timeout:Timeout = Timeout(5 seconds)
@@ -31,7 +33,7 @@ class RegistryActor extends Actor with Wso2Registry {
 
     case ListAvailibleAlgorithms =>
       restartRegistry
-      testRegistry
+      testRegTwo
       sender ! "factorial" :: Nil
 
     case ListAvailibleCollections =>
@@ -44,6 +46,14 @@ class RegistryActor extends Actor with Wso2Registry {
     case GetAlgorithmData(colName, workingDir) =>
       //need to do something real
       sender ! true
+
+  }
+
+  def testRegTwo = {
+
+    //val algs = new AlgorithmList("htrc/agent/algorithm_lists/testing")
+    //println(algs.algorithms)
+    putFile("/htrc/agent/algorithms/factorial.sh", "agent_working_directory/factorial.sh")
 
   }
 
@@ -84,7 +94,7 @@ trait Wso2Registry {
     
     val username = "admin"
     val password = "BillionsOfPages11"
-    val serverUrl = "https://smoketree.cs.indiana.edu:9443/services/"
+    val serverUrl = "https://coffeetree.cs.indiana.edu:9445/services/"
 
     new WSRegistryServiceClient(serverUrl, username, password, configContext)
 
@@ -94,6 +104,83 @@ trait Wso2Registry {
 
   def restartRegistry = {
     registry = initialize
+  }
+
+  def getXmlResource(path: String): NodeSeq = {
+    val got = registry.get(path)
+    got.getContent
+    val is = got.getContentStream
+    XML.load(is)
+  }
+
+  def getBinaryResource(path: String): Array[Byte] = {
+    val got = registry.get(path)
+    got.getContent.asInstanceOf[Array[Byte]]
+  }
+
+  def binaryToFile(bytes: Array[Byte], writePath: String) {
+    val out = new java.io.FileOutputStream(writePath)
+    out.write(bytes)
+    out.close()
+  }
+
+  def makeDir(path: String): String = {
+    if (registry.resourceExists(path))
+      path
+    else {
+      val collection = registry.newCollection
+      registry.put(path, collection) 
+    }
+  }
+
+  def putResource(path: String, res: Resource): String = {
+    registry.put(path, res)
+  }
+
+  def putFile(destPath: String, filePath: String): String = {
+    putResource(destPath, BinaryResource(new java.io.FileInputStream(filePath)))
+  }
+
+  object BinaryResource {
+    def apply(is: java.io.InputStream): Resource = {
+      val res = registry.newResource
+      res.setContentStream(is)
+      res
+    }
+  }
+
+  object TextResource {
+    def apply(str: String): Resource = {
+      val res = registry.newResource
+      res.setContent(str)
+      res
+    }
+  }
+
+  object XmlResource {
+    def apply(xml: Elem): Resource = {
+      val res = registry.newResource
+      res.setContent(xml.toString)
+      res
+    }
+  }
+
+  // represent an algorithm list xml file stored in registry
+  // to start a simple list of algorithms
+  class AlgorithmList(path: String) {
+
+    def in = getXmlResource(path)
+    def algorithms:List[RegAlg] = 
+      ((in \\ "name" map {_.text}) zip (in \\ "path" map {_.text})).toList.map { alg => RegAlg(alg._1, alg._2) }
+
+    def addAlgorithm(name: String, path: String): String = {
+      putResource(path, XmlResource( <algorithms>{for(a <- (RegAlg(name, path) :: algorithms)) yield a.toXml}</algorithms>))
+    }
+
+  }
+
+  case class RegAlg(name: String, path: String) {
+    def toXml: Elem = <algorithm><name>{name}</name><path>{path}</path></algorithm>
   }
 
 }
