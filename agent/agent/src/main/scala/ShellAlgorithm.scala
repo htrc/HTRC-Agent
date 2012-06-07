@@ -21,7 +21,8 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
   val workingDir = {
     val rootDir = "agent_working_directory"
-    (new File(rootDir + File.separator + algId)).mkdir().toString
+    (new File(rootDir + File.separator + algId)).mkdir()
+    rootDir + "/" + algId
   }
 
   val out = new StringBuilder
@@ -36,10 +37,10 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
   val algReady = (registry ? GetAlgorithmExecutable(task.algName, workingDir))
   val dataReady = (registry ? GetAlgorithmData(task.colName, workingDir))
 
-  val sf = actorFor("/user/solrActor") ? SolrQuery(("q","ocr:war")::Nil)
-  sf.mapTo[scala.xml.Elem].map { elem =>
-    println(elem.toString.take(120))
-                              }
+  //val sf = actorFor("/user/solrActor") ? SolrQuery(("q","ocr:war")::Nil)
+  //sf.mapTo[scala.xml.Elem].map { elem =>
+  //  println(elem.toString.take(120))
+  //                            }
     
   val f = for {
     command <- algReady.mapTo[String]
@@ -48,10 +49,13 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
   f.mapTo[String].map { command =>
 
-    println(command)
     parent ! WorkerUpdate(Running(new Date, algId))
 
-    sysProcess = scala.sys.process.Process(command, new File("agent_working_directory" + File.separator + algId))
+    val makeExecutable = scala.sys.process.Process("chmod +x " + command, new File("agent_working_directory" + File.separator + algId))
+
+    makeExecutable.run
+
+    sysProcess = scala.sys.process.Process("sh " + command, new File("agent_working_directory" + File.separator + algId))
 
     val exitCode: Int = sysProcess ! plogger
 

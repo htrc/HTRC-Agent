@@ -42,9 +42,16 @@ class RegistryActor extends Actor with Wso2Registry {
     case ListAvailibleCollections =>
       sender ! cols.names
 
+    // this returns the string form of the command to run
     case GetAlgorithmExecutable(algName, workingDir) =>
-      // need to do something real
-      sender ! "echo 120"
+//      println(algName)
+//      println(workingDir)
+      val path = algs.getPath(algName)
+      val executable = getBinaryResource(path)
+//      println(executable)
+      binaryToFile(executable, workingDir+"/"+algName)
+      sender ! algName
+      //sender ! "echo 120"
 
     case GetAlgorithmData(colName, workingDir) =>
       //need to do something real
@@ -207,6 +214,14 @@ trait Wso2Registry {
 
     def names: List[String] =
       algorithms map {_.name}
+
+    def getPath(name: String): String = {
+      val op = algorithms find { a:RegAlg => a.name == name }
+      op match {
+        case Some(alg) => alg.path
+        case None => "ALG_NOT_FOUND"
+      }
+    }
 
   }
 
