@@ -29,15 +29,18 @@ class RegistryActor extends Actor with Wso2Registry {
 
   restartRegistry
 
+  val algs = new AlgorithmList("htrc/agent/algorithm_lists/debug_1")
+  val cols = new CollectionList("htrc/agent/collection_lists/debug_1")
+
   def receive = {
 
     case ListAvailibleAlgorithms =>
-      restartRegistry
-      testRegTwo
-      sender ! "factorial" :: Nil
+      //restartRegistry
+      //testRegTwo
+      sender ! algs.names
 
     case ListAvailibleCollections =>
-      sender ! "5" :: Nil
+      sender ! cols.names
 
     case GetAlgorithmExecutable(algName, workingDir) =>
       // need to do something real
@@ -51,9 +54,19 @@ class RegistryActor extends Actor with Wso2Registry {
 
   def testRegTwo = {
 
-    //val algs = new AlgorithmList("htrc/agent/algorithm_lists/testing")
-    //println(algs.algorithms)
-    putFile("/htrc/agent/algorithms/factorial.sh", "agent_working_directory/factorial.sh")
+    val algs = new AlgorithmList("htrc/agent/algorithm_lists/debug_1")
+    println(algs.algorithms)
+
+//    val c = registry.get("htrc/agent/collection_lists/testing")
+//     val cols = c.getContent
+//    println(cols)
+    
+    val cols = new CollectionList("htrc/agent/collection_lists/debug_1")
+    println(cols.collections)
+
+    //putFile("/htrc/agent/algorithms/factorial.sh", "agent_working_directory/factorial.sh")
+
+    
 
   }
 
@@ -165,6 +178,21 @@ trait Wso2Registry {
     }
   }
 
+  // collection list
+  class CollectionList(path: String) {
+    
+    def in = getXmlResource(path)
+    def collections: List[RegCol] = 
+      ((in \\ "name" map {_.text}) zip (in \\ "path" map {_.text})).toList.map {
+        col => RegCol(col._1, col._2)}
+
+    def names: List[String] = 
+      collections map {_.name}
+
+  }
+
+  case class RegCol(name: String, path: String)
+
   // represent an algorithm list xml file stored in registry
   // to start a simple list of algorithms
   class AlgorithmList(path: String) {
@@ -176,6 +204,9 @@ trait Wso2Registry {
     def addAlgorithm(name: String, path: String): String = {
       putResource(path, XmlResource( <algorithms>{for(a <- (RegAlg(name, path) :: algorithms)) yield a.toXml}</algorithms>))
     }
+
+    def names: List[String] =
+      algorithms map {_.name}
 
   }
 
