@@ -25,7 +25,7 @@ class PlaySpec extends WordSpec with MustMatchers with ShouldMatchers {
     "provide availible collections" in {
       listAvailibleCollections("test-user") should be ===
         <collections>
-          <collection>5</collection>
+          <collection>numbers</collection>
         </collections>
 	}
 
@@ -39,7 +39,7 @@ class PlaySpec extends WordSpec with MustMatchers with ShouldMatchers {
     }
 
     "provide algorithm stdout" in {
-      Thread.sleep(500)
+      Thread.sleep(2000)
       algStdout("test-user", "algId_1_test-user") should be ===
         <algorithm>
           <id>algId_1_test-user</id>
