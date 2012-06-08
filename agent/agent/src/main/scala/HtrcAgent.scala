@@ -93,21 +93,17 @@ class HtrcAgent(credentials: HtrcCredentials) extends Actor {
     case AlgFile(algId, filename) =>
       sender ! <algFile>{filename}</algFile>
 
-/*    case ListAgentAlgorithms =>
+    case ListAgentAlgorithms =>
       val dest = sender
-      val f:List[Future[AlgorithmStatus]] = algorithms.toList map { case (id,ref) =>
-                  val res = ref.map(_ ? PollAlg(id)).mapTo[AlgorithmStatus] 
-                                                                   println("post f generation")
-                                                                   res
-}
-    
-      Future.sequence[AlgorithmStatus,List](f).mapTo[List[AlgorithmStatus]] map { li =>
-        println("made it to xml generation")
+      val stati:List[Future[AlgorithmStatus]] = algorithms.toList.map { case (id,aref) =>
+        (aref flatMap { a => (a ? PollAlg(id)).mapTo[AlgorithmStatus] } )}
+
+      Future.sequence[AlgorithmStatus,List](stati) map { li =>
         <algorithms>
-         {for (a <- li) yield {a.renderXml}}
+          {for (s <- li) yield {s.renderXml}}
         </algorithms>
       } pipeTo dest
-*/
+
   }
   // a means to create unique algorithm ids
   var count = 0
