@@ -35,15 +35,18 @@ class PlaySpec extends WordSpec with MustMatchers with ShouldMatchers {
     }
 
     "list an agent's algorithms" in {
-      pending
+      Thread.sleep(3000)
+      val res = listAgentAlgorithms("test-user")
+      (res \\ "status" text) should be === "Finished"
+
     }
 
     "provide algorithm stdout" in {
-      Thread.sleep(2000)
+//      Thread.sleep(2000)
       algStdout("test-user", "algId_1_test-user") should be ===
         <algorithm>
           <id>algId_1_test-user</id>
-          <stdout>{Text("120\n")}</stdout>
+          <stdout>120</stdout>
         </algorithm>
     }
 
