@@ -37,11 +37,6 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
   val algReady = (registry ? GetAlgorithmExecutable(task.algName, workingDir))
   val dataReady = (registry ? GetAlgorithmData(task.colName, workingDir))
 
-  //val sf = actorFor("/user/solrActor") ? SolrQuery(("q","ocr:war")::Nil)
-  //sf.mapTo[scala.xml.Elem].map { elem =>
-  //  println(elem.toString.take(120))
-  //                            }
-    
   val f = for {
     command <- algReady.mapTo[String]
     b <- dataReady.mapTo[Boolean]
@@ -55,7 +50,7 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
     makeExecutable.run
 
-    sysProcess = scala.sys.process.Process("sh " + command, new File("agent_working_directory" + File.separator + algId))
+    sysProcess = scala.sys.process.Process(command, new File("agent_working_directory" + File.separator + algId))
 
     val exitCode: Int = sysProcess ! plogger
 
