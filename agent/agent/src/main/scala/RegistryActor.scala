@@ -23,76 +23,44 @@ import scala.xml._
 
 class RegistryActor extends Actor with Wso2Registry {
 
-  implicit val timeout:Timeout = Timeout(5 seconds)
+  implicit val timeout:Timeout = Timeout(10 seconds)
 
   import context._
 
   restartRegistry
 
-  val algs = new AlgorithmList("htrc/agent/algorithm_lists/debug_1")
-  val cols = new CollectionList("htrc/agent/collection_lists/debug_1")
+  // for now we hardcode the algorithm and collection list to use
+
+  val rawAlgorithmList = getXmlResource("htrc/agent/algorithm_lists/debug_2")
+  val algorithms = ((rawAlgorithmList \ "algorithm") map (a => AlgorithmInfo(a))).toList
+  println(algorithms)
+  println(algorithms map (a => a.name))
+
+  val rawCollectionList = getXmlResource("htrc/agent/collection_lists/debug_1")
+  val collections = ((rawCollectionList \ "collection") map (c => CollectionInfo(c))).toList
+  println(collections)
 
   def receive = {
 
+    case FetchAlgorithmInfo(name, list) =>
+      val li = getXmlResource(list)
+      sender ! AlgorithmInfo((li \ name).head)
+
     case ListAvailibleAlgorithms =>
-      //restartRegistry
-      //testRegTwo
-      sender ! algs.names
+      sender ! algorithms.map(_.name)
 
     case ListAvailibleCollections =>
-      sender ! cols.names
+      sender ! collections.map(_.name)
 
     // this returns the string form of the command to run
     case GetAlgorithmExecutable(algName, workingDir) =>
-//      println(algName)
-//      println(workingDir)
-      val path = algs.getPath(algName)
+      val path = (algorithms find (_.name == algName)).get.path
       val executable = getBinaryResource(path)
-//      println(executable)
       binaryToFile(executable, workingDir+"/"+algName)
       sender ! algName
-      //sender ! "echo 120"
 
     case GetAlgorithmData(colName, workingDir) =>
-      //need to do something real
       sender ! true
-
-  }
-
-  def testRegTwo = {
-
-    val algs = new AlgorithmList("htrc/agent/algorithm_lists/debug_1")
-    println(algs.algorithms)
-
-//    val c = registry.get("htrc/agent/collection_lists/testing")
-//     val cols = c.getContent
-//    println(cols)
-    
-    val cols = new CollectionList("htrc/agent/collection_lists/debug_1")
-    println(cols.collections)
-
-    //putFile("/htrc/agent/algorithms/factorial.sh", "agent_working_directory/factorial.sh")
-
-    
-
-  }
-
-  def testRegistry = {
-
-    restartRegistry
-    
-    val resource = registry.newResource
-    resource.setContent("Hello, htrc")
-    registry.put("/testing", resource)
-    println("Resource added to /testing!")
-    
-    val comment = new Comment()
-    comment.setText("did I really have to call settext instead of pass an argument?")
-    registry.addComment("/testing", comment)
-    println("comment added to resource!")
-
-    val got = registry.get("/testing")
-    println("The resource is: " + resource.getContent)
 
   }
 
@@ -183,50 +151,6 @@ trait Wso2Registry {
       res.setContent(xml.toString)
       res
     }
-  }
-
-  // collection list
-  class CollectionList(path: String) {
-    
-    def in = getXmlResource(path)
-    def collections: List[RegCol] = 
-      ((in \\ "name" map {_.text}) zip (in \\ "path" map {_.text})).toList.map {
-        col => RegCol(col._1, col._2)}
-
-    def names: List[String] = 
-      collections map {_.name}
-
-  }
-
-  case class RegCol(name: String, path: String)
-
-  // represent an algorithm list xml file stored in registry
-  // to start a simple list of algorithms
-  class AlgorithmList(path: String) {
-
-    def in = getXmlResource(path)
-    def algorithms:List[RegAlg] = 
-      ((in \\ "name" map {_.text}) zip (in \\ "path" map {_.text})).toList.map { alg => RegAlg(alg._1, alg._2) }
-
-    def addAlgorithm(name: String, path: String): String = {
-      putResource(path, XmlResource( <algorithms>{for(a <- (RegAlg(name, path) :: algorithms)) yield a.toXml}</algorithms>))
-    }
-
-    def names: List[String] =
-      algorithms map {_.name}
-
-    def getPath(name: String): String = {
-      val op = algorithms find { a:RegAlg => a.name == name }
-      op match {
-        case Some(alg) => alg.path
-        case None => "ALG_NOT_FOUND"
-      }
-    }
-
-  }
-
-  case class RegAlg(name: String, path: String) {
-    def toXml: Elem = <algorithm><name>{name}</name><path>{path}</path></algorithm>
   }
 
 }
