@@ -19,6 +19,8 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
   import context._
 
+  val algInfo = (registry ? GetAlgorithmInfo(task.algName))
+
   val workingDir = {
     val rootDir = "agent_working_directory"
     (new File(rootDir + File.separator + algId)).mkdir()
@@ -38,15 +40,21 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
   val dataReady = (registry ? GetAlgorithmData(task.colName, workingDir))
 
   val f = for {
-    command <- algReady.mapTo[String]
+    a <- algReady.mapTo[Boolean]
     b <- dataReady.mapTo[Boolean]
-  } yield command
+    info <- algInfo.mapTo[AlgorithmInfo]
+  } yield info
 
-  f.mapTo[String].map { command =>
+  f.mapTo[AlgorithmInfo].map { info =>
+
+    val unformatedCommand = info.command
+    val executable = info.executable
+    
+    val command = unformatedCommand.format(executable)
 
     parent ! WorkerUpdate(Running(new Date, algId))
 
-    val makeExecutable = scala.sys.process.Process("chmod +x " + command, new File("agent_working_directory" + File.separator + algId))
+    val makeExecutable = scala.sys.process.Process("chmod +x " + executable, new File("agent_working_directory" + File.separator + algId))
 
     makeExecutable.run
 

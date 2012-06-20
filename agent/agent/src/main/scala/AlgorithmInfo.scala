@@ -57,6 +57,7 @@ case class AlgorithmInfo(raw: scala.xml.Node) {
   val name = (raw \ "name") text
   val path = (raw \ "path") text
   val command = (raw \ "command") text
+  val executable = (raw \ "executable") text
   val properties = makeMap(raw \ "properties")
   val dependencies = makeMap(raw \ "dependencies")
 

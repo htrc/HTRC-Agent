@@ -31,20 +31,20 @@ class RegistryActor extends Actor with Wso2Registry {
 
   // for now we hardcode the algorithm and collection list to use
 
-  val rawAlgorithmList = getXmlResource("htrc/agent/algorithm_lists/debug_2")
+  val rawAlgorithmList = getXmlResource("htrc/agent/algorithm_lists/debug_3")
   val algorithms = ((rawAlgorithmList \ "algorithm") map (a => AlgorithmInfo(a))).toList
-  println(algorithms)
-  println(algorithms map (a => a.name))
+  //println(algorithms)
+  //println(algorithms map (a => a.name))
 
   val rawCollectionList = getXmlResource("htrc/agent/collection_lists/debug_1")
   val collections = ((rawCollectionList \ "collection") map (c => CollectionInfo(c))).toList
-  println(collections)
+  //println(collections)
 
   def receive = {
 
-    case FetchAlgorithmInfo(name, list) =>
-      val li = getXmlResource(list)
-      sender ! AlgorithmInfo((li \ name).head)
+    case GetAlgorithmInfo(name) =>
+      
+      sender ! (algorithms find (_.name == name)).get
 
     case ListAvailibleAlgorithms =>
       sender ! algorithms.map(_.name)
@@ -54,10 +54,10 @@ class RegistryActor extends Actor with Wso2Registry {
 
     // this returns the string form of the command to run
     case GetAlgorithmExecutable(algName, workingDir) =>
-      val path = (algorithms find (_.name == algName)).get.path
-      val executable = getBinaryResource(path)
-      binaryToFile(executable, workingDir+"/"+algName)
-      sender ! algName
+      val info = (algorithms find (_.name == algName)).get
+      val executable = getBinaryResource(info.path)
+      binaryToFile(executable, workingDir+"/"+info.executable)
+      sender ! true
 
     case GetAlgorithmData(colName, workingDir) =>
       sender ! true
