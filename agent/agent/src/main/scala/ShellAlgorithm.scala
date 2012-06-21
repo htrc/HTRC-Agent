@@ -38,10 +38,12 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
   val algReady = (registry ? GetAlgorithmExecutable(task.algName, workingDir))
   val dataReady = (registry ? GetAlgorithmData(task.colName, workingDir))
+  val depsReady = (registry ? WriteDependencies(task.algName, workingDir))
 
   val f = for {
     a <- algReady.mapTo[Boolean]
     b <- dataReady.mapTo[Boolean]
+    c <- depsReady.mapTo[Boolean]
     info <- algInfo.mapTo[AlgorithmInfo]
   } yield info
 
@@ -49,7 +51,9 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
     val unformatedCommand = info.command
     val executable = info.executable
-    
+
+    info.writeProperties(workingDir)
+
     val command = unformatedCommand.format(executable)
 
     parent ! WorkerUpdate(Running(new Date, algId))

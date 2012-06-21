@@ -60,9 +60,25 @@ case class AlgorithmInfo(raw: scala.xml.Node) {
   val executable = (raw \ "executable") text
   val properties = makeMap(raw \ "properties")
   val dependencies = makeMap(raw \ "dependencies")
+  lazy val prop_filename = (raw \ "properties" \ "name").head.text
 
   def makeMap(xs: NodeSeq) = ((xs \ "e") map (n => (n.attributes.value.text, n.text))).toMap
 
+  import java.io._
+
+  def writeProperties(workingDir: String) {
+    printToFile(new File(workingDir+"/"+prop_filename))(p => {
+      properties.foreach( _ match { case (k,v) => p.println(k + "=" + v) })
+    })
+  }
+
+  import java.io.File
+  import java.io.PrintWriter
+
+  def printToFile(f: File)(op: PrintWriter => Unit) {
+    val p = new java.io.PrintWriter(f)
+    try { op(p) } finally { p.close() }
+  }
 }
 
 // some sample algorithm info xml

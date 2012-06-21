@@ -31,7 +31,7 @@ class RegistryActor extends Actor with Wso2Registry {
 
   // for now we hardcode the algorithm and collection list to use
 
-  val rawAlgorithmList = getXmlResource("htrc/agent/algorithm_lists/debug_3")
+  val rawAlgorithmList = getXmlResource("htrc/agent/algorithm_lists/debug_9")
   val algorithms = ((rawAlgorithmList \ "algorithm") map (a => AlgorithmInfo(a))).toList
   //println(algorithms)
   //println(algorithms map (a => a.name))
@@ -60,6 +60,11 @@ class RegistryActor extends Actor with Wso2Registry {
       sender ! true
 
     case GetAlgorithmData(colName, workingDir) =>
+      sender ! true
+
+    case WriteDependencies(alg, workingDir) =>
+      val dependencies = (algorithms find (_.name == alg)).get.dependencies
+      dependencies map (_ match { case (k,v) => binaryToFile(getBinaryResource(v), workingDir+"/"+k) })
       sender ! true
 
   }

@@ -19,6 +19,7 @@ case class HtrcCredentials(x509: String, privateKey: String)
 case class GetAlgorithmData(colName: String, workingDir: String)
 case class GetAlgorithmExecutable(algName: String, workingDir: String)
 case class GetAlgorithmInfo(algName: String) 
+case class WriteDependencies(alg: String, workingDir: String)
 
 case class WorkerUpdate(status: AlgorithmStatus)
 
