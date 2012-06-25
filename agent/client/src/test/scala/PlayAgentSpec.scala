@@ -16,17 +16,13 @@ class PlaySpec extends WordSpec with MustMatchers with ShouldMatchers {
     }
       
     "provide availible algorithms" in {
-      listAvailibleAlgorithms("test-user") should be ===
-        <availibleAlgorithms>
-          <algorithm>factorial</algorithm>
-        </availibleAlgorithms>
+      (listAvailibleAlgorithms("test-user") \ "algorithm").map(_.text) should be ===
+        List("factorial", "data_api_test")
     }
 
     "provide availible collections" in {
-      listAvailibleCollections("test-user") should be ===
-        <collections>
-          <collection>numbers</collection>
-        </collections>
+      (listAvailibleCollections("test-user") \ "collection").map(_.text) should be ===
+        List("numbers")
 	}
 
     "successfully run algorithms" in {
@@ -42,12 +38,7 @@ class PlaySpec extends WordSpec with MustMatchers with ShouldMatchers {
     }
 
     "provide algorithm stdout" in {
-//      Thread.sleep(2000)
-      algStdout("test-user", "algId_1_test-user") should be ===
-        <algorithm>
-          <id>algId_1_test-user</id>
-          <stdout>120</stdout>
-        </algorithm>
+      (algStdout("test-user", "algId_1_test-user").head \ "stdout").text should be === "120\n"
     }
 
     "provide algorithm stderr" in {
