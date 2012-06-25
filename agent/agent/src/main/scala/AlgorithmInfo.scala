@@ -67,9 +67,13 @@ case class AlgorithmInfo(raw: scala.xml.Node) {
   import java.io._
 
   def writeProperties(workingDir: String) {
-    printToFile(new File(workingDir+"/"+prop_filename))(p => {
-      properties.foreach( _ match { case (k,v) => p.println(k + "=" + v) })
-    })
+    
+    if(properties.empty == false) {
+      printToFile(new File(workingDir+"/"+prop_filename))(p => {
+        properties.foreach( _ match { case (k,v) => p.println(k + "=" + v) })
+      })
+    }
+
   }
 
   import java.io.File

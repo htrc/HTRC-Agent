@@ -49,12 +49,19 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
 
   f.mapTo[AlgorithmInfo].map { info =>
 
+//    println("reached info")
+
     val unformatedCommand = info.command
     val executable = info.executable
+
+//    println(unformatedCommand)
+//    println(executable)
 
     info.writeProperties(workingDir)
 
     val command = unformatedCommand.format(executable)
+
+//    println(command)
 
     parent ! WorkerUpdate(Running(new Date, algId))
 

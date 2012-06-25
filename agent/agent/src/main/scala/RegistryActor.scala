@@ -13,6 +13,7 @@ import akka.dispatch.Await
 import akka.pattern.ask
 import akka.util.duration._
 import akka.util.Timeout
+import akka.pattern.pipe
 
 import org.apache.axis2.context.ConfigurationContext
 import org.apache.axis2.context.ConfigurationContextFactory
@@ -53,19 +54,22 @@ class RegistryActor extends Actor with Wso2Registry {
       sender ! collections.map(_.name)
 
     // this returns the string form of the command to run
-    case GetAlgorithmExecutable(algName, workingDir) =>
+    case GetAlgorithmExecutable(algName, workingDir) => Future {
       val info = (algorithms find (_.name == algName)).get
       val executable = getBinaryResource(info.path)
       binaryToFile(executable, workingDir+"/"+info.executable)
-      sender ! true
+      true
+    } pipeTo sender
 
     case GetAlgorithmData(colName, workingDir) =>
       sender ! true
 
-    case WriteDependencies(alg, workingDir) =>
+    case WriteDependencies(alg, workingDir) => Future {
       val dependencies = (algorithms find (_.name == alg)).get.dependencies
       dependencies map (_ match { case (k,v) => binaryToFile(getBinaryResource(v), workingDir+"/"+k) })
-      sender ! true
+      //println("wrote dependencies")
+      true
+    } pipeTo sender
 
   }
 
