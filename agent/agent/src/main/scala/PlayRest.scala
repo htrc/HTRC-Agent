@@ -58,6 +58,11 @@ object PlayRest extends Application {
   // remove once I figure out how to do "exists?" on actors
   val agents: HashMap[String,String] = new HashMap
 
+  // create a debug agent so api calls can be made without creating an agent
+  system.actorOf(Props(new HtrcAgent(HtrcCredentials("argle", "bargle"))) , name = "debug-agent")
+  agents put ("debug-agent", "debug-agent")
+
+
   // since the syntax is horrific pimp strings to include a dispatch method
   case class HtrcActorRef(userId: String, agents: HashMap[String,String]) {
     // this just looks up the appropriate agent and sends it the message
@@ -108,10 +113,11 @@ object PlayRest extends Application {
           if(credentials == None)
             BadRequest("malformed credentials")
           else {
-            println("===> User with credentials creating agent: " + credentials)
-            system.actorOf(Props(new HtrcAgent(credentials.get)), name = userId)
-            agents put (userId, userId)
-          
+            if(!agents.contains(userId)) {
+              println("===> User with credentials creating agent: " + credentials)
+              system.actorOf(Props(new HtrcAgent(credentials.get)), name = userId)
+              agents put (userId, userId)
+            }
             Ok(<agentID>{userId}</agentID>)
           }
         }
