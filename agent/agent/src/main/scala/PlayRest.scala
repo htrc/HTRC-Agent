@@ -1,6 +1,8 @@
 
 package htrcagent
 
+import httpbridge._
+
 import com.typesafe.play.mini._
 import play.api.mvc.{ Action, AsyncResult }
 import akka.actor.{ ActorSystem, Props, Actor }
@@ -54,17 +56,24 @@ object PlayRest extends Application {
   // create an actor proxy of solr
   private val solrActor = system.actorOf(Props[SolrActor], name = "solrActor")
 
+  // connection to the oauth2 server
+  private val oauthUrl = "https://129-79-49-119.dhcp-bl.indiana.edu:25443/oauth2/token"
+  private val oauth2 = new Oauth2(Url(oauthUrl))
+
   // store a hashmap of what agents exist?
   // remove once I figure out how to do "exists?" on actors
-  val agents: HashMap[String,String] = new HashMap
+  val agents: HashMap[String,Oauth2Token] = new HashMap
 
   // create a debug agent so api calls can be made without creating an agent
-  system.actorOf(Props(new HtrcAgent(HtrcCredentials("argle", "bargle"))) , name = "debug-agent")
-  agents put ("debug-agent", "debug-agent")
+  val debugToken = oauth2.now(oauth2.authenticate("yim","yim"))
+  system.actorOf(Props(new HtrcAgent(debugToken)) , name = "debug-agent")
+  agents put ("debug-agent", debugToken)
 
 
   // since the syntax is horrific pimp strings to include a dispatch method
-  case class HtrcActorRef(userId: String, agents: HashMap[String,String]) {
+  // TODO : Anything but this. Certainly implicit overuse.
+
+  case class HtrcActorRef(userId: String, agents: HashMap[String,Oauth2Token]) {
     // this just looks up the appropriate agent and sends it the message
     // if the agent doesn't exist, return an error with that fact
     def dispatch(msg: HtrcMessage): Action[play.api.mvc.AnyContent] =
@@ -111,22 +120,32 @@ object PlayRest extends Application {
           credentials
         }
 
-        res.mapTo[Option[HtrcCredentials]].asPromise.map { credentials =>
-          if(credentials == None)
-            BadRequest("malformed credentials")
-          else {
+        val token: Future[Oauth2Token] = res.mapTo[Option[HtrcCredentials]] flatMap { credentials =>
+          oauth2.authenticate("yim", "yim")
+        }
+
+        token.asPromise.map { token =>
+//          if(credentials == None)
+//            BadRequest("malformed credentials")
+//          else {
+            
+            // TODO : figure out how to use the fact that this is a future!
+            // TODO : use the actual user credentials to get this!
+  //          val token = oauth2.now(oauth2.authenticate("yim","yim"))
+            
             if(!agents.contains(userId)) {
-              println("===> User with credentials creating agent: " + credentials)
+                println("===> User with credentials creating agent: " + token)
               try {
-                system.actorOf(Props(new HtrcAgent(credentials.get)), name = userId)
+                system.actorOf(Props(new HtrcAgent(token)), name = userId)
               } catch {
                 case e => println(e)
               }
-              agents put (userId, userId)
+              agents put (userId, token)
             }
             Ok(<agentID>{userId}</agentID>)
-          }
-        }
+            
+//          }
+                                                        }
       }
     }
     

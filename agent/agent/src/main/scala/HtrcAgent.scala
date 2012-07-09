@@ -1,6 +1,8 @@
 
 package htrcagent
 
+import httpbridge._
+
 import akka.actor.{ Props, Actor, ActorRef }
 import akka.util.Timeout
 import akka.util.duration._
@@ -9,7 +11,7 @@ import scala.collection.mutable.HashMap
 import akka.pattern.{ ask, pipe }
 import akka.dispatch.{ Promise, Future }
 
-class HtrcAgent(credentials: HtrcCredentials) extends Actor {
+class HtrcAgent(credentials: Oauth2Token) extends Actor {
 
   import context._
 
