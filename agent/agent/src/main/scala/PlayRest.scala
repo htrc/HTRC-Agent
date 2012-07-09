@@ -14,6 +14,7 @@ import play.api.libs.concurrent._
 import play.api.data._
 import play.api.data.Forms._
 import play.api.data.format.Formats._
+import play.api.mvc.Request
 import scala.collection.mutable.HashMap
 import play.api.mvc.RequestHeader
 import play.api.mvc.BodyParser._
@@ -77,9 +78,15 @@ object PlayRest extends Application {
     // this just looks up the appropriate agent and sends it the message
     // if the agent doesn't exist, return an error with that fact
     def dispatch(msg: HtrcMessage): Action[play.api.mvc.AnyContent] =
-      Action {     
+      Action { implicit request =>    
+
+        val auth = request.headers.get("Authorization")
+
         if (!agents.contains(userId)) {
           BadRequest("agent doesn't exist")
+        } else if(auth.getOrElse("no_authorization_header") != "Bearer " + agents(userId).token) {
+          println("===> invalid oauth2 token on agent: " + userId)
+          BadRequest("invalid oauth2 token")
         } else {
             AsyncResult {
               val uf = system.actorFor(pbase + userId) ask msg
@@ -151,6 +158,7 @@ object PlayRest extends Application {
     
     case GET(Path(Seg("agent" :: userId :: "algorithm" :: "list" :: Nil))) =>
       userId dispatch ListAvailibleAlgorithms
+     
 
     case GET(Path(Seg("agent" :: userId :: "collection" :: "list" :: Nil))) =>
       userId dispatch ListAvailibleCollections
