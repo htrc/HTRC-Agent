@@ -16,6 +16,14 @@ import scala.sys.process._
 
 class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) extends Algorithm {
 
+  import java.io.File
+  import java.io.PrintWriter
+
+  def printToFile(f: File)(op: PrintWriter => Unit) {
+    val p = new java.io.PrintWriter(f)
+    try { op(p) } finally { p.close() }
+  }
+
   val task: RunAlgorithm = taskk
   val algId: String = algIdd
 
@@ -26,7 +34,7 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) ex
   val workingDir = {
     val rootDir = "agent/agent_working_directory"
     (new File(rootDir + File.separator + algId)).mkdir()
-    rootDir + "/" + algId
+    rootDir + File.separator + algId
   }
 
   val out = new StringBuilder
@@ -60,6 +68,9 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) ex
 //    println(executable)
 
     info.writeProperties(workingDir)
+    printToFile(new File(workingDir + "/token.tmp")) { p =>
+      p.println("token="+token.token)
+    }
 
     val command = unformatedCommand.format(executable)
 

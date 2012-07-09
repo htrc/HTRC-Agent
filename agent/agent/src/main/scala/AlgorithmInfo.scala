@@ -4,6 +4,8 @@ package htrcagent
 // an info package describing what an algorithm is
 // loaded from registry
 
+import httpbridge._
+
 import scala.collection.mutable.HashMap
 import akka.actor.ActorRef
 import akka.pattern.ask
@@ -58,9 +60,11 @@ case class AlgorithmInfo(raw: scala.xml.Node) {
   val path = (raw \ "path") text
   val command = (raw \ "command") text
   val executable = (raw \ "executable") text
-  val properties = makeMap(raw \ "properties")
+  val system_properties = makeMap(raw \ "system_properties")
+  val algorithm_properties = makeMap(raw \ "algorithm_properties")
+  val user_properties = makeMap(raw \ "user_properties")
   val dependencies = makeMap(raw \ "dependencies")
-  lazy val prop_filename = (raw \ "properties" \ "name").head.text
+  lazy val prop_filename = (raw \ "properties_name").head.text
 
   def makeMap(xs: NodeSeq) = ((xs \ "e") map (n => (n.attributes.value.text, n.text))).toMap
 
@@ -68,10 +72,12 @@ case class AlgorithmInfo(raw: scala.xml.Node) {
 
   def writeProperties(workingDir: String) {
 
-    if(properties.isEmpty == false) {
+    val props = system_properties ++ algorithm_properties ++ user_properties
+
+    if(props.isEmpty == false) {
 
       printToFile(new File(workingDir+"/"+prop_filename))(p => {
-        properties.foreach( _ match { case (k,v) => p.println(k + "=" + v) })
+        props.foreach( _ match { case (k,v) => p.println(k + "=" + v) })
       })
     }
 
