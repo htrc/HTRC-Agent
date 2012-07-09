@@ -1,0 +1,12 @@
+This was the agent repository from IU github. Now in the d2i svn.
+
+There are two main projects. Both are currently set up as independent sbt projects as I do not yet want to deal with mixing the two. 
+
+The primary project is the "agent" itself, it has a subproject "worker" which is intended to be deployed to a worker machine. The agent uses the Play2-mini Netty server, while the worker uses the akka microkernel. 
+
+The second project is the "client". This project exists to act as a simple but high performance client for the agent's RESTful API. It also uses Scalatest to define tests against the api. Running "test" in the client runs tests against the agent, so it must be running for anything to happen.
+
+Eventually these two sbt projects will be merged, and a special test infastructure set up that launches an agent instance and makes queries against it using the client when "rest-test" is called.
+
+
+
