@@ -1,12 +1,12 @@
-This was the agent repository from IU github. Now in the d2i svn.
+This was the agent repository from IU github, then the D2I svn, and then the HTRC Sourceforge repository.
 
-There are two main projects. Both are currently set up as independent sbt projects as I do not yet want to deal with mixing the two. 
+The SBT project root is the "agent" directory. There are four sub projects. 
 
-The primary project is the "agent" itself, it has a subproject "worker" which is intended to be deployed to a worker machine. The agent uses the Play2-mini Netty server, while the worker uses the akka microkernel. 
+The agent directory includes the "rest" and "worker" sub projects. The "rest" project is the code presenting the rest API. It uses the Play2-mini framework to do so, and runs using whatever the default server is. Probably Netty of some sort.
 
-The second project is the "client". This project exists to act as a simple but high performance client for the agent's RESTful API. It also uses Scalatest to define tests against the api. Running "test" in the client runs tests against the agent, so it must be running for anything to happen.
+The "worker" sub project is a, currently minimal, worker that can be configured for deployment to a compute node. It can then run computational jobs for the JVM the "rest" project is running on.
 
-Eventually these two sbt projects will be merged, and a special test infastructure set up that launches an agent instance and makes queries against it using the client when "rest-test" is called.
+The "http" project is in the http directory. This subproject is a bridge between the "Ning async http client" for Java, and Akka. The bridge allows http requests to return Akka futures. It is implemented by registering a write into an Akka promise as the callback for the Ning asynchronous request. Additional functions are included to make it easy to use the bridge. A simple Oauth2 client is also present.
 
-
+The "client" subproject is implemented using the http bridge and makes it easy to use the agent rest interface. It is used primarily for testing. The primary API test is to start the agent, and then run the test spec in the client. A "gotcha" is that the test will only run correctly on a fresh agent instance. Changing this is on a todo list.
 
