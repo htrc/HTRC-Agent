@@ -30,8 +30,7 @@ class NingAgentSpec extends WordSpec with MustMatchers with ShouldMatchers with 
   "Our play2-mini agent" must {
 
     "successfully create users" in {
-       initResult should be ===
-        <agentID>test-user</agentID>
+       (initResult \\ "agentID").text should be === "test-user"
     }
       
     "provide availible algorithms" in {
