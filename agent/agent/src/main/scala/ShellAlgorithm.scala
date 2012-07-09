@@ -67,6 +67,7 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) ex
 //    println(unformatedCommand)
 //    println(executable)
 
+    // TODO : get the actual token name/format from registry
     info.writeProperties(workingDir)
     printToFile(new File(workingDir + "/token.tmp")) { p =>
       p.println("token="+token.token)
