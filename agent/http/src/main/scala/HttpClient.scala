@@ -48,6 +48,9 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
 
   def get[R : Decoder, B : Encoder](url: Url, body: B, headers: Iterable[(String,String)]) =
     request[R, B](GET, url, body, headers)
+
+  def get[R : Decoder](url: Url, headers: Iterable[(String,String)]) =
+    request[R, Empty](GET, url, Empty, headers)
   
   def put[R : Decoder](url: Url) =
     request[R, Empty](PUT, url, Empty)
