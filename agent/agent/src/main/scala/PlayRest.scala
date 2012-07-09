@@ -142,7 +142,7 @@ object PlayRest extends Application {
               }
               agents put (userId, token)
             }
-            Ok(<agentID>{userId}</agentID>)
+            Ok(<agent><agentID>{userId}</agentID><token>{token.token}</token></agent>)
             
 //          }
                                                         }
