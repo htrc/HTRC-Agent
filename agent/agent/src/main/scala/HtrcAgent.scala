@@ -11,7 +11,7 @@ import scala.collection.mutable.HashMap
 import akka.pattern.{ ask, pipe }
 import akka.dispatch.{ Promise, Future }
 
-class HtrcAgent(credentials: Oauth2Token) extends Actor {
+class HtrcAgent(token: Oauth2Token) extends Actor {
 
   import context._
 
@@ -56,9 +56,9 @@ class HtrcAgent(credentials: Oauth2Token) extends Actor {
       // val nodeAllocator = system.actorFor("user/nodeAllocator")
       val dest = sender
    
-      // val child = (nodeAllocator ? ChildRequest(msg, algId)).mapTo[ActorRef]
+      // val child = (nodeAllocator ? ChildRequest(msg, algId, token)).mapTo[ActorRef]
 
-      val c = system.actorOf(Props(new ComputeChild(msg, algId)))
+      val c = system.actorOf(Props(new ComputeChild(msg, algId, token)))
       val child = Future(c)
       algorithms += (algId -> child)
  

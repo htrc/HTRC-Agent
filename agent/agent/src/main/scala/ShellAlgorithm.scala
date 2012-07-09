@@ -1,6 +1,8 @@
 
 package htrcagent
 
+import httpbridge._
+
 import akka.actor.{ Actor, ActorRef, Props }
 import akka.actor.Actor._
 import akka.util.Timeout
@@ -12,7 +14,7 @@ import java.util.UUID
 import java.io.File
 import scala.sys.process._
 
-class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String) extends Algorithm {
+class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) extends Algorithm {
 
   val task: RunAlgorithm = taskk
   val algId: String = algIdd
