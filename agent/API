@@ -1,4 +1,7 @@
 
+WARNING: THIS DOCUMENT IS OUT OF DATE. WHILE IT IS PROBABLY ENTIRELY
+ACCURATE SOME THINGS MIGHT HAVE BEEN TWEAKED.
+
 This is a draft API document for the htrc agent system component. The
 agent presents a restful API to the user that gives them the ability
 to take actions inside the htrc architecture.
