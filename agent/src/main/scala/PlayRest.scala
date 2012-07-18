@@ -23,6 +23,10 @@ import akka.dispatch.Future
 import akka.dispatch.Future._
 import akka.dispatch.ExecutionContext
 import play.api.libs.concurrent.Akka._
+import play.api.mvc.AnyContent
+import scala.xml._
+import play.api.libs.json._
+import play.api.libs.json.Json._
 
 import com.typesafe.config.ConfigFactory
 
@@ -99,6 +103,33 @@ object PlayRest extends Application {
   
   implicit def strToHtrcActorRef(str: String): HtrcActorRef = HtrcActorRef(str, agents)
 
+  // attempt 2 at some good syntax for dispatching to agents
+
+  implicit val request: Request[AnyContent] = null
+
+  def dispatch2(agentId: String)(body: => HtrcMessage): Action[AnyContent] = {
+    Action { implicit request =>
+      
+      println(request)
+
+      val auth = request.headers.get("Authorization")
+
+      if(!agents.contains(agentId)) {
+        BadRequest("agent does not exist")
+      } else if(auth.getOrElse("no_token") != "Bearer " + agents(agentId).token) {
+        BadRequest("invalid oauth2 token")
+      } else {
+        AsyncResult {
+          val agentRef = system.actorFor(pbase + agentId)
+          val msg = body
+          (agentRef ask msg).mapTo[NodeSeq].asPromise.map { res =>
+            Ok(res) }
+        }
+      }
+    }
+  }
+
+
   // the actual routes
   def route = {
 
@@ -132,13 +163,6 @@ object PlayRest extends Application {
         }
 
         token.asPromise.map { token =>
-//          if(credentials == None)
-//            BadRequest("malformed credentials")
-//          else {
-            
-            // TODO : figure out how to use the fact that this is a future!
-            // TODO : use the actual user credentials to get this!
-  //          val token = oauth2.now(oauth2.authenticate("yim","yim"))
             
             if(!agents.contains(userId)) {
                 println("===> User with credentials creating agent: " + token)
@@ -165,6 +189,29 @@ object PlayRest extends Application {
 
     case GET(Path(Seg("agent" :: userId :: "algorithm" :: "run" :: algName :: colName :: args :: Nil))) =>
       userId dispatch RunAlgorithm(algName, colName, args)
+
+    case GET(Path(Seg("agent" :: userId :: "run" :: "algorithm" :: Nil))) => 
+
+      dispatch2(userId) { 
+        request.body.asJson.map(js:JsValue => js.as[RunAlgorithmJson]) 
+      }
+      
+
+//      Action(parse.json).as[RunAlgorithmJson] { implicit request =>
+
+//          implicit val ec = system.dispatcher
+
+          // get json and convert to case class
+//          println(request.body)
+
+          // send the case class as a message to an agent
+
+//          Ok(<m>got json</m>)
+
+
+  //    }
+
+        
 
     case GET(Path(Seg("agent" :: userId :: "algorithm" :: "poll" :: Nil))) =>
       userId dispatch ListAgentAlgorithms
