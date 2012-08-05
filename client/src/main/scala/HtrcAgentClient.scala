@@ -14,7 +14,8 @@ class HtrcAgentClient(agentId: String) extends HttpClient {
 
   var token: String = "no_token"
   lazy val auth = ("Authorization", "Bearer " + token) :: Nil
-  val root = :/("http://localhost:9000/agent/") / agentId
+  val root = :/("http://localhost:9000/agent/")
+  //val root = root2 / agentId
 
   def listAlgorithms = get[NodeSeq](root / "algorithm" / "list", auth)
   
@@ -34,7 +35,18 @@ class HtrcAgentClient(agentId: String) extends HttpClient {
   def algorithmStderr(algId: String) = 
     get[NodeSeq](root / "algorithm" / algId / "result" / "stderr", auth)
 
-  def initialize = {
+  def initialize:Future[NodeSeq] = {
+    val credentials = 
+      <credentials>
+        <username>drhtrc</username>
+        <password>d0ct0r.htrc</password>
+      </credentials>
+    val res = put[NodeSeq,NodeSeq](root / "login", credentials)
+    token = (now(res) \\ "token" text)
+    res
+  }
+
+  def initialize_old = {
 
     val credentials = 
       <credentials>

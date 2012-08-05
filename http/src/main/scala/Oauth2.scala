@@ -31,12 +31,12 @@ class Oauth2(root: Url) extends HttpClient {
 
     response map { js =>
       val token = (js \ "access_token").as[String]
-      val expires_in = (js \ "expires_in").as[String]
-      Oauth2Token(token, expires_in)
+      val expires_in = (js \ "expires_in").as[String].toLong
+      Oauth2Token(token, System.currentTimeMillis+expires_in, name)
     }
 
   }
   
 }
 
-case class Oauth2Token(token: String, expires_in: String)
+case class Oauth2Token(token: String, expirationTime: Long, username: String)

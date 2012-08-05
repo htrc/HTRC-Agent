@@ -106,6 +106,9 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
         </algorithms>
       } pipeTo dest
 
+
+  case m => println(m)
+
   }
   // a means to create unique algorithm ids
   var count = 0

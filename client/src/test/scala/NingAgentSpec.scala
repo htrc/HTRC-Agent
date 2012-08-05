@@ -30,7 +30,7 @@ class NingAgentSpec extends WordSpec with MustMatchers with ShouldMatchers with 
   "Our play2-mini agent" must {
 
     "successfully create users" in {
-       (initResult \\ "agentID").text should be === "test-user"
+       (initResult \\ "agentID").text should be === "drhtrc"
     }
       
     "provide availible algorithms" in {
@@ -56,7 +56,7 @@ class NingAgentSpec extends WordSpec with MustMatchers with ShouldMatchers with 
     }
 
     "provide algorithm stdout" in {
-      (now(algorithmStdout("algId_1_test-user")) \ "stdout").text should be === "120\n"
+      (now(algorithmStdout("algId_1_drhtrc")) \ "stdout").text should be === "120\n"
     }
 
     "provide algorithm stderr" in {
@@ -68,7 +68,7 @@ class NingAgentSpec extends WordSpec with MustMatchers with ShouldMatchers with 
     }
 
     "provide status of polled algorithm" in {
-      val res = now(pollAlgorithm("algId_1_test-user"))
+      val res = now(pollAlgorithm("algId_1_drhtrc"))
       (res \ "status" text) should be === "Finished"
     }
         

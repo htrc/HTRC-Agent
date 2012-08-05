@@ -39,5 +39,15 @@ trait Decoders {
           "error: Content-Type was not text/plain: " + res.getContentType
       }
   }
+
+  import java.util.zip.ZipInputStream
+  implicit object ZipDecoder extends Decoder[Zip] {
+    def apply(res: Response): Zip = {
+      if(res.getContentType.contains("application/zip")) 
+        Zip(new ZipInputStream(res.getResponseBodyAsStream))
+      else
+        null // TODO TODO TODO GET RID OF THIS NULL!!!!!
+    }
+  }
   
 }

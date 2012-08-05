@@ -16,7 +16,7 @@ trait Encoders {
 
   implicit object FormEncoder extends Encoder[Iterable[(String,String)]] {
     def apply(body: Iterable[(String,String)], req: RequestBuilder): RequestBuilder = {
-      body foreach { case (k,v) => println(k + "=" + v); req.addQueryParameter(k,v) }
+      body foreach { case (k,v) => req.addQueryParameter(k,v) }
       req.addHeader("Content-Type", "application/x-www-form-urlencoded")
       req
     }

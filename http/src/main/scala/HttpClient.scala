@@ -31,8 +31,6 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
     val rb = implicitly[Encoder[B]].apply(body, r)
 
     val built = rb.build
-    println(built.getRawUrl)
-    println(built.getParams)
 
     val f = makeRequest(built)
     f map { res: Response =>
