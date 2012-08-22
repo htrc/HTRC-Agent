@@ -1,4 +1,6 @@
 
+// the simplest type of algorithm
+
 package htrcagent
 
 import httpbridge._
@@ -10,26 +12,23 @@ import akka.util.duration._
 import akka.pattern.{ ask, pipe }
 import java.util.Date
 import java.util.UUID
-
 import java.io.File
-import scala.sys.process._
+import java.io.PrintWriter
+import scala.sys.process.{ Process => SProcess }
+import scala.sys.process.{ ProcessLogger => SProcessLogger }
+import scala.sys.process.{ ProcessBuilder => SProcessBuilder }
 
-class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) extends Algorithm {
+class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) extends Algorithm {
 
-  import java.io.File
-  import java.io.PrintWriter
+  val props = propss
 
-  def printToFile(f: File)(op: PrintWriter => Unit) {
-    val p = new java.io.PrintWriter(f)
-    try { op(p) } finally { p.close() }
-  }
+  computeParent ! WorkerUpdate(Initializing(new Date, algId))
 
-  val task: RunAlgorithm = taskk
-  val algId: String = algIdd
-
+  // required for actor stuff
   import context._
 
-  val algInfo = (registry ? GetAlgorithmInfo(task.algName))
+  // fetch a few props for convienence
+  val algId = props.algId
 
   val workingDir = {
     val rootDir = "agent/agent_working_directory"
@@ -40,59 +39,29 @@ class ShellAlgorithm(taskk: RunAlgorithm, algIdd: String, token: Oauth2Token) ex
   val out = new StringBuilder
   val err = new StringBuilder
 
-  val plogger = ProcessLogger(
+  val plogger = SProcessLogger(
     (o: String) => out.append(o + "\n"),
     (e: String) => err.append(e + "\n"))
 
-  var sysProcess: ProcessBuilder = null
+  var sysProcess = SProcess("bash " + props.runScript, new File(workingDir))
 
-  val algReady = (registry ? GetAlgorithmExecutable(task.algName, workingDir))
-  val dataReady = (registry ? GetAlgorithmData(task.colName, workingDir))
-  val depsReady = (registry ? WriteDependencies(task.algName, workingDir))
+  // need to get registry information into the directory
+  val registryFinished = registry ? FetchRegistryData(props.registryData, workingDir)
 
-  val f = for {
-    a <- algReady.mapTo[Boolean]
-    b <- dataReady.mapTo[Boolean]
-    c <- depsReady.mapTo[Boolean]
-    info <- algInfo.mapTo[AlgorithmInfo]
-  } yield info
+  // also write props
+  props.write(workingDir)
 
-  f.mapTo[AlgorithmInfo].map { info =>
-
-//    println("reached info")
-
-    val unformatedCommand = info.command
-    val executable = info.executable
-
-//    println(unformatedCommand)
-//    println(executable)
-
-    // TODO : get the actual token name/format from registry
-    info.writeProperties(workingDir)
-    printToFile(new File(workingDir + "/token.tmp")) { p =>
-      p.println("token="+token.token)
-    }
-
-    val command = unformatedCommand.format(executable)
-
-//    println(command)
-
-    parent ! WorkerUpdate(Running(new Date, algId))
-
-    val makeExecutable = scala.sys.process.Process("chmod +x " + executable, new File("agent/agent_working_directory" + File.separator + algId))
-
-    makeExecutable.run
-
-    sysProcess = scala.sys.process.Process(command, new File("agent/agent_working_directory" + File.separator + algId))
+  registryFinished.mapTo[Boolean] map { b =>
+    // ignore the registry's status here for now...
 
     val exitCode: Int = sysProcess ! plogger
 
     if(exitCode == 0) {
-      parent ! WorkerUpdate(Finished(new Date, algId, workingDir))
-      parent ! StdoutResult(out.toString)
+      computeParent ! WorkerUpdate(Finished(new Date, algId))
+      computeParent ! StdoutResult(out.toString)
     } else {
-      parent ! WorkerUpdate(Crashed(new Date, algId, workingDir))
-      parent ! StderrResult(err.toString)
+      computeParent ! WorkerUpdate(Crashed(new Date, algId))
+      computeParent ! StderrResult(err.toString)
     }
   }
 

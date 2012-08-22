@@ -7,46 +7,68 @@ import com.ning.http.client._
 import play.api.libs.json._
 import scala.xml._
 
+case class HttpResponse[T](rawResponse: Response, body: T) {
+  val statusCode = rawResponse.getStatusCode
+}
+
+trait HttpError {
+  val statusCode: Int
+}
+
+// this is really bad because I'm lying!
+case class HostNotResponding(host: String) extends HttpError {
+  val statusCode = 666
+}
+
+// more lying!
+case class NingException(e: String) extends HttpError {
+  val statusCode = 666
+}
+
+case class DecoderError(rawResponse: Response) extends HttpError {
+  val statusCode = rawResponse.getStatusCode
+}
+
 trait Decoders {
   
   trait Decoder[T] {
-    def apply(res: Response): T                                                         
+    def apply(res: Response): Either[DecoderError, HttpResponse[T]]
   }
   
   implicit object JsonDecoder extends Decoder[JsValue] {
-    def apply(res: Response): JsValue = {
+    def apply(res: Response): Either[DecoderError, HttpResponse[JsValue]] = {
       if(res.getContentType.contains("application/json"))
-        Json.parse(res.getResponseBody)
+        Right(HttpResponse(res, Json.parse(res.getResponseBody)))
       else
-        JsString("error, response type not json")
+        Left(DecoderError(res))
     }
   }
 
   implicit object XmlDecoder extends Decoder[NodeSeq] {
-    def apply(res: Response): NodeSeq = {
+    def apply(res: Response): Either[DecoderError, HttpResponse[NodeSeq]] = {
       if(res.getContentType.contains("text/xml"))
-        XML.loadString(res.getResponseBody)
+        Right(HttpResponse(res, XML.loadString(res.getResponseBody)))
       else
-        <error>Content-Type was not xml: {res.getContentType}</error>
+        Left(DecoderError(res))
     }
   }  
   
   implicit object TextDecoder extends Decoder[String] {
-      def apply(res: Response): String = {
+      def apply(res: Response): Either[DecoderError, HttpResponse[String]] = {
         if(res.getContentType.contains("text/plain"))
-          res.getResponseBody
+          Right(HttpResponse(res, res.getResponseBody))
         else
-          "error: Content-Type was not text/plain: " + res.getContentType
+          Left(DecoderError(res))
       }
   }
 
   import java.util.zip.ZipInputStream
-  implicit object ZipDecoder extends Decoder[Zip] {
-    def apply(res: Response): Zip = {
+  implicit object ZipDecoder extends Decoder[Zip]  {
+    def apply(res: Response): Either[DecoderError, HttpResponse[Zip]] = {
       if(res.getContentType.contains("application/zip")) 
-        Zip(new ZipInputStream(res.getResponseBodyAsStream))
+        Right(HttpResponse(res, Zip(new ZipInputStream(res.getResponseBodyAsStream))))
       else
-        null // TODO TODO TODO GET RID OF THIS NULL!!!!!
+        Left(DecoderError(res))
     }
   }
   

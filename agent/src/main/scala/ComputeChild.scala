@@ -8,33 +8,28 @@ import akka.actor.Actor._
 import akka.util.Timeout
 import akka.util.duration._
 import akka.pattern.{ ask, pipe }
+import akka.dispatch.{ Future, Await }
 import java.util.Date
+import scala.xml._
+import scala.collection.mutable.ListBuffer
 
-class ComputeChild(task: RunAlgorithm, algId: String, token: Oauth2Token) extends Actor {
+class ComputeChild(algorithmName: String, userProperties: NodeSeq, username: String, algId: String, token: String) extends Actor {
 
   import context._
 
   var status: AlgorithmStatus = Prestart(new Date, algId)
-  var stdoutResult: AlgorithmResult = EmptyResult
-  var stderrResult: AlgorithmResult = EmptyResult
-  
-  val algorithm = actorOf(Props(new ShellAlgorithm(task, algId, token: Oauth2Token)))
+  val results = new ListBuffer[AlgorithmResult]
+
+  val algorithm = Algorithm(algorithmName, userProperties, username, algId, token, self)
 
   def receive = {
-    case PollAlg(algId) =>
+    case AlgorithmStatusRequest(algId) =>
       sender ! status
-    case WorkerUpdate(newStatus) => 
+    case WorkerUpdate(newStatus) =>
       status = newStatus
-    case msg: StdoutResult =>
-      stdoutResult = msg
-    case msg: StderrResult =>
-      stderrResult = msg
-    case AlgStdout(algId) =>
-      sender ! stdoutResult
-    case AlgStderr(algId) =>
-      sender ! stderrResult
-
+    case ResultUpdate(result) =>
+      results += result
   }
-  
+
 }
 

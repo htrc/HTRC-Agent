@@ -19,7 +19,7 @@ class Oauth2(root: Url) extends HttpClient {
   // looks like no ssl configuration is needed
   // not sure though, http client might be lying
 
-  def authenticate(name: String, pass: String): Future[Oauth2Token] = {
+  def authenticate(name: String, pass: String): Future[Either[String,Oauth2Token]] = {
 
     val credentials = 
       ("grant_type" -> "client_credentials") ::
@@ -27,13 +27,18 @@ class Oauth2(root: Url) extends HttpClient {
       ("client_secret" -> pass) ::
       Nil
    
-    val response: Future[JsValue] = post[JsValue, Iterable[(String,String)]](root, credentials)
+    val response = post[JsValue, Iterable[(String,String)]](root, credentials)
 
-    response map { js =>
-      val token = (js \ "access_token").as[String]
-      val expires_in = (js \ "expires_in").as[String].toLong
-      Oauth2Token(token, System.currentTimeMillis+expires_in, name)
-    }
+    response map { r => r match {
+      case Left(err) => Left("oauth2 server error " + err.statusCode)
+      case Right(res) if res.statusCode == 200 =>
+        val js = res.body
+        val token = (js \ "access_token").as[String]
+        val expires_in = (js \ "expires_in").as[String].toLong
+        Right(Oauth2Token(token, System.currentTimeMillis+expires_in*1000, name))
+      case Right(res) =>
+        Left("oauth2 server error " + res.statusCode)
+    }}
 
   }
   

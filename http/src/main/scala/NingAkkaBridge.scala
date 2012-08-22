@@ -1,5 +1,7 @@
 
 // a bridge between the Ning async http client and Akka futures
+// should probably dig up the akka-user mailing list post that provided the key
+// functionality
 
 package httpbridge
 
@@ -18,8 +20,16 @@ object NingAkkaBridge {
   implicit val executorService = asyncHttpClient.getConfig.executorService
   implicit val context = ExecutionContext.fromExecutor(executorService)
 
-  def makeRequest(r: Request):Future[Response] = {
-    bridge(asyncHttpClient.prepareRequest(r).execute)
+  def makeRequest(r: Request): Either[String,Future[Response]] = {
+    try {
+      val fu = asyncHttpClient.prepareRequest(r).execute
+      Right(bridge(fu))
+    } catch {
+      case e => Left(e.toString) 
+    }
+    
+    
+
   }
 
   def bridge[T](fu: ListenableFuture[T]): Future[T] = { 

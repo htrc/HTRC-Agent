@@ -16,6 +16,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import akka.util.duration._
 import akka.actor.{ActorSystem, Props, Actor}
+import akka.routing.RoundRobinRouter
 
 import com.typesafe.play.mini._
 import com.typesafe.config.ConfigFactory
@@ -31,15 +32,16 @@ import play.api.libs.concurrent.Akka._
 object PlayRest extends Application {
 
   // system parameters
-  implicit val timeout = Timeout(5000 milliseconds)
-  private val system = ActorSystem("htrc", ConfigFactory.load.getConfig("htrcsingle"))
+  implicit val timeout = Timeout(10 seconds)
+  private val system = HtrcSystem.system
   implicit val executor = system.dispatcher
 
+  // this helper uses the TypeSafe config system to pull from htrc.conf
   def htrcParam(path: String):String = system.settings.config.getString("htrc."+path)
 
   // components
-  private val registryActor = system.actorOf(Props[RegistryActor], name = "registryActor")
-  private val solrActor = system.actorOf(Props[SolrActor], name = "solrActor")
+  private val registryActor = system.actorOf(Props[RegistryActor].withRouter(
+    RoundRobinRouter(nrOfInstances = 64)), name = "registryActor")
 
   private val oauthUrl = htrcParam("urls.oa2")
   private val oauth2 = new Oauth2(Url(oauthUrl))
@@ -52,8 +54,11 @@ object PlayRest extends Application {
    * the keys are strings, the values are agent info bundles
    */
 
+  // this is not just Oauth2Token because there will likely be more info present
   case class AgentInfo(username: String, token: String, expirationTime: Long)
   val agents: Ref[HashMap[String,AgentInfo]] = Ref(new HashMap)
+  val usernames: Ref[HashMap[String,String]] = Ref(new HashMap) 
+  // username to "active" token
   
   def lookupToken(token: String): Option[AgentInfo] = {
     atomic { implicit t =>
@@ -71,6 +76,13 @@ object PlayRest extends Application {
     val info = AgentInfo(token.username, token.token, token.expirationTime)
     atomic { implicit t =>
       agents.transform { _ += (info.token -> info) }
+      usernames.transform { _ += (info.username -> info.token) }
+    }
+  }
+
+  def checkUsername(username: String): Option[String] = {
+    atomic { implicit t =>
+      usernames.get.get(username)
     }
   }
 
@@ -79,24 +91,26 @@ object PlayRest extends Application {
   val debugToken = 
     if(debugAgentExists) {
       val tok = now(oauth2.authenticate(oa2DebugUser, oa2DebugPass))
-      addAgent(tok)
-      Some(tok)
+      tok match {
+        case Left(err) => None
+        case Right(tok) => 
+          addAgent(tok)
+          Some(tok)
+      }
     } else {
       None
     }
 
+
   // a function to send messages to the appropriate agent 
 
-  // step 1: the token
-  // step 2: create message
-  // step 3: send to actor and lookup result
+  // step 1: retrieve the token and check if it is valid
+  // step 2: get the agent that the token points to
+  // step 3: build the message and send it to the actor
+  // step 4: turn the response into a Play AsyncResult
 
-  // error handling: if something is wrong need to create an "error" response
-  // do so by having the helper functions return an either
-  // left is a play promise / response with the error
-  // right is a future with the new information 
+  // error handling: return an either, where left contains error info
 
-  // can request be implicit?
   def checkAuth(request: Request[AnyContent]): Either[Elem, AgentInfo] = {
     
     val auth = request.headers.get("Authorization")
@@ -111,7 +125,8 @@ object PlayRest extends Application {
         Left(<error>token does not map to agent: {token}</error>)
       } else {
         val info = agentInfo.get
-        if(info.expirationTime < System.currentTimeMillis) {
+        //if(info.expirationTime < System.currentTimeMillis) {
+        if(false) {
           Left(<error>token is expired: {token}</error>)
         } else {
           Right(info)
@@ -133,55 +148,80 @@ object PlayRest extends Application {
 
   }
 
-  // todo : replace AnyContent with NodeSeq
-  def dispatch(msg: => HtrcMessage): Action[play.api.mvc.AnyContent] = {
+  // note : checkAuth is not currently run asynchronously as it should be trivial
+  def dispatch(msg: NodeSeq => HtrcMessage): Action[AnyContent] = {
     Action { implicit request =>
       val agentInfo = checkAuth(request)
       agentInfo match {
         case Left(error) => 
-          //Future { error }.mapTo[NodeSeq].asPromise.map { e => BadRequest(e) }
           BadRequest(error)
         case Right(agentInfo) =>
-          val f = toAgent(agentInfo, msg)
-        f match {
-          case Left(error) =>
-            //Future { error }.mapTo[NodeSeq].asPromise.map { e => BadRequest(e) }
-            BadRequest(error)
-          case Right(response) => 
-            AsyncResult {
-              response.mapTo[NodeSeq].asPromise.map { res =>
-                Ok(res)
+          val input = 
+            request.body.asXml match {
+              case Some(xml) => xml
+              case _ => <error>blank body</error>
+            }                
+          val computedMessage = msg(input)
+          val f = toAgent(agentInfo, computedMessage)
+          f match {
+            case Left(error) =>
+              BadRequest(error)
+            case Right(response) => 
+              AsyncResult {
+                response.mapTo[NodeSeq].asPromise.map { res =>
+                  Ok(res)
+                }
               }
-            }
-        }
+          }
       }
     }
   }
 
-  // note : the key assumption I've made is that the request is available
-  //        to the function that generates the message 
-  //        This could be done by requiring a second function that generates
-  //        input to the first?
-    
-  // todo : switch AnyContent to xml
+  // a second form allows dispatch to be called with or without the
+  // 'request =>'
+  def dispatch(msg: => HtrcMessage): Action[AnyContent] = {
+    dispatch { body => msg }
+  }
+  
   def login: Action[NodeSeq] = {
     Action(BodyParsers.parse.xml) {
       implicit request =>
         if(htrcParam("auth.ignore_credentials") == "false") { 
-          if(false) {
-            BadRequest(<error>login content type not xml</error>)         
+          val isXml = 
+            request.contentType match {
+              case Some(str) => str.contains("text/xml")
+              case None => false
+            }
+          if(!isXml) {
+            BadRequest(<error>login content type not xml: {request.body}</error>)
           } else {
             val username = request.body \ "username" text
             val password = request.body \ "password" text
+            // this newline needed due to a scala parser bug
 
             if(username == "" || password == "") {
               BadRequest(<error>malformed login credentials: {request.body}</error>) 
             } else {
-              val tokenFuture = oauth2.authenticate(username, password).mapTo[Oauth2Token]
-              AsyncResult {
-                createAgent(tokenFuture).mapTo[NodeSeq].asPromise.map { response =>
-                  Ok(response)
-                }
+              // check if the user is already logged in here
+              checkUsername(username) match {
+                case Some(token) =>
+                  val tokenFuture = oauth2.authenticate(username, password)
+                  AsyncResult {
+                    tokenFuture.asPromise.map {
+                      case Left(err) => BadRequest(<error>{err}</error>)
+                      case Right(oa2token) =>
+                        Ok(<agent><agentID>{username}</agentID><token>{token}</token></agent>)
+                    }
+                  }
+                case None =>
+                  val tokenFuture = oauth2.authenticate(username, password)
+                     AsyncResult {
+                       createAgent(tokenFuture).asPromise.map {
+                         case Left(err) => BadRequest(<error>{err}</error>)
+                         case Right(response) =>
+                           Ok(response)
+                       }
+                     }
               }
             }
           }
@@ -196,48 +236,55 @@ object PlayRest extends Application {
     }
   }
 
+  // todo : refactor this into another actor to get rid of race conditions
   // todo : check that agent creation succeeds
-  def createAgent(tokenFuture: Future[Oauth2Token]): Future[NodeSeq] = {
-    tokenFuture map { token =>
-      if(!agentExists(token.token)) {
-        system.actorOf(Props(new HtrcAgent(token)), name = token.username)
-        addAgent(token)
-      }
-      <agent>
-        <agentID>{token.username}</agentID>
-        <token>{token.token}</token>
-      </agent>
+  def createAgent(tokenFuture: Future[Either[String,Oauth2Token]]): Future[Either[String,NodeSeq]] = {
+
+    tokenFuture map {
+      case Left(err) => Left(err)
+      case Right(token) =>
+        if(!agentExists(token.token)) {
+          system.actorOf(Props(new HtrcAgent(token)), name = token.username)
+          addAgent(token)
+        }
+       Right(
+        <agent>
+          <agentID>{token.username}</agentID>
+          <token>{token.token}</token>
+        </agent>
+       )
+      
     }
   }
-              
+
   def route = {
 
     case PUT(Path(Seg("agent" :: "login" :: Nil))) => 
       login
+
+    case GET(Path(Seg("agent" :: "download" :: "collection" :: name :: Nil))) =>
+      dispatch { DownloadCollection(name) }
+
+    case PUT(Path(Seg("agent" :: "upload" :: "collection" :: Nil))) =>
+      dispatch { body => UploadCollection(body) }
+
+    case PUT(Path(Seg("agent" :: "modify" :: "collection" :: Nil))) =>
+      dispatch { body => ModifyCollection(body) }
    
     case GET(Path(Seg("agent" :: "algorithm" :: "list" :: Nil))) => 
       dispatch { ListAvailibleAlgorithms }
     
     case GET(Path(Seg("agent" :: "collection" :: "list" :: Nil))) => 
       dispatch { ListAvailibleCollections }
-    
-    case GET(Path(Seg("agent" :: "algorithm" :: "run" :: algName :: colName :: args :: Nil))) => 
-      dispatch { RunAlgorithm(algName, colName, args) }
-    
-    case GET(Path(Seg("agent" :: "algorithm" :: "poll" :: Nil))) => 
-      dispatch { ListAgentAlgorithms }
-    
-    case GET(Path(Seg("agent" :: "algorithm" :: algId :: "result" :: "stdout" :: Nil))) => 
-      dispatch { AlgStdout(algId) }
 
-    case GET(Path(Seg("agent" :: "algorithm" :: algId :: "result" :: "stderr" :: Nil))) =>
-      dispatch { AlgStderr(algId) }
-    
-    case GET(Path(Seg("agent" :: "algorithm" :: algId :: "result" :: "file" :: filename :: Nil))) => 
-      dispatch { AlgFile(algId, filename) }
+    case GET(Path(Seg("agent" :: "algorithm" :: "details" :: algName :: Nil))) =>
+      dispatch { AlgorithmDetails(algName) }
 
-    case GET(Path(Seg("agent" :: "algorithm" :: "poll" :: algId :: Nil))) => 
-      dispatch { PollAlg(algId) }
+    case PUT(Path(Seg("agent" :: "algorithm" :: "run" :: algName :: Nil))) =>
+      dispatch { body => RunAlgorithm(algName, body) }
+
+    case GET(Path(Seg("agent" :: "algorithm" :: "status" :: algId :: Nil))) =>
+      dispatch { AlgorithmStatusRequest(algId) }
 
   }
 

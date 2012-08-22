@@ -1,4 +1,7 @@
 
+// the states an algorithm can be in
+// todo : change the names on these to match actual desired statuses
+
 package htrcagent
 
 import java.util.Date
@@ -8,7 +11,7 @@ trait AlgorithmStatus {
   val date: Date
   val algId: String
   val status: String
-  def renderXml: scala.xml.NodeSeq = 
+  def renderXml: NodeSeq = 
     <algStatus>
       <date>{date}</date>
       <algId>{algId}</algId>
@@ -20,19 +23,22 @@ case class Prestart(date: Date, algId: String) extends AlgorithmStatus {
   val status = "Prestart"
 }
 
+case class Initializing(date: Date, algId: String) extends AlgorithmStatus {
+  val status = "Initializing"
+}
+
 case class Running(date: Date, algId: String) extends AlgorithmStatus {
   val status = "Running"
 }
 
-case class Finished(date: Date, 
-                    algId: String, 
-                    workingDir: String) extends AlgorithmStatus { 
+case class Finished(date: Date, algId: String) extends AlgorithmStatus { 
   val status = "Finished"
 }
 
-case class Crashed(date: Date, algId: String, workingDir: String) extends AlgorithmStatus {
+case class Crashed(date: Date, algId: String) extends AlgorithmStatus {
   val status = "Crashed"
 }
+
 
 trait AlgorithmResult {
   def renderXml: Elem
@@ -49,4 +55,3 @@ case class StderrResult(stderr: String) extends AlgorithmResult {
 case object EmptyResult extends AlgorithmResult {
   def renderXml: Elem = <empty>result does not exist</empty>
 }
-

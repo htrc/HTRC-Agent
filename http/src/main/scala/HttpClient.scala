@@ -20,7 +20,7 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
 
   import NingAkkaBridge._
 
-  def request[R : Decoder, B : Encoder](reqType: ReqType, url: Url, body: B = Empty, headers: Iterable[(String,String)] = Nil): Future[R] = {
+  def request[R : Decoder, B : Encoder](reqType: ReqType, url: Url, body: B = Empty, headers: Iterable[(String,String)] = Nil): Future[Either[HttpError, HttpResponse[R]]] = {
     
     val r = new RequestBuilder()
     r.setUrl(url)
@@ -32,9 +32,17 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
 
     val built = rb.build
 
-    val f = makeRequest(built)
-    f map { res: Response =>
-      implicitly[Decoder[R]].apply(res)
+    try {
+      val f = makeRequest(built)
+      f match {
+        case Right(res) =>
+          res map { r =>
+            implicitly[Decoder[R]].apply(r)
+          }
+        case Left(e) => Future { Left(NingException(e)) }
+      }
+    } catch {
+      case e => Future { Left(HostNotResponding(url)) }
     }
   }  
 
@@ -56,7 +64,10 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
   def put[R : Decoder, B : Encoder](url: Url, body: B = Empty) =
     request[R, B](PUT, url, body)
 
-  def post[R : Decoder, B : Encoder](url: Url, body: B): Future[R] =
+  def put[R : Decoder, B : Encoder](url: Url, body: B, headers: Iterable[(String,String)]) = 
+    request[R, B](PUT, url, body, headers)
+
+  def post[R : Decoder, B : Encoder](url: Url, body: B) =
     request[R, B](POST, url, body)
 
   def now[T](f: Future[T]): T = Await.result(f, 5 seconds)
