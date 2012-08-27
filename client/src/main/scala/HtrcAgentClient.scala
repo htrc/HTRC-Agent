@@ -109,13 +109,27 @@ class HtrcAgentClient(username: String = HtrcProps.debugUser, password: String =
   }
 
   val testProps = 
-    <user_properties>
-      <e key="number">5</e>
-      <e key="result">120</e>
-    </user_properties>
+    <job>
+      <name>test_job_120</name>
+      <parameters>
+        <param
+          name="input_collection"
+          type="collection"
+          value="Collection_CW2"/>
+      </parameters>
+    </job>
 
-  def algorithmStatus(algId: String) = 
-    checkErr(get[NodeSeq](root / "algorithm" / "status" / algId, auth))
+  def jobStatus(algId: String) = 
+    checkErr(get[NodeSeq](root / "job" / algId / "status", auth))
+
+  def jobStdout(jobId: String) =
+    checkErr(get[NodeSeq](root / "job" / jobId / "result" / "stdout", auth))
+
+  def jobStderr(jobId: String) = 
+    checkErr(get[NodeSeq](root / "job" / jobId / "result" / "stderr", auth))
+
+  def jobDir(jobId: String) =
+    checkErr(get[NodeSeq](root / "job" / jobId / "result" / "dir", auth))
 
   def initialize:Future[Either[String,NodeSeq]] = {
     val credentials = 
