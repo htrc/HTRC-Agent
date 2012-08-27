@@ -60,6 +60,7 @@ trait Wso2Registry {
   def writeData(data: HashMap[String,String], workingDir: String): Boolean = {
 
     data foreach { case (k,v) =>
+      println("registry writing: " + k + " to: " + v)
       val resource = regOp { registry.get(k) }
       val bytes = resource.getContent.asInstanceOf[Array[Byte]]
       val out = new java.io.FileOutputStream(workingDir + "/" + v)
@@ -69,6 +70,28 @@ trait Wso2Registry {
 
     true
 
+  }
+
+  def writeCollections(names: List[String], workingDir: String, username: String): Boolean = {
+    val paths = getCollectionPaths(username)
+    names foreach { case name =>
+      val path = paths.find { _.split('/').last == name }
+      path match {
+        case Some(path) => 
+          writeCollection(path, workingDir)
+        case _ => println("None in writeCollections: " + path)
+      }
+    }
+
+    true
+  }
+                  
+  def writeCollection(path: String, workingDir: String) {
+    val resource = regOp { registry.get(path+"/data") }
+    val bytes = resource.getContent.asInstanceOf[Array[Byte]]
+    val out = new java.io.FileOutputStream(workingDir + "/" + path.split('/').last)
+    out.write(bytes)
+    out.close()
   }
 
   def exists(path: String): Boolean = {
@@ -102,18 +125,30 @@ trait Wso2Registry {
   def getAlgorithmInfo(username: String, algorithmName: String): NodeSeq = {
     val paths = getAlgorithmPaths(username)
     val algPath = paths.find { _.split('/').last == algorithmName } 
-    if(exists(algPath.get+"/properties")) {
-      val resource = regOp { registry.get(algPath.get + "/properties") }
+    if(exists(algPath.get)) {
+      val resource = regOp { registry.get(algPath.get) }
       resource.getContent
       XML.load(resource.getContentStream)
     } else {
       <error>missing property file for: {algorithmName}</error>
     }
   }
+  
+  def getAlgorithmsXml(user: String): NodeSeq = {
+    val paths = getAlgorithmPaths(user)
+    val result = 
+      <algorithms>{
+        paths map { p =>
+          val resource = regOp { registry.get(p) }
+          resource.getContent
+          XML.load(resource.getContentStream) \ "info"
+       }}</algorithms>
+    result
+  }
 
   def getAlgorithmInfo(path: String): NodeSeq = {
-    if(exists(path+"/properties")) {
-      val resource = regOp { registry.get(path+"/properties") }
+    if(exists(path)) {
+      val resource = regOp { registry.get(path) }
       resource.getContent
       XML.load(resource.getContentStream)
     } else {

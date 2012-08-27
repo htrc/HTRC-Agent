@@ -77,6 +77,29 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
         } pipeTo dest
       }
 
+    case msg @ AlgorithmStdoutRequest(algId) => 
+      val dest = sender
+      algorithms(algId).map { child =>
+        (child ? msg).mapTo[AlgorithmResult].map { result =>
+          result.renderXml
+        } pipeTo dest
+      }
+
+    case msg @ AlgorithmStderrRequest(algId) =>
+      val dest = sender
+      algorithms(algId).map { child =>
+        (child ? msg).mapTo[AlgorithmResult].map { result =>
+          result.renderXml                        
+        } pipeTo dest        
+      }
+
+    case msg @ JobDirRequest(algId) =>
+      val dest = sender
+      algorithms(algId).map { child =>
+        (child ? msg).mapTo[AlgorithmResult].map { result =>
+          result.renderXml
+        } pipeTo dest
+      } 
 
     // THESE CALLS REMOVED UNTIL ALGORITHM RUNS REIMPLEMENTED
 

@@ -16,5 +16,8 @@ object HtrcProps {
     val username = config.getString("htrc.registry.auth.username")
     val password = config.getString("htrc.registry.auth.password")
   }
+
+ val solr = config.getString("htrc.urls.solr")
+ val dataApi = config.getString("htrc.urls.data_api")
   
 }

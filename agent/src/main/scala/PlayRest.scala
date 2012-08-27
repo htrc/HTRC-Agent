@@ -257,8 +257,17 @@ object PlayRest extends Application {
     }
   }
 
-  def route = {
+  // nonsense time!
+  // scala pattern matching is broken, so split routing into two functions combined
 
+  type In = play.api.mvc.RequestHeader
+  type Out = play.api.mvc.Handler
+
+  def route = foo orElse bar
+
+
+
+  val foo: PartialFunction[In,Out] = {
     case PUT(Path(Seg("agent" :: "login" :: Nil))) => 
       login
 
@@ -279,12 +288,24 @@ object PlayRest extends Application {
 
     case GET(Path(Seg("agent" :: "algorithm" :: "details" :: algName :: Nil))) =>
       dispatch { AlgorithmDetails(algName) }
+  }
 
+  val bar:PartialFunction[In,Out] = {
+    // the incoming body is xml with the arguments
     case PUT(Path(Seg("agent" :: "algorithm" :: "run" :: algName :: Nil))) =>
       dispatch { body => RunAlgorithm(algName, body) }
 
-    case GET(Path(Seg("agent" :: "algorithm" :: "status" :: algId :: Nil))) =>
+    case GET(Path(Seg("agent" :: "job" :: algId :: "status" :: Nil))) =>
       dispatch { AlgorithmStatusRequest(algId) }
+
+    case GET(Path(Seg("agent" :: "job" :: algId :: "result" :: "stdout" :: Nil))) =>
+      dispatch { AlgorithmStdoutRequest(algId) }
+
+    case GET(Path(Seg("agent" :: "job" :: algId :: "result" :: "stderr" :: Nil))) =>
+      dispatch { AlgorithmStderrRequest(algId) }
+
+    case GET(Path(Seg("agent" :: "job" :: algId :: "result" :: "dir" :: Nil))) =>
+      dispatch { JobDirRequest(algId) }
 
   }
 

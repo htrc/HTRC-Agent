@@ -30,11 +30,7 @@ class RegistryActor extends Actor with Wso2Registry {
 
     // simple algorithm list
     case RegistryListAvailibleAlgorithms(username) =>
-      val xml = 
-        <algorithms>
-          {getAlgorithmList(username).map( a => <algorithm>{a}</algorithm>)}
-        </algorithms>
-      sender ! xml
+      sender ! getAlgorithmsXml(username)
       
     case RegistryListAvailibleCollections(username) =>
       sender ! getCollectionsXml(username)
@@ -44,6 +40,9 @@ class RegistryActor extends Actor with Wso2Registry {
 
     case FetchRegistryData(data, workingDir) =>
       sender ! writeData(data, workingDir)
+
+    case FetchRegistryCollections(names, workingDir, username) =>
+      sender ! writeCollections(names, workingDir, username)
 
   }
 

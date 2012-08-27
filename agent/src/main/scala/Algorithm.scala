@@ -15,7 +15,7 @@ trait Algorithm extends Actor {
 
   import context._
 
-  implicit val timeout = Timeout(60000 milliseconds)
+  implicit val timeout = Timeout(3600 seconds)
 
   // the thing an algorithm has when created
   val props: AlgorithmProperties

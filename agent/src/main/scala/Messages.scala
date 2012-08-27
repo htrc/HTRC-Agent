@@ -41,6 +41,8 @@ case class RunAlgorithm(algorithmName: String, body: NodeSeq) extends HtrcMessag
 
 case class FetchRegistryData(data: HashMap[String,String], workingDir: String)
 
+case class FetchRegistryCollections(names: List[String], workingDir: String, username: String) extends HtrcMessage
+
 case class RegistryAlgorithmProperties(algorithmName: String, username: String) extends HtrcMessage
 
 case class AlgorithmStatusRequest(algId: String) extends HtrcMessage
@@ -49,3 +51,6 @@ case class WorkerUpdate(status: AlgorithmStatus) extends HtrcMessage
 
 case class ResultUpdate(result: AlgorithmResult) extends HtrcMessage
 
+case class AlgorithmStderrRequest(algId: String) extends HtrcMessage
+case class AlgorithmStdoutRequest(algId: String) extends HtrcMessage
+case class JobDirRequest(algId: String) extends HtrcMessage
