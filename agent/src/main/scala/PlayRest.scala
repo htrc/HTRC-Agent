@@ -43,6 +43,8 @@ object PlayRest extends Application {
   private val registryActor = system.actorOf(Props[RegistryActor].withRouter(
     RoundRobinRouter(nrOfInstances = 64)), name = "registryActor")
 
+  private val portAllocator = system.actorOf(Props[PortAllocator], name = "portAllocator")
+
   private val oauthUrl = htrcParam("urls.oa2")
   private val oauth2 = new Oauth2(Url(oauthUrl))
   private val oa2DebugUser = htrcParam("auth.oa2.user")

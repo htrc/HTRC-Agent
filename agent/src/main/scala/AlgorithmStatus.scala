@@ -5,67 +5,88 @@
 package htrcagent
 
 import java.util.Date
+import java.text.SimpleDateFormat
 import scala.xml._
 
 trait AlgorithmStatus {
-  val date: Date
-  val jobId: String
-  val jobName: String
-  val user: String
-  val algName: String
+
+  val props: AlgorithmProperties
+
+  val jobId = props.jobId
+  val jobName = props.jobName
+  val user = props.username
+  val algName = props.algorithmName
   val status: Elem
+  val parameters = props.rawParameters
+
+  val fDate = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(new java.util.Date)
+
   def renderXml: NodeSeq = 
     <job_status>
       <job_name>{jobName}</job_name>
       <user>{user}</user>
       <algorithm>{algName}</algorithm>
+      {parameters}
       <job_id>{jobId}</job_id>
-      <date>{date}</date>
+      <date>{fDate}</date>
       {status}
     </job_status>
 }
 
-case class Prestart(date: Date, jobId: String, jobName: String, user: String, algName: String) extends AlgorithmStatus {
-  val status = <status>Prestart</status>
+case class Queued(props: AlgorithmProperties) extends AlgorithmStatus {
+  val status = <status type="Queued"/>
 }
 
-case class Initializing(date: Date, jobId: String, jobName: String, user: String, algName: String) extends AlgorithmStatus {
-  val status = <status>Initializing</status>
+case class Staging(props: AlgorithmProperties) extends AlgorithmStatus {
+  val status = <status type="Staging"/>
 }
 
-case class Running(date: Date, jobId: String, jobName: String, user: String, algName: String) extends AlgorithmStatus {
-  val status = <status>Running</status>
+case class Running(props: AlgorithmProperties) extends AlgorithmStatus {
+  val status = <status type="Running"/>
 }
 
-case class Finished(date: Date, jobId: String, jobName: String, user: String, algName: String) extends AlgorithmStatus { 
-  val status = <status>Finished</status>
+case class Finished(props: AlgorithmProperties, results: List[AlgorithmResult]) extends AlgorithmStatus { 
+  val status = 
+    <status type="Finished">
+      {for(r <- results) yield r.renderXml}
+    </status>
 }
 
-case class Crashed(date: Date, jobId: String, jobName: String, user: String, algName: String) extends AlgorithmStatus {
-  val status = <status>Crashed</status>
+case class Crashed(props: AlgorithmProperties, results: List[AlgorithmResult]) extends AlgorithmStatus {
+  val status =
+    <status type="Crashed">   
+      <message>Job crashed for unknown reason.</message>
+      {for(r <- results) yield r.renderXml}
+    </status>
+}
+
+case class Aborted(props: AlgorithmProperties) extends AlgorithmStatus {
+  val status =
+    <status type="Aborted">
+      <message>User aborted job.</message>
+    </status>
 }
 
 trait AlgorithmResult {
-  def renderXml: Elem
+  val rootUrl = HtrcProps.resultRootUrl
+  def renderXml = <result type={rtype}>{rootUrl+"/"+result}</result>
+  val result: String
   val rtype: String
 }
 
-case class StdoutResult(stdout: String) extends AlgorithmResult {
+case class StdoutResult(result: String) extends AlgorithmResult {
   val rtype = "stdout"
-  def renderXml: Elem = <stdout>{stdout}</stdout>
 }
 
-case class StderrResult(stderr: String) extends AlgorithmResult {
+case class StderrResult(result: String) extends AlgorithmResult {
   val rtype = "stderr"
-  def renderXml: Elem = <stderr>{stderr}</stderr>
 }
 
-case class DirResult(path: String) extends AlgorithmResult {
-  val rtype = "dir"
-  def renderXml: Elem = <dir_path>{path}</dir_path>
+case class DirectoryResult(result: String) extends AlgorithmResult {
+  val rtype = "directory"
 }
 
 case object EmptyResult extends AlgorithmResult {
+  val result = "does_not_exist"
   val rtype = "empty"
-  def renderXml: Elem = <empty>result does not exist</empty>
 }

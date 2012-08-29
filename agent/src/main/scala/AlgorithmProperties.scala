@@ -13,7 +13,7 @@ import java.io.PrintWriter
 case class AlgorithmProperties(userProperties: NodeSeq, 
                                masterProperties: NodeSeq,
                                algorithmName: String,
-                               algId: String,
+                               jobId: String,
                                username: String,
                                token: String) {
 
@@ -41,6 +41,8 @@ case class AlgorithmProperties(userProperties: NodeSeq,
 
   val jobName = userProperties \ "name" text
 
+  val rawParameters = userProperties \ "parameters"
+
   val parameters = new HashMap[String,String]
   userProperties \ "parameters" \ "param" foreach { e => parameters += ((e \ "@name" text) -> (e \ "@value" text)) }
 
@@ -56,9 +58,9 @@ case class AlgorithmProperties(userProperties: NodeSeq,
   systemVariables += ("solr_proxy" -> HtrcProps.solr)
 
   // this is temporary - in the future put results someplace sensible
-  systemVariables += ("output_dir" -> "RESULTS")
+  systemVariables += ("output_dir" -> "job_results")
   // also make available as a prop to the running algorithm - assume all algs use it...
-  val outputDir = "RESULTS"
+  val outputDir = "job_results"
 
   val variables = parameters ++ systemVariables
 

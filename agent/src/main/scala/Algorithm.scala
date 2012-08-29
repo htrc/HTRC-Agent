@@ -28,7 +28,7 @@ trait Algorithm extends Actor {
 
 }
 
-object Algorithm {
+object AlgorithmProps {
   
   // the algorithm object will act as a factory
   // the type of algorithm to build will be in the properties file
@@ -37,8 +37,7 @@ object Algorithm {
             userProperties: NodeSeq,
             username: String,
             algId: String,
-            token: String,
-            computeParent: ActorRef): Future[ActorRef] = {
+            token: String): Future[AlgorithmProperties] = {
 
 
     val system = HtrcSystem.system
@@ -55,8 +54,7 @@ object Algorithm {
                                       algId,
                                       username,
                                       token)
-      // replace this line with the factory behavior
-      system.actorOf(Props(new ShellAlgorithm(props, computeParent)))
+      props
     }
 
   }

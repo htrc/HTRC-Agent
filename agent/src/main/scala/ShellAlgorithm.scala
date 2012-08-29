@@ -21,25 +21,68 @@ import scala.sys.process.{ ProcessBuilder => SProcessBuilder }
 class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) extends Algorithm {
 
   val props = propss
-  val jobId = props.algId
 
-  computeParent ! WorkerUpdate(Initializing(new Date, jobId, props.jobName, props.username, props.algorithmName))
+  // the cleanup function! what a mess!
+  def cleanup(): List[AlgorithmResult] = {
+
+    // helper for printing to a file
+    def printToFile(f: File)(op: PrintWriter => Unit) {
+      val p = new PrintWriter(f)
+      try { op(p) } finally { p.close() }
+    }
+
+    // mkdir on result storage location
+    val storageDir = {
+      val rootDir = HtrcProps.resultStoragePath
+      val path = rootDir + File.separator + props.username + File.separator + jobId
+      (new File(path)).mkdirs()
+      path
+    }
+      
+    // since we use this, the web-path
+    val urlPath = props.username + "/" + jobId
+    // write stdout
+    printToFile(new File(storageDir + File.separator + "stdout")) { p =>
+      p.println(out.toString)
+                                                                 }
+      
+    // write stderr
+    printToFile(new File(storageDir + File.separator + "stderr")) { p =>
+      p.println(err.toString)
+                                                                 }
+    
+    val cpProcess = SProcess("cp -r " + resultDir + " " + storageDir + "/" + props.outputDir)
+    val exitCode = cpProcess !
+
+    // rm -rf the right thing! this could be EXCITING!
+    val rmrf = SProcess("echo deleting: " + workingDir)
+    val exitCode2 = rmrf !
+    
+    List(StdoutResult(urlPath+"/stdout"),
+         StderrResult(urlPath+"/stderr"),
+         DirectoryResult(urlPath+"/"+props.outputDir))
+    
+  }
+
+  val jobId = props.jobId
+
+  computeParent ! WorkerUpdate(Staging(props))
 
   // required for actor stuff
   import context._
 
   // create the algorithm's working directory
   val workingDir = {
-    val rootDir = "agent/agent_working_directory"
-    (new File(rootDir + File.separator + jobId)).mkdir()
+    val rootDir = HtrcProps.workingDirRoot
+    (new File(rootDir + File.separator + jobId)).mkdirs()
     rootDir + File.separator + jobId
   }
 
   // create the internal folder to store results
   val resultDir = {
-    val str = "agent/agent_working_directory/"+jobId+"/"+props.outputDir
-    (new File(str)).mkdir()
-    str
+    val path = workingDir+"/"+props.outputDir
+    (new File(path)).mkdir()
+    path
   }
      
   // create a pair of mutable strings and set them up as the destination for 
@@ -51,34 +94,33 @@ class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) exten
     (o: String) => out.append(o + "\n"),
     (e: String) => err.append(e + "\n"))
 
-  var sysProcess = SProcess("bash " + props.runScript, new File(workingDir))
-
   // need to get registry information into the directory
   val registryFinished = registry ? FetchRegistryData(props.registryData, workingDir)
   val registryCollections = registry ? FetchRegistryCollections(props.collections, workingDir, props.username)
+  val port = actorFor("akka://htrc/user/portAllocator") ? PortRequest
 
   // also write props
   props.write(workingDir)
 
   registryFinished.mapTo[Boolean] map { b =>
     registryCollections.mapTo[Boolean] map { b =>
+      port.mapTo[Int] map { p =>
     // ignore the registry's status here for now...
 
-    computeParent ! WorkerUpdate(Running(new Date, jobId, props.jobName, props.username, props.algorithmName))
+    val sysProcess = SProcess("bash " + props.runScript, new File(workingDir), ("HTRC_MEANDRE_PORT", p.toString))
+
+    computeParent ! WorkerUpdate(Running(props))
     val exitCode: Int = sysProcess ! plogger
 
+    val results = cleanup()
+
     if(exitCode == 0) {
-      computeParent ! WorkerUpdate(Finished(new Date, jobId, props.jobName, props.username, props.algorithmName))
-      computeParent ! StdoutResult(out.toString)
-      computeParent ! StderrResult(err.toString)
-      computeParent ! DirResult(resultDir)
+      computeParent ! WorkerUpdate(Finished(props, results))
+      computeParent ! ResultUpdate(results)
     } else {
-      computeParent ! WorkerUpdate(Crashed(new Date, jobId, props.jobName, props.username, props.algorithmName))
-      computeParent ! StdoutResult(out.toString)
-      computeParent ! StderrResult(err.toString)
-      computeParent ! DirResult(resultDir)
+      computeParent ! WorkerUpdate(Crashed(props, results))
+      computeParent ! ResultUpdate(results)
     }
-  }}
+  }}}
 
 }
-

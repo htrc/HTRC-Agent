@@ -17,7 +17,11 @@ object HtrcProps {
     val password = config.getString("htrc.registry.auth.password")
   }
 
- val solr = config.getString("htrc.urls.solr")
- val dataApi = config.getString("htrc.urls.data_api")
+  val solr = config.getString("htrc.urls.solr")
+  val dataApi = config.getString("htrc.urls.data_api")
+
+  val resultStoragePath = config.getString("htrc.directory.storage")
+  val workingDirRoot = config.getString("htrc.directory.working")
+  val resultRootUrl = config.getString("htrc.urls.results")
   
 }

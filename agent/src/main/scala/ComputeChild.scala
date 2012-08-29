@@ -18,40 +18,27 @@ class ComputeChild(algorithmName: String, userProperties: NodeSeq, username: Str
   import context._
 
   val jobName = userProperties \ "job_name" text
-  var status: AlgorithmStatus = Prestart(new Date, jobId, jobName, username, algorithmName)
-  val results = new ListBuffer[AlgorithmResult]
-  var stdout: AlgorithmResult = EmptyResult
-  var stderr: AlgorithmResult = EmptyResult
-  var dir: AlgorithmResult = EmptyResult
+  var results: List[AlgorithmResult] = Nil
+                                  
+  val propsF = AlgorithmProps(algorithmName, userProperties, username, jobId, token)
+  val props = Await.result(propsF, 60 seconds)
+  var status: AlgorithmStatus = Queued(props)
 
-  val algorithm = Algorithm(algorithmName, userProperties, username, jobId, token, self)
+  val algorithm = HtrcSystem.system.actorOf(Props(new ShellAlgorithm(props, self)))
 
   def receive = {
     case AlgorithmStatusRequest(jobId) =>
       sender ! status
     case WorkerUpdate(newStatus) =>
       status = newStatus
-    case msg @ StdoutResult(result) =>
-      stdout = msg
-      results += msg
-    case msg @ StderrResult(result) =>
-      stderr = msg
-      results += msg
-    case msg @ DirResult(result) =>
-      dir = msg
-      results += msg
-    case ResultUpdate(result) =>
-      results += result
-      if(result.rtype == "stdout") 
-        stdout = result
-      if(result.rtype == "stderr")
-        stderr = result
+    case ResultUpdate(inResults) =>
+      results = inResults
     case AlgorithmStdoutRequest(inJobId) =>
-      sender ! stdout
+      sender ! results.find { _.rtype == "stdout" }.getOrElse(EmptyResult)
     case AlgorithmStderrRequest(inJobId) =>
-      sender ! stderr
+      sender ! results.find { _.rtype == "stderr" }.getOrElse(EmptyResult)
     case JobDirRequest(inJobId) =>
-      sender ! dir
+      sender ! results.find { _.rtype == "directory" }.getOrElse(EmptyResult)
   }
 
 }
