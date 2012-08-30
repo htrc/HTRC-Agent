@@ -122,6 +122,9 @@ class HtrcAgentClient(username: String = HtrcProps.debugUser, password: String =
   def jobStatus(algId: String) = 
     checkErr(get[NodeSeq](root / "job" / algId / "status", auth))
 
+  def listJobs = 
+    checkErr(get[NodeSeq](root / "job" / "status" / "all", auth))
+
   def jobStdout(jobId: String) =
     checkErr(get[NodeSeq](root / "job" / jobId / "result" / "stdout", auth))
 
