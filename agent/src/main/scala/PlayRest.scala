@@ -309,6 +309,9 @@ object PlayRest extends Application {
     case GET(Path(Seg("agent" :: "job" :: algId :: "result" :: "dir" :: Nil))) =>
       dispatch { JobDirRequest(algId) }
 
+    case GET(Path(Seg("agent" :: "job" :: "status" :: "all" :: Nil))) =>
+      dispatch { AllJobStatusRequest }
+
   }
 
 }

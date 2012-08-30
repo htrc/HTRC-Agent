@@ -48,7 +48,9 @@ case class Running(props: AlgorithmProperties) extends AlgorithmStatus {
 case class Finished(props: AlgorithmProperties, results: List[AlgorithmResult]) extends AlgorithmStatus { 
   val status = 
     <status type="Finished">
-      {for(r <- results) yield r.renderXml}
+      <results>
+        {for(r <- results) yield r.renderXml}
+      </results>
     </status>
 }
 

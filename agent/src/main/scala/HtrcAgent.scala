@@ -77,6 +77,26 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
         } pipeTo dest
       }
 
+    case AllJobStatusRequest =>
+      val dest = sender
+      val statusFutures = algorithms.map {
+        case (k,v) =>
+          v.flatMap { child =>
+            (child ? AlgorithmStatusRequest(k)).mapTo[AlgorithmStatus].map { s =>
+              s.renderXml
+            }
+          }
+      }
+
+      val futureList = Future.sequence(statusFutures)
+      futureList.map { jobs =>
+        <jobs>
+        {for(j <- jobs) yield j}
+        </jobs>
+      } pipeTo dest
+
+    
+
     case msg @ AlgorithmStdoutRequest(algId) => 
       val dest = sender
       algorithms(algId).map { child =>

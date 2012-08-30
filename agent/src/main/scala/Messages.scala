@@ -46,6 +46,7 @@ case class FetchRegistryCollections(names: List[String], workingDir: String, use
 case class RegistryAlgorithmProperties(algorithmName: String, username: String) extends HtrcMessage
 
 case class AlgorithmStatusRequest(algId: String) extends HtrcMessage
+case object AllJobStatusRequest extends HtrcMessage
 
 case class WorkerUpdate(status: AlgorithmStatus) extends HtrcMessage
 

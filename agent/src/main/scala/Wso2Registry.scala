@@ -15,9 +15,14 @@ import org.wso2.carbon.registry.ws.client.registry.WSRegistryServiceClient
 
 import scala.xml._
 
+import akka.dispatch._
+import akka.util.duration._
+
 trait Wso2Registry {
 
   import HtrcProps.RegistryProps._
+
+  implicit val system = HtrcSystem.system
 
   def initialize: WSRegistryServiceClient = {
 
@@ -234,12 +239,13 @@ trait Wso2Registry {
     }
   }
 
-  def getCollectionsXml(user: String): NodeSeq = {
+  def getCollectionsXmlOrig(user: String): NodeSeq = {
     val paths = getCollectionPaths(user)
 
     val result = 
       <collections>{
         paths map { path =>
+          println("fetching collection: " + path)
           if(exists(path+"/properties")) {
             val resource = regOp { registry.get(path+"/properties") }
             resource.getContent
@@ -248,11 +254,35 @@ trait Wso2Registry {
             <error>invalid properties file for collection: {path.split('/').last}</error>
           }
         }
-      }</collections>
-    
+      }</collections>    
     result
   }
-    
+
+  implicit val timeout = 5 seconds
+
+  def getCollectionsXml(user: String): NodeSeq = {
+    val paths = getCollectionPaths(user)
+
+    val listOfFutures = paths.map { p =>
+      Future {
+        println("getting props for: " + p)
+        if(exists(p+"/properties")) {
+          val resource = regOp { registry.get(p+"/properties") }
+          resource.getContent
+          XML.load(resource.getContentStream)
+        } else {
+          <error>invalid properties file for collection: {p.split('/').last}</error>
+        }
+      }
+    }
+
+    val fcs = Future.sequence(listOfFutures)
+    val cs = Await.result(fcs, 5 seconds).asInstanceOf[List[Elem]]
+    val result = 
+      <collections>{for(c <- cs) yield c}</collections>
+    result
+  }
+  
   // this doesn't work! it just blows up with an internal class cast failure!
   def putCollection(path: String, data: String, metadata: HashMap[String,String]) {
     val resource = registry.newResource
