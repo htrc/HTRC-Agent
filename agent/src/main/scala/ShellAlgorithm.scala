@@ -42,12 +42,12 @@ class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) exten
     // since we use this, the web-path
     val urlPath = props.username + "/" + jobId
     // write stdout
-    printToFile(new File(storageDir + File.separator + "stdout")) { p =>
+    printToFile(new File(storageDir + File.separator + "stdout.txt")) { p =>
       p.println(out.toString)
                                                                  }
       
     // write stderr
-    printToFile(new File(storageDir + File.separator + "stderr")) { p =>
+    printToFile(new File(storageDir + File.separator + "stderr.txt")) { p =>
       p.println(err.toString)
                                                                  }
     
@@ -58,9 +58,12 @@ class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) exten
     val rmrf = SProcess("echo deleting: " + workingDir)
     val exitCode2 = rmrf !
     
-    List(StdoutResult(urlPath+"/stdout"),
-         StderrResult(urlPath+"/stderr"),
-         DirectoryResult(urlPath+"/"+props.outputDir))
+    val moreResults: List[AlgorithmResult] = (for(r <- props.resultNames) yield {
+      DirectoryResult(urlPath+"/"+props.outputDir+"/"+r)
+    }).toList
+
+    moreResults ::: List(StdoutResult(urlPath+"/stdout.txt"),
+                         StderrResult(urlPath+"/stderr.txt"))
     
   }
 

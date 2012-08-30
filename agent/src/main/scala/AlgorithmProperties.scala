@@ -101,6 +101,8 @@ case class AlgorithmProperties(userProperties: NodeSeq,
   val runScript = masterProperties \ "run_script" text
   val propFileName = masterProperties \ "properties_file_name" text
 
+  val resultNames = masterProperties \ "results" map { e => e \ "@name" text }
+
   // write out a properties file for the algorithm
   def write(workingDir: String) {
     
