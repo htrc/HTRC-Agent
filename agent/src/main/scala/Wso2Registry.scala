@@ -108,7 +108,12 @@ trait Wso2Registry {
     val path = algorithmsPath
     // get the collction objects                                       
     val public = regOp { registry.get(path+"/public").asInstanceOf[Collection] }
-    val privateExists = regOp { registry.resourceExists(path+"/private/"+user) }
+    val privateExists = 
+      if(user == "public") {
+        false
+      } else {
+        regOp { registry.resourceExists(path+"/private/"+user) }
+      }
     val nonPublic = 
       if(privateExists)
         Some(regOp { registry.get(path+"/private/"+user).asInstanceOf[Collection] })
@@ -128,18 +133,34 @@ trait Wso2Registry {
     getAlgorithmPaths(username) map { _.split('/').last }
 
   def getAlgorithmInfo(username: String, algorithmName: String): NodeSeq = {
-    val paths = getAlgorithmPaths(username)
-    val algPath = paths.find { _.split('/').last == algorithmName } 
-    if(exists(algPath.get)) {
-      val resource = regOp { registry.get(algPath.get) }
-      resource.getContent
-      XML.load(resource.getContentStream)
+    val key = username+"/"+algorithmName
+    if(algorithmProps.contains(key)) {
+      algorithmProps(key)
     } else {
-      <error>missing property file for: {algorithmName}</error>
+      val paths = getAlgorithmPaths(username)
+      val algPath = paths.find { _.split('/').last == algorithmName }
+      if(exists(algPath.get)) {
+        val resource = regOp { registry.get(algPath.get) }
+        resource.getContent
+        val value = XML.load(resource.getContentStream)
+        algorithmProps += (key -> value)
+        value
+      } else {
+        <error>missing property file for: {algorithmName}</error>
+      }
     }
   }
   
   def getAlgorithmsXml(user: String): NodeSeq = {
+    val paths = getAlgorithmPaths(user)
+    val owners = paths.map { _.split('/').reverse.drop(1).head }
+    val names = paths.map { _.split('/').reverse.head }
+    val props = owners.zip(names) map { case (o,n) => getAlgorithmInfo(o, n) }
+    <algorithms>{for(p <- props) yield p}</algorithms>
+  }
+    
+    
+  def getAlgorithmsXmlOld(user: String): NodeSeq = {
     val paths = getAlgorithmPaths(user)
     val result = 
       <algorithms>{
@@ -219,6 +240,7 @@ trait Wso2Registry {
     getCollectionPaths(user) map { s => s.split('/').last }
   }
 
+  // we modify this 
   def getCollectionProperties(path: String): Elem = {
     if(exists(path+"/properties")) {
       val resource = regOp { registry.get(path+"/properties") }
@@ -260,7 +282,46 @@ trait Wso2Registry {
 
   implicit val timeout = 5 seconds
 
+  // this we memoize, as we don't delete collections we are set!
+  var collectionProps = new HashMap[String,NodeSeq]
+
+  // might as well do algorithm details too:
+  var algorithmProps = new HashMap[String,NodeSeq]
+
+  def resetCache {
+    println("Flushing cache...")
+    collectionProps = new HashMap[String,NodeSeq]
+    getCollectionsXml("drhtrc")
+    algorithmProps = new HashMap[String,NodeSeq]
+    getAlgorithmsXml("drhtrc")
+  }
+
+  def getCollectionInfo(user: String, name: String): NodeSeq = {
+    val key = user+"/"+name
+    if(collectionProps.contains(key)) {
+      collectionProps(key)
+    } else {
+      if(exists(collectionsPath+"/"+key)) {
+        val resource = regOp { registry.get(collectionsPath+"/"+key+"/properties") }
+        resource.getContent
+        val value = XML.load(resource.getContentStream)
+        collectionProps += (key -> value)
+        value
+      } else {
+        <error>invalid properties file for collection: {key}</error>
+      }
+    }
+  }
+
   def getCollectionsXml(user: String): NodeSeq = {
+    val paths = getCollectionPaths(user)
+    val owners = paths.map { _.split('/').reverse.drop(1).head }
+    val names = paths.map { _.split('/').reverse.head }
+    val props = owners.zip(names) map { case (o,n) => getCollectionInfo(o,n) }
+    <collections>{for(p <- props) yield p}</collections>
+  }
+
+  def getCollectionsXmlAlsoOld(user: String): NodeSeq = {
     val paths = getCollectionPaths(user)
 
     val listOfFutures = paths.map { p =>

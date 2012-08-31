@@ -43,6 +43,11 @@ object PlayRest extends Application {
   private val registryActor = system.actorOf(Props[RegistryActor].withRouter(
     RoundRobinRouter(nrOfInstances = 64)), name = "registryActor")
 
+  val registryCacheChurn = system.scheduler.schedule(120 seconds, 
+                                                     5 seconds, 
+                                                     registryActor, 
+                                                     RegistryResetCache)
+
   private val portAllocator = system.actorOf(Props[PortAllocator], name = "portAllocator")
 
   private val oauthUrl = htrcParam("urls.oa2")
@@ -311,6 +316,12 @@ object PlayRest extends Application {
 
     case GET(Path(Seg("agent" :: "job" :: "status" :: "all" :: Nil))) =>
       dispatch { AllJobStatusRequest }
+
+    case GET(Path(Seg("agent" :: "admin" :: "cache" :: "collections" :: "load" :: Nil))) =>
+      for(i <- 1 to 64) {
+        registryActor ! RegistryResetCache 
+      }
+      Action { Ok(<msg>Warming up cache now</msg>) }
 
   }
 

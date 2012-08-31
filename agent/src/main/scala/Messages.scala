@@ -35,6 +35,8 @@ case class RegistryListAvailibleAlgorithms(username: String) extends HtrcMessage
 case class AlgorithmDetails(algorithmName: String) extends HtrcMessage
 case class RegistryAlgorithmDetails(username: String, algorithmName: String) extends HtrcMessage
 
+case object RegistryResetCache extends HtrcMessage
+
 // the process of running an algorithm
 
 case class RunAlgorithm(algorithmName: String, body: NodeSeq) extends HtrcMessage

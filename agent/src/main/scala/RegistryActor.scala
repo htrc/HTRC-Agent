@@ -15,6 +15,9 @@ class RegistryActor extends Actor with Wso2Registry {
 
   def receive = {
 
+    case RegistryResetCache =>
+      resetCache
+
     case RegistryDownloadCollection(collectionName, username) =>
       sender ! downloadCollection(collectionName, username)
 
@@ -62,6 +65,7 @@ class RegistryActor extends Actor with Wso2Registry {
   }
 
   def uploadCollection(data: NodeSeq, username: String): Elem = {
+
     // convert properties to hashmap
     val properties = new HashMap[String,String]
     ((data \ "collection_properties").head \ "e") map { elem =>
@@ -85,7 +89,12 @@ class RegistryActor extends Actor with Wso2Registry {
         <message>this collection already exists, use modify instead to change</message>
         {data}
       </error>
-    else {
+    else if(properties("name").contains(' ')) {
+      <error>
+        <message>collection names cannot have spaces, try an underscore or hyphen</message>
+      {data}
+      </error>
+    } else {
 
       // convert to a newline delimited file       
       val parsedData = (data \\ "id") map { _.text.trim } mkString("\n")
