@@ -26,6 +26,9 @@ class HtrcAgentClient(username: String = HtrcProps.debugUser, password: String =
     }
   }
 
+  def warmCache =
+    checkErr(get[NodeSeq](root / "admin" / "cache" / "collections" / "load"))
+
   def downloadCollection(name: String) = 
     checkErr(get[NodeSeq](root / "download" / "collection" / name, auth))
 
