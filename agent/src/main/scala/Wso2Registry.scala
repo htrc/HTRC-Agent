@@ -156,7 +156,7 @@ trait Wso2Registry {
     val owners = paths.map { _.split('/').reverse.drop(1).head }
     val names = paths.map { _.split('/').reverse.head }
     val props = owners.zip(names) map { case (o,n) => getAlgorithmInfo(o, n) }
-    <algorithms>{for(p <- props) yield p}</algorithms>
+    <algorithms>{for(p <- props) yield { p \ "info" }}</algorithms>
   }
     
     

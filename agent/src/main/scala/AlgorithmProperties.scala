@@ -74,8 +74,8 @@ case class AlgorithmProperties(userProperties: NodeSeq,
   val aVar1 = """\$\{(\w+)\}""".r
   val aVar2 = """\$(\w+)""".r
   def bindVariables(exp: String): String = {
-    val r1 = aVar1 replaceAllIn (exp, (m: Match) => variables.get(m.group(1)).getOrElse("None"))
-    val r2 = aVar2 replaceAllIn (r1, (m: Match) => variables.get(m.group(1)).getOrElse("None"))
+    val r1 = aVar1 replaceAllIn (exp, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT"))
+    val r2 = aVar2 replaceAllIn (r1, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT"))
     r2
   }
 
@@ -101,7 +101,7 @@ case class AlgorithmProperties(userProperties: NodeSeq,
   val runScript = masterProperties \ "run_script" text
   val propFileName = masterProperties \ "properties_file_name" text
 
-  val resultNames = masterProperties \ "results" map { e => e \ "@name" text }
+  val resultNames = masterProperties \ "results" \ "result" map { e => e \ "@name" text }
 
   // write out a properties file for the algorithm
   def write(workingDir: String) {
@@ -114,7 +114,8 @@ case class AlgorithmProperties(userProperties: NodeSeq,
     val allProps = masterProps
     if(allProps.isEmpty == false) {
       printToFile(new File(workingDir+"/"+propFileName))(p => {
-        allProps.foreach { case (k,v) => p.println(k + " = " + v) }
+        allProps.foreach { case (k,v) => 
+          if(v != "HTRC_DEFAULT") p.println(k + " = " + v) }
       })
     }
 
