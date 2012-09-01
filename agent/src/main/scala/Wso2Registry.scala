@@ -139,7 +139,7 @@ trait Wso2Registry {
     } else {
       val paths = getAlgorithmPaths(username)
       val algPath = paths.find { _.split('/').last == algorithmName }
-      if(exists(algPath.get)) {
+      if(exists(algPath.getOrElse("DNE"))) {
         val resource = regOp { registry.get(algPath.get) }
         resource.getContent
         val value = XML.load(resource.getContentStream)

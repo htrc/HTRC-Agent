@@ -22,6 +22,8 @@ class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) exten
 
   val props = propss
 
+  val odin = HtrcProps.odinLocation
+
   // the cleanup function! what a mess!
   def cleanup(): List[AlgorithmResult] = {
 
@@ -50,14 +52,13 @@ class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) exten
     printToFile(new File(storageDir + File.separator + "stderr.txt")) { p =>
       p.println(err.toString)
                                                                  }
-    
-    val cpProcess = SProcess("cp -r " + resultDir + " " + storageDir + "/" + props.outputDir)
-    val exitCode = cpProcess !
 
-    // rm -rf the right thing! this could be EXCITING!
-    val rmrf = SProcess("echo deleting: " + workingDir)
-    val exitCode2 = rmrf !
-    
+    // CONVERT TO SCP
+    val scp = "scp -r %s:~/agent_working_directories/%s/%s".format(odin, jobId, props.outputDir)
+    val scpP = SProcess(scp + " " + storageDir+"/"+props.outputDir)
+
+    val exitCode = scpP !
+
     val moreResults: List[AlgorithmResult] = (for(r <- props.resultNames) yield {
       DirectoryResult(urlPath+"/"+props.outputDir+"/"+r)
     }).toList
@@ -110,7 +111,16 @@ class ShellAlgorithm(propss: AlgorithmProperties, computeParent: ActorRef) exten
       port.mapTo[Int] map { p =>
     // ignore the registry's status here for now...
 
-    val sysProcess = SProcess("bash " + props.runScript, new File(workingDir), ("HTRC_MEANDRE_PORT", p.toString))
+    val toOdin = SProcess("scp -r " + workingDir + " " + odin+":~/agent_working_directories/")
+    val scpRes = toOdin !
+
+    val env = "HTRC_MEANDRE_PORT=%s HTRC_WORKING_DIR=~/agent_working_directories/%s"
+    val envF = env.format(p.toString, jobId)
+    val cmd = "ssh %s %s srun -N1 bash ~/agent_working_directories/%s/%s"
+    val cmdF = cmd.format(odin, envF, jobId, props.runScript)
+    println("Executing via Odin: " + cmdF)
+
+    val sysProcess = SProcess(cmdF)
 
     computeParent ! WorkerUpdate(Running(props))
     val exitCode: Int = sysProcess ! plogger

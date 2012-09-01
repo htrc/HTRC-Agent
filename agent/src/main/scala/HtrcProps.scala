@@ -23,5 +23,6 @@ object HtrcProps {
   val resultStoragePath = config.getString("htrc.directory.storage")
   val workingDirRoot = config.getString("htrc.directory.working")
   val resultRootUrl = config.getString("htrc.urls.results")
+  val odinLocation = config.getString("htrc.urls.odin")
   
 }
