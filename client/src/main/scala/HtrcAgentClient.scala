@@ -29,6 +29,18 @@ class HtrcAgentClient(username: String = HtrcProps.debugUser, password: String =
   def warmCache =
     checkErr(get[NodeSeq](root / "admin" / "cache" / "collections" / "load"))
 
+  def saveJob(jobId: String) =
+    checkErr(put[NodeSeq](root / "job" / jobId / "save", auth))
+
+  def deleteJob(jobId: String) =
+    checkErr(delete[NodeSeq](root / "job" / jobId / "delete", auth))
+
+  def listSavedJobs = 
+    checkErr(get[NodeSeq](root / "job" / "status" / "saved", auth))
+  
+  def listActiveJobs =
+    checkErr(get[NodeSeq](root / "job" / "status" / "active", auth))
+
   def downloadCollection(name: String) = 
     checkErr(get[NodeSeq](root / "download" / "collection" / name, auth))
 
@@ -119,6 +131,17 @@ class HtrcAgentClient(username: String = HtrcProps.debugUser, password: String =
           name="input_collection"
           type="collection"
           value="Collection_CW2"/>
+      </parameters>
+    </job>
+
+  val dunningProps =
+    <job>
+      <name>test_dunning</name>
+      <parameters>
+        <param
+          name="input_collection"
+          type="collection"
+          value="Lincoln"/>
       </parameters>
     </job>
 
