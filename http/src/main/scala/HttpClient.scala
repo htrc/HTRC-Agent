@@ -61,6 +61,9 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
   def put[R : Decoder](url: Url) =
     request[R, Empty](PUT, url, Empty)
 
+  def put[R : Decoder](url: Url, headers: Iterable[(String,String)]) =
+    request[R, Empty](PUT, url, Empty, headers)
+
   def put[R : Decoder, B : Encoder](url: Url, body: B = Empty) =
     request[R, B](PUT, url, body)
 
@@ -70,7 +73,10 @@ class HttpClient extends Decoders with Encoders with RequestTypes with Urls {
   def post[R : Decoder, B : Encoder](url: Url, body: B) =
     request[R, B](POST, url, body)
 
-  def now[T](f: Future[T]): T = Await.result(f, 5 seconds)
+  def delete[R : Decoder](url: Url, headers: Iterable[(String,String)]) = 
+    request[R, Empty](DELETE, url, Empty, headers)
+
+  def now[T](f: Future[T]): T = Await.result(f, 30 seconds)
 
 }
 

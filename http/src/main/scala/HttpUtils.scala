@@ -9,7 +9,7 @@ import akka.util.duration._
 
 object HttpUtils {
 
-  def now[T](f: Future[T]): T = Await.result(f, 5 seconds)
+  def now[T](f: Future[T]): T = Await.result(f, 30 seconds)
 
 }
 

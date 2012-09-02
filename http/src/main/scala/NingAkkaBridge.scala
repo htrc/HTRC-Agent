@@ -36,7 +36,7 @@ object NingAkkaBridge {
       val promise = Promise[T]()
       fu.addListener(new Runnable {
           def run: Unit = promise.complete(
-            try Right(fu.get(10, TimeUnit.SECONDS))
+            try Right(fu.get(30, TimeUnit.SECONDS))
             catch { case e => Left(e) }) }, executorService)
       promise
   }
