@@ -47,6 +47,15 @@ class RegistryActor extends Actor with Wso2Registry {
     case FetchRegistryCollections(names, workingDir, username) =>
       sender ! writeCollections(names, workingDir, username)
 
+    case RegistrySaveJob(status: Finished) =>
+      sender ! saveJob(status)
+
+    case LoadSavedJobs(username: String) =>
+      sender ! loadJobs(username)
+
+    case RegistryDeleteJob(username: String, jobId: String) =>
+      sender ! deleteJob(username, jobId)
+      
   }
 
   def downloadCollection(collectionName: String, username: String): Elem = {

@@ -24,5 +24,7 @@ object HtrcProps {
   val workingDirRoot = config.getString("htrc.directory.working")
   val resultRootUrl = config.getString("htrc.urls.results")
   val odinLocation = config.getString("htrc.urls.odin")
+
+  val jobSaveLocation = config.getString("htrc.registry.paths.jobs")
   
 }

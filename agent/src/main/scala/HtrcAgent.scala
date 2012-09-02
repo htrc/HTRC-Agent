@@ -3,7 +3,7 @@ package htrcagent
 
 import httpbridge._
 
-import akka.actor.{ Props, Actor, ActorRef }
+import akka.actor.{ Props, Actor, ActorRef, PoisonPill }
 import akka.util.Timeout
 import akka.util.duration._
 import akka.actor.Actor._
@@ -12,6 +12,7 @@ import akka.pattern.{ ask, pipe }
 import akka.dispatch.{ Promise, Future }
 import scala.xml._
 import java.util.UUID
+
 
 class HtrcAgent(token: Oauth2Token) extends Actor {
 
@@ -22,10 +23,45 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
 
   val algorithms = new HashMap[String,Future[ActorRef]]
   val username = token.username
+  lazy val rawSavedJobs = (registry ? LoadSavedJobs(username)).mapTo[List[NodeSeq]]
+  var modifiedSavedJobs: Option[Future[List[NodeSeq]]] = None
 
   def registry: ActorRef = actorFor("/user/registryActor")
 
   def receive = {
+
+    case msg @ SaveJob(jobId) =>
+      val dest = sender
+      if(algorithms.contains(jobId)) {
+        algorithms(jobId) map { c =>
+          (c ? msg) pipeTo dest
+        }
+      } else {
+        sender ! <error>Job id: {jobId} does not map to an active job</error>
+      }
+
+    case DeleteJob(jobId) =>
+      // two cases:
+      // 1) not yet saved, poison pill child and remove from map
+      // 2) saved, ask registry to delete
+
+      if(algorithms.contains(jobId)) {
+        algorithms(jobId) map { c =>
+          c ! PoisonPill
+        }
+        algorithms -= jobId
+        
+        sender ! <success>deleted job: {jobId}</success>
+
+      } else {
+        
+        modifiedSavedJobs = Some(modifiedSavedJobs.getOrElse(rawSavedJobs) map { js =>
+          js.filter { s => (s \ "job_id").text != jobId }
+        })
+
+        (registry ? RegistryDeleteJob(username, jobId)) pipeTo sender
+      }
+
 
     case DownloadCollection(collectionName) =>
       val f = (registry ? RegistryDownloadCollection(collectionName, username))
@@ -77,6 +113,30 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
         } pipeTo dest
       }
 
+    case ActiveJobStatuses =>
+      val dest = sender
+      val statusFutures = algorithms.map {
+        case (k,v) =>
+          v.flatMap { child =>
+            (child ? AlgorithmStatusRequest(k)).mapTo[AlgorithmStatus].map { s =>
+              s.renderXml
+                                                                          }
+                   }
+      }
+      val futureList = Future.sequence(statusFutures)
+      futureList.map { jobs =>
+        <jobs>
+        {for(j <- jobs) yield j}
+        </jobs>
+                    } pipeTo dest
+
+    case SavedJobStatuses =>
+      modifiedSavedJobs.getOrElse(rawSavedJobs).map { saved =>
+        <jobs>
+        {for(s <- saved) yield s}
+        </jobs>
+                                                   } pipeTo sender
+
     case AllJobStatusRequest =>
       val dest = sender
       val statusFutures = algorithms.map {
@@ -89,12 +149,14 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
       }
 
       val futureList = Future.sequence(statusFutures)
-      futureList.map { jobs =>
-        <jobs>
-        {for(j <- jobs) yield j}
-        </jobs>
-      } pipeTo dest
-
+      modifiedSavedJobs.getOrElse(rawSavedJobs).map { saved =>
+        futureList.map { jobs =>
+          <jobs>
+          {for(j <- jobs) yield j}
+          {for(s <- saved) yield s}
+          </jobs>
+        } pipeTo dest
+      }
     
 
     case msg @ AlgorithmStdoutRequest(algId) => 

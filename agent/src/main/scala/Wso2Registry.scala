@@ -62,6 +62,77 @@ trait Wso2Registry {
     }
   }
 
+  def saveJob(status: Finished): NodeSeq = {
+
+    // 1) generate the path in the registry
+    val xml = status.renderXml
+    val username = (xml \ "user").text
+    val jobId = (xml \ "job_id").text
+    
+    val cPath = HtrcProps.jobSaveLocation + "/" + username
+    val path = cPath + "/" + jobId
+
+    // 2) write xml to the registry
+
+    // first check to see if the job storage location exists
+    if(! regOp { registry.resourceExists(cPath) }) {
+      val userDir = regOp { registry.newCollection }
+      regOp { registry.put(cPath, userDir) }
+    }
+
+    val resource = registry.newResource
+    resource.setMediaType("text/xml")
+    resource.setContent(xml.toString)
+    regOp { registry.put(path, resource) }
+
+    // 3) return xml with success information
+
+    <success>job: {jobId} saved</success>
+
+  }
+
+  def loadJobs(username: String): List[NodeSeq] = {
+    
+    // 1) build path for root
+    val path = HtrcProps.jobSaveLocation + "/" + username
+
+    // 2) download "collection" element
+    // 2.-1) first check if it exists
+    if(regOp { registry.resourceExists(path) }) {
+
+      val collection = regOp { registry.get(path).asInstanceOf[Collection] }
+      val pathList = collection.getChildren.toList
+      
+      // 3) download each element in collection
+      val jobs = 
+        for(j <- pathList) yield {
+          val resource = regOp { registry.get(j) }
+          resource.getContent
+          XML.load(resource.getContentStream)
+        }
+      
+      // 4) return list
+      jobs
+
+    } else {
+      Nil
+    }
+
+  }
+
+  def deleteJob(username: String, jobId: String): NodeSeq = {
+    
+    val path = HtrcProps.jobSaveLocation + "/" + username + "/" + jobId
+
+    if(regOp { registry.resourceExists(path) }) {
+      regOp { registry.delete(path) }
+      <success>deleted job: {jobId}</success>
+    } else {
+      <error>job not found: {jobId}</error>
+    }
+
+  }
+
   def writeData(data: HashMap[String,String], workingDir: String): Boolean = {
 
     data foreach { case (k,v) =>
@@ -280,7 +351,7 @@ trait Wso2Registry {
     result
   }
 
-  implicit val timeout = 5 seconds
+  implicit val timeout = 60 seconds
 
   // this we memoize, as we don't delete collections we are set!
   var collectionProps = new HashMap[String,NodeSeq]
@@ -289,7 +360,6 @@ trait Wso2Registry {
   var algorithmProps = new HashMap[String,NodeSeq]
 
   def resetCache {
-    println("Flushing cache...")
     collectionProps = new HashMap[String,NodeSeq]
     getCollectionsXml("drhtrc")
     algorithmProps = new HashMap[String,NodeSeq]

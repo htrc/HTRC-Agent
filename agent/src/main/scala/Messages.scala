@@ -35,6 +35,14 @@ case class RegistryListAvailibleAlgorithms(username: String) extends HtrcMessage
 case class AlgorithmDetails(algorithmName: String) extends HtrcMessage
 case class RegistryAlgorithmDetails(username: String, algorithmName: String) extends HtrcMessage
 
+case class SaveJob(jobId: String) extends HtrcMessage
+case class LoadSavedJobs(username: String) extends HtrcMessage
+case class RegistrySaveJob(status: AlgorithmStatus) extends HtrcMessage
+case class DeleteJob(jobId: String) extends HtrcMessage
+case class RegistryDeleteJob(username: String, jobId: String) extends HtrcMessage
+case object SavedJobStatuses extends HtrcMessage
+case object ActiveJobStatuses extends HtrcMessage
+
 case object RegistryResetCache extends HtrcMessage
 
 // the process of running an algorithm

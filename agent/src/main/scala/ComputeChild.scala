@@ -17,6 +17,8 @@ class ComputeChild(algorithmName: String, userProperties: NodeSeq, username: Str
 
   import context._
 
+  implicit val timeout: Timeout = 60 seconds
+
   val jobName = userProperties \ "job_name" text
   var results: List[AlgorithmResult] = Nil
                                   
@@ -26,7 +28,15 @@ class ComputeChild(algorithmName: String, userProperties: NodeSeq, username: Str
 
   val algorithm = HtrcSystem.system.actorOf(Props(new ShellAlgorithm(props, self)))
 
+  def registry: ActorRef = actorFor("/user/registryActor")
+
   def receive = {
+    case SaveJob(jobId) =>
+      if((status.status \ "@type").text == "Finished") {
+        (registry ? RegistrySaveJob(status)) pipeTo sender
+      } else {
+        sender ! <error>Job: {jobId} not yet completed</error>
+      }
     case AlgorithmStatusRequest(jobId) =>
       sender ! status
     case WorkerUpdate(newStatus) =>

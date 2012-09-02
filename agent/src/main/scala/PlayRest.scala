@@ -265,12 +265,12 @@ object PlayRest extends Application {
   }
 
   // nonsense time!
-  // scala pattern matching is broken, so split routing into two functions combined
+  // scala pattern matching is broken, so split routing into piles o functions
 
   type In = play.api.mvc.RequestHeader
   type Out = play.api.mvc.Handler
 
-  def route = foo orElse bar
+  def route = foo orElse bar orElse baz
 
 
 
@@ -295,6 +295,7 @@ object PlayRest extends Application {
 
     case GET(Path(Seg("agent" :: "algorithm" :: "details" :: algName :: Nil))) =>
       dispatch { AlgorithmDetails(algName) }
+
   }
 
   val bar:PartialFunction[In,Out] = {
@@ -317,6 +318,9 @@ object PlayRest extends Application {
     case GET(Path(Seg("agent" :: "job" :: "status" :: "all" :: Nil))) =>
       dispatch { AllJobStatusRequest }
 
+    case PUT(Path(Seg("agent" :: "job" :: jobId :: "save" :: Nil))) =>
+      dispatch { SaveJob(jobId) }
+
     case GET(Path(Seg("agent" :: "admin" :: "cache" :: "collections" :: "load" :: Nil))) =>
       for(i <- 1 to 64) {
         registryActor ! RegistryResetCache 
@@ -324,5 +328,19 @@ object PlayRest extends Application {
       Action { Ok(<msg>Warming up cache now</msg>) }
 
   }
+
+  val baz: PartialFunction[In,Out] = {
+
+    case DELETE(Path(Seg("agent" :: "job" :: jobId :: "delete" :: Nil))) =>
+      dispatch { DeleteJob(jobId) }
+
+    case GET(Path(Seg("agent" :: "job" :: "status" :: "saved" :: Nil))) =>
+      dispatch { SavedJobStatuses }
+
+    case GET(Path(Seg("agent" :: "job" :: "status" :: "active" :: Nil))) =>
+      dispatch { ActiveJobStatuses }
+
+  }
+    
 
 }
