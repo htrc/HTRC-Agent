@@ -39,8 +39,11 @@ class ComputeChild(algorithmName: String, userProperties: NodeSeq, username: Str
       }
     case AlgorithmStatusRequest(jobId) =>
       sender ! status
+    case WorkerUpdate(fin: Finished) =>
+      status = fin
+      self ! SaveJob(jobId)
     case WorkerUpdate(newStatus) =>
-      status = newStatus
+      status = newStatus 
     case ResultUpdate(inResults) =>
       results = inResults
     case AlgorithmStdoutRequest(inJobId) =>
