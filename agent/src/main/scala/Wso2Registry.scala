@@ -10,6 +10,10 @@ import java.util.Properties
 
 import org.apache.axis2.context.ConfigurationContext
 import org.apache.axis2.context.ConfigurationContextFactory
+import org.apache.axis2.transport.http.HTTPConstants
+import org.apache.commons.httpclient.{ HttpClient, HttpConnectionManager, MultiThreadedHttpConnectionManager, HostConfiguration }
+import org.apache.commons.httpclient.params.HttpConnectionManagerParams
+
 import org.wso2.carbon.registry.core.{ Registry, Comment, Resource, Collection }
 import org.wso2.carbon.registry.ws.client.registry.WSRegistryServiceClient
 
@@ -18,11 +22,30 @@ import scala.xml._
 import akka.dispatch._
 import akka.util.duration._
 
+object Wso2Registry {
+
+  import HtrcProps.RegistryProps._
+
+  lazy val mtcm = multithreadedConnectionManager
+
+  def multithreadedConnectionManager: HttpConnectionManager = {
+    val http = new MultiThreadedHttpConnectionManager
+    val params = http.getParams
+    params.setDefaultMaxConnectionsPerHost(200) 
+    params.setMaxTotalConnections(1200) 
+
+    http
+  }
+
+}
+
 trait Wso2Registry {
 
   import HtrcProps.RegistryProps._
 
   implicit val system = HtrcSystem.system
+
+  
 
   def initialize: WSRegistryServiceClient = {
 
@@ -37,7 +60,10 @@ trait Wso2Registry {
     
     val configContext = ConfigurationContextFactory.
     createConfigurationContextFromFileSystem(axis2repo, axis2conf)
-    
+   
+    configContext.setProperty(HTTPConstants.CACHED_HTTP_CLIENT, new HttpClient(Wso2Registry.mtcm))
+                                                                             
+ 
     new WSRegistryServiceClient(uri, username, password, configContext)
 
   }
