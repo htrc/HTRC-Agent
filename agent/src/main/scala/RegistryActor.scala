@@ -135,7 +135,7 @@ class RegistryActor extends Actor with Wso2Registry {
     val parsedData = (data \\ "id") map { _.text.trim } mkString("\n")
   
     // check if the original has the same owner, if so allow, else fail
-    val original = getAlgorithmInfo(path)
+    val original = getCollectionInfo(path)
     val ownerNodeOpt = (original \ "e") find { elem => (elem \ "@key" text) == "owner" }
     val ownerNode = ownerNodeOpt.getOrElse(<e key="owner">NO_OWNER</e>)
     val sameOwner = (ownerNode text) == username
