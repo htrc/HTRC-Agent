@@ -19,7 +19,7 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
   import context._
 
   // timeout for ? (ask)
-  implicit val timeout = Timeout(5 seconds)
+  implicit val timeout = Timeout(25 seconds)
 
   val algorithms = new HashMap[String,Future[ActorRef]]
   val username = token.username
@@ -93,16 +93,22 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
       // get an algId
       val algId = newAlgId
       // get a compute child
-      val c = context.actorOf(Props(new ComputeChild(algorithmName, userProperties, username, algId, token.token)))
-      val child = Future(c) 
-      // store the compute child in the algorithm map
-      algorithms += (algId -> child)
-      // poll the child for the initial status
-      val dest = sender // avoids dynamic scope problems in future
-      child.map { child =>
-        (child ? AlgorithmStatusRequest(algId)).mapTo[AlgorithmStatus].map { status =>
-          status.renderXml
-        } pipeTo dest
+      try {
+        val c = context.actorOf(Props(new ComputeChild(algorithmName, userProperties, username, algId, token.token)))
+        val child = Future(c) 
+        // store the compute child in the algorithm map
+        algorithms += (algId -> child)
+        // poll the child for the initial status
+        val dest = sender // avoids dynamic scope problems in future
+        child.map { child =>
+          (child ? AlgorithmStatusRequest(algId)).mapTo[AlgorithmStatus].map { status =>
+            status.renderXml
+          } pipeTo dest
+        }
+      } catch {
+        case e => 
+          algorithms -= algId
+          sender ! <error>job submission failed!</error>
       }
 
     case msg @ AlgorithmStatusRequest(algId) =>
