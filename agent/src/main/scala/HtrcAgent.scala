@@ -93,7 +93,7 @@ class HtrcAgent(token: Oauth2Token) extends Actor {
       // get an algId
       val algId = newAlgId
       // get a compute child
-      val c = system.actorOf(Props(new ComputeChild(algorithmName, userProperties, username, algId, token.token)))
+      val c = context.actorOf(Props(new ComputeChild(algorithmName, userProperties, username, algId, token.token)))
       val child = Future(c) 
       // store the compute child in the algorithm map
       algorithms += (algId -> child)
