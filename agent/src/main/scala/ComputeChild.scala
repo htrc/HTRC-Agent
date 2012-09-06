@@ -51,7 +51,7 @@ class ComputeChild(algorithmName: String, userProperties: NodeSeq, username: Str
     case AlgorithmStderrRequest(inJobId) =>
       sender ! results.find { _.rtype == "stderr" }.getOrElse(EmptyResult)
     case JobDirRequest(inJobId) =>
-      sender ! results.find { r => (r.rtype != "stdout" && r.rtype != "stderr" }.getOrElse(EmptyResult)
+      sender ! results.find { r => (r.rtype != "stdout" && r.rtype != "stderr") }.getOrElse(EmptyResult)
   }
 
 }
