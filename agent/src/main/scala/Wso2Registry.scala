@@ -409,6 +409,17 @@ trait Wso2Registry {
     }
   }
 
+  def getCollectionInfo(path: String): NodeSeq = {
+      if(exists(path)) {
+        val resource = regOp { registry.get(path+"/properties") }
+        resource.getContent
+        val value = XML.load(resource.getContentStream)
+        value
+      } else {
+        <error>invalid properties file for collection: {path}</error>
+      }
+  }
+
   def getCollectionsXml(user: String): NodeSeq = {
     val paths = getCollectionPaths(user)
     val owners = paths.map { _.split('/').reverse.drop(1).head }
