@@ -85,7 +85,7 @@ case class StderrResult(result: String) extends AlgorithmResult {
 }
 
 case class DirectoryResult(result: String) extends AlgorithmResult {
-  val rtype = "directory"
+  val rtype = result
 }
 
 case object EmptyResult extends AlgorithmResult {
