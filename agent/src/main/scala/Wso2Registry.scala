@@ -403,7 +403,7 @@ trait Wso2Registry {
     if(collectionProps.contains(key)) {
       collectionProps(key)
     } else {
-      if(exists(collectionsPath+"/"+key)) {
+      if(exists(collectionsPath+"/"+key+"/properties")) {
         val resource = regOp { registry.get(collectionsPath+"/"+key+"/properties") }
         resource.getContent
         val value = XML.load(resource.getContentStream)
