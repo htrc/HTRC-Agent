@@ -239,11 +239,17 @@ trait Wso2Registry {
       if(exists(algPath.getOrElse("DNE"))) {
         val resource = regOp { registry.get(algPath.get) }
         resource.getContent
-        val value = XML.load(resource.getContentStream)
+        val value = 
+          try { 
+            XML.load(resource.getContentStream)
+          } catch {
+            case e => 
+              <info><error>invalid xml property file for: {algorithmName}</error></info>
+          }
         algorithmProps += (key -> value)
         value
       } else {
-        <error>missing property file for: {algorithmName}</error>
+        <info><error>missing property file for: {algorithmName}</error></info>
       }
     }
   }
