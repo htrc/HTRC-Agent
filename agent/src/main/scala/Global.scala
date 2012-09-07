@@ -4,9 +4,4 @@
 
 import akka.kernel.Bootable
 
-object Global extends com.typesafe.play.mini.Setup(htrcagent.PlayRest) with Bootable {
-
-  def startup = { println("starting") }
-  def shutdown = { println("stopping") }
-
-}
+object Global extends com.typesafe.play.mini.Setup(htrcagent.PlayRest)
