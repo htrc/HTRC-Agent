@@ -1,5 +1,6 @@
 
 // the wso2 registry trait provides calls to access the registry
+//
 
 package htrcagent
 
