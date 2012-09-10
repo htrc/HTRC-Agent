@@ -403,8 +403,15 @@ trait Wso2Registry {
     if(collectionProps.contains(key)) {
       collectionProps(key)
     } else {
-      if(exists(collectionsPath+"/"+key+"/properties")) {
-        val resource = regOp { registry.get(collectionsPath+"/"+key+"/properties") }
+      // check if the user is public, if not insert a private
+      val mid = 
+        if( user == "public" ) {
+          key
+        } else {
+          "private/"+key
+        }
+      if(exists(collectionsPath+"/"+mid+"/properties")) {
+        val resource = regOp { registry.get(collectionsPath+"/"+mid+"/properties") }
         resource.getContent
         val value = XML.load(resource.getContentStream)
         collectionProps += (key -> value)
