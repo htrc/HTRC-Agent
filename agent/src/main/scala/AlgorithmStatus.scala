@@ -71,7 +71,8 @@ case class Aborted(props: AlgorithmProperties) extends AlgorithmStatus {
 
 trait AlgorithmResult {
   val rootUrl = HtrcProps.resultRootUrl
-  def renderXml = <result type={rtype}>{rootUrl+result}</result>
+  def name = result.split('/').last
+  def renderXml = <result type={name}>{rootUrl+result}</result>
   val result: String
   val rtype: String
 }
