@@ -9,9 +9,7 @@ import scala.xml._
 import scala.collection.mutable.HashMap
 import scala.util.matching.Regex._
 
-case class JobInputs(n: Int, command: String)
-
-case class JobInputsTwo(user: JobSubmission, system: JobProperties) {
+case class JobInputs(user: JobSubmission, system: JobProperties) {
 
   // Now that we have both pieces if information, combine them.
 
@@ -96,7 +94,10 @@ case class JobProperties(metadata: NodeSeq) {
 
 }
 
-object SampleXml {
+object SampleXmlInputs {
+
+//  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock),
+//                                       JobProperties(sampleAlgorithm))
 
   val sampleAlgorithm = 
     <algorithm>
@@ -126,6 +127,9 @@ object SampleXml {
         <e key="something">134</e>
         <e key="input">$foo</e>
       </system_properties>
+      <results>
+        <result type="text/html" name="foboar.html"/>
+      </results>
     </algorithm>
 
   val exampleUserBlock =
@@ -140,6 +144,12 @@ object SampleXml {
           value="bar"/>
           </parameters>
     </job>
+
+  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock),                 
+                                       JobProperties(sampleAlgorithm))                  
+
+   
+
 
 }
            

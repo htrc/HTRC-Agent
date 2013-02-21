@@ -41,7 +41,7 @@ trait AgentService extends HttpService {
   log.info("AgentService logger initialized")
 
   // test our http client
-  HttpClientTest.exampleOne()
+  // HttpClientTest.exampleOne()
 
   // to dispatch messages we need our global store of agents
   val agents = HtrcAgents
@@ -71,7 +71,7 @@ trait AgentService extends HttpService {
       pathPrefix("algorithm") {
         pathPrefix("run") {
           get {
-            complete(dispatch(user) { RunAlgorithm("foo", new JobInputs(5, "echo 120")) })
+            complete(dispatch(user) { RunAlgorithm("foo", SampleXmlInputs.sampleJobInputs) })
           }
         }
       } ~ 

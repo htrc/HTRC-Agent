@@ -38,11 +38,11 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // For this test we just run the shell command in the input.
 
-  val sysProcess = SProcess(inputs.command)
+  val sysProcess = SProcess("echo 120") 
 
   parent ! StatusUpdate("Running")
 
-  log.info("about to execute command: " + inputs.command)
+  log.info("about to execute command: " + "echo 120")
   val exitCode = sysProcess ! plogger
 
   if(exitCode == 0)
