@@ -7,6 +7,45 @@ package htrc.agent
 
 import scala.xml._
 import scala.collection.mutable.HashMap
+import scala.util.matching.Regex._
+
+case class JobInputs(n: Int, command: String)
+
+case class JobInputsTwo(user: JobSubmission, system: JobProperties) {
+
+  // Now that we have both pieces if information, combine them.
+
+  val userInputs = user.userInputs
+  val collections = user.collections
+  val name = user.name
+
+  val info = system.info
+  val dependencies = system.dependencies
+  val runScript = system.runScript
+  val propertiesFileName = system.propertiesFileName
+  val resultNames = system.resultNames
+
+  // We need to fill in the properties map with the user inputs. We
+  // first create an ugly regex block.
+
+  val aVar1 = """\$\{(\w+)\}""".r
+  val aVar2 = """\$(\w+)""".r
+  def bindVariables(exp: String, variables: HashMap[String,String]): String = {
+    val r1 = aVar1 replaceAllIn 
+      (exp, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT"))
+    val r2 = aVar2 replaceAllIn 
+      (r1, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")) 
+    r2
+  }
+
+  // Now simply map over the properties
+  val properties = new HashMap[String,String]
+  system.properties foreach {
+    case (k,v) =>
+      properties(k) = bindVariables(v, user.userInputs)
+  }
+  
+}
 
 case class JobSubmission(arguments: NodeSeq) {
 
@@ -16,20 +55,6 @@ case class JobSubmission(arguments: NodeSeq) {
 
   // This is an example block that has a user input parameter. Each
   // param is a "key - value" style element.
-
-
-  val exampleUserBlock =
-    <job>
-      <name>my_job</name>
-      <username>drhtrc</username>
-      <algorithm>Marc_Downloader</algorithm>
-      <parameters>
-        <param
-          name="foo"
-          type="collection"
-          value="bar"/>
-          </parameters>
-    </job>
 
   val name = arguments \ "name" text
 
@@ -69,6 +94,10 @@ case class JobProperties(metadata: NodeSeq) {
 
   val resultNames = metadata \ "results" \ "result" map { e => e \ "@name" text }
 
+}
+
+object SampleXml {
+
   val sampleAlgorithm = 
     <algorithm>
       <info>
@@ -99,6 +128,18 @@ case class JobProperties(metadata: NodeSeq) {
       </system_properties>
     </algorithm>
 
+  val exampleUserBlock =
+    <job>
+      <name>my_job</name>
+      <username>drhtrc</username>
+      <algorithm>Marc_Downloader</algorithm>
+      <parameters>
+        <param
+          name="foo"
+          type="collection"
+          value="bar"/>
+          </parameters>
+    </job>
 
 }
            
