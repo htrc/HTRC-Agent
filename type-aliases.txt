@@ -1,9 +1,0 @@
-
-To add some type-safety, and convience, to the system there are a few
-special HTRC types. These are to make sure appropriately formated IDs
-are used, etc. This also allows for easily changing the representation
-of certian values.
-
-They can be viewed in the src/main/scala/Types.scala file.
-
-
