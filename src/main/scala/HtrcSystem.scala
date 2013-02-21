@@ -8,6 +8,7 @@ import akka.agent.Agent
 import scala.concurrent.stm._
 import akka.actor.{ ActorSystem, ActorRef, Props }
 import java.util.UUID
+import scala.collection.mutable.{ HashMap => MHashMap }
 
 object HtrcSystem {
 
@@ -72,7 +73,7 @@ object HtrcUtils {
 
 object HtrcConfig {
 
-  val systemVariables = new HashMap[String,String]
-  systemVariables += ("answer" -> 120)
+  val systemVariables = new MHashMap[String,String]
+  systemVariables += ("answer" -> "120")
 
 }

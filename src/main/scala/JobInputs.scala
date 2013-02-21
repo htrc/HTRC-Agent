@@ -6,6 +6,9 @@ package htrc.agent
 // queried / filled in.
 
 import scala.xml._
+import scala.collection.mutable.HashMap
+
+case class JobInputs(n: Int, command: String)
 
 case class JobSubmission(arguments: NodeSeq) {
 
@@ -15,6 +18,7 @@ case class JobSubmission(arguments: NodeSeq) {
 
   // This is an example block that has a user input parameter. Each
   // param is a "key - value" style element.
+
 
   val exampleUserBlock =
     <job>
@@ -54,9 +58,10 @@ case class JobProperties(algorithmMetadata: NodeSeq) {
 
   val dependencies = new HashMap[String,String]
   (algorithmMetadata \ "dependencies" \ "dependency") foreach { d =>
-    dependencies += ((e \ "@path" text) -> (e \ "@name" text)) 
+    dependencies += ((d \ "@path" text) -> (d \ "@name" text)) 
   }
 
+/*
   val sampleAlgorithm = 
     <algorithm>
       <info>
@@ -86,6 +91,7 @@ case class JobProperties(algorithmMetadata: NodeSeq) {
         <e key="input">$foo<e>
       </system_properties>
     </algorithm>
+*/
 
 }
            
