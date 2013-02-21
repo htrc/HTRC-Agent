@@ -8,8 +8,6 @@ package htrc.agent
 import scala.xml._
 import scala.collection.mutable.HashMap
 
-case class JobInputs(n: Int, command: String)
-
 case class JobSubmission(arguments: NodeSeq) {
 
   // When we receive the arguments we want to parse them. The "inputs"
@@ -39,27 +37,37 @@ case class JobSubmission(arguments: NodeSeq) {
   arguments \ "parameters" \ "param" foreach { e =>
     userInputs += ((e \ "@name" text) -> (e \ "@value" text))
   }
+
+  val collections = arguments \ "parameters" \ "param" filter { e => 
+    (e \ "@type" text) == "collection"
+  } map { e => e \ "@name" text } toList
   
 }
 
 // This class parses and stores the metadata stored about an algorithm
 // in the registry.
 
-case class JobProperties(algorithmMetadata: NodeSeq) {
+case class JobProperties(metadata: NodeSeq) {
 
   // Parse the input metadata from the registry.
 
   val properties = new HashMap[String,String]
-  (algorithmMetadata \ "system_properties" \ "e") foreach { e =>
+  (metadata \ "system_properties" \ "e") foreach { e =>
     properties += ((e \ "@key" text) -> e.text)
   }
 
-  val info = algorithmMetadata \ "info"
+  val info = metadata \ "info"
 
   val dependencies = new HashMap[String,String]
-  (algorithmMetadata \ "dependencies" \ "dependency") foreach { d =>
+  (metadata \ "dependencies" \ "dependency") foreach { d =>
     dependencies += ((d \ "@path" text) -> (d \ "@name" text)) 
-  }
+  }    
+
+  val runScript = metadata \ "run_script" text
+
+  val propertiesFileName = metadata \ "properties_file_name" text
+
+  val resultNames = metadata \ "results" \ "result" map { e => e \ "@name" text }
 
   val sampleAlgorithm = 
     <algorithm>
