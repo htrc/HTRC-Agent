@@ -61,7 +61,6 @@ case class JobProperties(algorithmMetadata: NodeSeq) {
     dependencies += ((d \ "@path" text) -> (d \ "@name" text)) 
   }
 
-/*
   val sampleAlgorithm = 
     <algorithm>
       <info>
@@ -69,7 +68,7 @@ case class JobProperties(algorithmMetadata: NodeSeq) {
         <version>5.120</version>
         <description>Eloquent Text</description>
         <authors>
-          <author name="Aaron Todd" email="fake@email.com">
+          <author name="Aaron Todd" email="fake@email.com"/>
         </authors>
         <parameters>
           <param name="foo"
@@ -88,10 +87,10 @@ case class JobProperties(algorithmMetadata: NodeSeq) {
       <properties_file_name>foo.properties</properties_file_name>
       <system_properties>
         <e key="something">134</e>
-        <e key="input">$foo<e>
+        <e key="input">$foo</e>
       </system_properties>
     </algorithm>
-*/
+
 
 }
            
