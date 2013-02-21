@@ -1,3 +1,0 @@
-
-This is the agent REST API client. It is currently in one object, AgentClient. The implementation uses the Dispatch http DSL, but this will be switched to the Ning "async-http-client" eventually. (unless Dispatch gets a rewrite sooner rather than later).
-
