@@ -9,6 +9,7 @@ import scala.concurrent.stm._
 import akka.actor.{ ActorSystem, ActorRef, Props }
 import java.util.UUID
 import scala.collection.mutable.{ HashMap => MHashMap }
+import com.typesafe.config.ConfigFactory
 
 object HtrcSystem {
 
@@ -28,6 +29,8 @@ object HtrcSystem {
 
   val localMachineResource = system.actorOf(Props(new LocalMachineResource), 
                                                   name = "localMachineResource")
+
+  val registry = system.actorOf(Props(new Registry), name = "registry")
 
 }
 
@@ -73,7 +76,10 @@ object HtrcUtils {
 
 object HtrcConfig {
 
+  private val config = ConfigFactory.load("htrc.conf")
+
   val systemVariables = new MHashMap[String,String]
-  systemVariables += ("answer" -> "120")
+  systemVariables += ("auth_token" -> config.getString("htrc.debug.token"))
+  systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
 
 }

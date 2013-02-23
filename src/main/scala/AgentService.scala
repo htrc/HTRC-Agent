@@ -71,7 +71,7 @@ trait AgentService extends HttpService {
       pathPrefix("algorithm") {
         pathPrefix("run") {
           get {
-            complete(dispatch(user) { RunAlgorithm("foo", SampleXmlInputs.sampleJobInputs) })
+            complete(dispatch(user) { RunAlgorithm("Foo", SampleXmlInputs.wcInputs) })
           }
         }
       } ~ 

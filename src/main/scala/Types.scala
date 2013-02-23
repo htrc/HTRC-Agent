@@ -31,7 +31,9 @@ case class HtrcJob(ref: Future[ActorRef]) {
 class SavedHtrcJob(val rep: String) extends AnyVal
 
 // job ids are currently represented as strings
-case class JobId(id: String)
+case class JobId(id: String) {
+  override def toString: String = id
+}
 
 // users are currently represented by strings, "value class" allows
 // creating a wrapper with no runtime overhead

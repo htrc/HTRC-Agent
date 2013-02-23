@@ -40,7 +40,7 @@ case class JobInputs(user: JobSubmission, system: JobProperties) {
   val properties = new HashMap[String,String]
   system.properties foreach {
     case (k,v) =>
-      properties(k) = bindVariables(v, user.userInputs)
+      properties(k) = bindVariables(v, user.userInputs ++ HtrcConfig.systemVariables)
   }
   
 }
@@ -63,7 +63,7 @@ case class JobSubmission(arguments: NodeSeq) {
 
   val collections = arguments \ "parameters" \ "param" filter { e => 
     (e \ "@type" text) == "collection"
-  } map { e => e \ "@name" text } toList
+  } map { e => e \ "@value" text } toList
   
 }
 
@@ -96,8 +96,82 @@ case class JobProperties(metadata: NodeSeq) {
 
 object SampleXmlInputs {
 
-//  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock),
-//                                       JobProperties(sampleAlgorithm))
+  lazy val wcInputs = JobInputs(JobSubmission(wordcountUser),
+                                JobProperties(wordcount))
+
+val wordcount = 
+  <algorithm>
+  <info>
+  <name>Simple_Deployable_Word_Count</name>
+  <version>1.4.1</version>
+  <description>A simple word count Java client that retrieves some volumes from the Data API, and displays the top N most frequently occurred words.</description>
+  <authors>
+  <author name="Yiming Sun" email="yimsun@umail.iu.edu"/>
+  </authors>
+  
+  <parameters>
+  <param name="input_collection"
+  type="collection"
+  required="true">
+  <label>The collection to be word counted</label>
+  <description>This is the input collection the simple word count will be run on.</description>
+  </param>
+  
+  <param name="concat"
+  type="boolean"
+  required="true">
+  
+  <label>Concatenate pages of a volume into a single file?</label>
+  <description>False: each page is a separate file; True: entire volume is one file</description>
+  </param>
+  
+  <param name="topN"
+  type="integer"
+  required="true">
+  
+  <label>Top N most frequently occurred words to display</label>
+  <description>Top N most frequently occurred words to display</description>     
+  </param>
+  </parameters>
+  </info>  
+  
+  <dependencies>
+  <dependency name="runwc.sh" path="htrc/agent/dependencies/runwc.sh"/>
+  <dependency name="htrc-uncamp-deplwc-1.4.1.jar" path="htrc/agent/dependencies/htrc-uncamp-deplwc-1.4.1.jar"/>
+  </dependencies>
+  
+  <run_script>runwc.sh</run_script>
+  <properties_file_name>wc.properties</properties_file_name>
+  
+  <system_properties>
+  <e key="volume.limit">25</e>
+  <e key="data.api.epr">$data_api_url</e>
+  <e key="volume.list.file">$input_collection</e>
+  <e key="concat">$concat</e>
+  <e key="top.n">$topN</e>
+  <e key="oauth2.token">$auth_token</e>
+  </system_properties>  
+  </algorithm>
+  
+  val wordcountUser =
+    <job>
+  <name>test_job</name>
+  <username>abtodd</username>
+  <algorithm>Simple_Deployable_Word_Count</algorithm>
+  <parameters>
+  <param
+  name="topN"
+  type="integer"
+  value="20"/>
+<param name="concat"
+  type="boolean"
+  value="true"/>
+ <param name="input_collection"
+  type="collection"
+  value="1822_Pirates"/>
+  </parameters>
+  </job>
+
 
   val sampleAlgorithm = 
     <algorithm>

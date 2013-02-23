@@ -46,7 +46,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
         case JobOutputRequest(id, outputType) =>
           sender ! "unrecognized output type: " + outputType
         case RunJob =>
-          log.info("forcing child: " + child)
+          log.info("launching job")
           child = makeChild
       }
     }
