@@ -29,6 +29,8 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
 
   // mutable state party time
   var results: List[JobResult] = Nil
+  var stdoutResult: Stdout = null
+  var stderrResult: Stderr = null
 
   val behavior: PartialFunction[Any,Unit] = {
     case m: JobMessage => {
@@ -53,12 +55,16 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
             case InternalFinished =>
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
-              results = Stdout(stdoutUrl) :: Stderr(stderrUrl) :: results
+              stdoutResult = Stdout(stdoutUrl)
+              stderrResult = Stderr(stderrUrl)
+              results = stdoutResult :: stderrResult :: Nil
               status = Finished(inputs, id, results)
             case InternalCrashed =>
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
-              results = Stdout(stdoutUrl) :: Stderr(stderrUrl) :: results            
+              stdoutResult = Stdout(stdoutUrl)
+              stderrResult = Stderr(stderrUrl)
+              results = stdoutResult :: stderrResult :: Nil
               status = Crashed(inputs, id, results)
           }
         case StdoutChunk(str) =>
@@ -66,9 +72,9 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
         case StderrChunk(str) =>
           stderr.append(str + "\n")
         case JobOutputRequest(id, "stdout") =>
-          sender ! stdout.toString
+          sender ! stdoutResult.renderXml
         case JobOutputRequest(id, "stderr") =>
-          sender ! stderr.toString
+          sender ! stderrResult.renderXml
         case JobOutputRequest(id, outputType) =>
           sender ! "unrecognized output type: " + outputType
         case RunJob =>
