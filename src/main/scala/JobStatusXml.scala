@@ -40,19 +40,19 @@ trait JobStatus {
 
 }
 
-case class Queued(inputs: JobInputs, id: JobId) {
+case class Queued(inputs: JobInputs, id: JobId) extends JobStatus {
   val status = <status type="Queued"/>
 }
 
-case class Staging(inputs: JobInputs, id: JobId) {
+case class Staging(inputs: JobInputs, id: JobId) extends JobStatus {
   val status = <status type="Staging"/>
 }
 
-case class Running(inputs: JobInputs, id: JobId) {
+case class Running(inputs: JobInputs, id: JobId) extends JobStatus {
   val status = <status type="Staging"/>
 }
 
-case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) {
+case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) extends JobStatus {
   val status =
     <status type="Finished">
       <results>
@@ -61,7 +61,7 @@ case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) {
     </status>
 }
 
-case class Crashed(inputs: JobInputs, id: JobId, results: List[JobResult]) {
+case class Crashed(inputs: JobInputs, id: JobId, results: List[JobResult]) extends JobStatus {
   val status = 
     <status type="Crashed">
       <results>
