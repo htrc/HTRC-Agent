@@ -16,6 +16,8 @@ case class JobInputs(user: JobSubmission, system: JobProperties) {
   val userInputs = user.userInputs
   val collections = user.collections
   val name = user.name
+  val algorithm = user.algorithm
+  val rawParameters = user.rawParameters
 
   val info = system.info
   val dependencies = system.dependencies
@@ -55,6 +57,10 @@ case class JobSubmission(arguments: NodeSeq) {
   // param is a "key - value" style element.
 
   val name = arguments \ "name" text
+  
+  val algorithm = arguments \ "algorithm" text
+
+  val rawParameters = arguments \ "parameters"
 
   val userInputs = new HashMap[String,String]
   arguments \ "parameters" \ "param" foreach { e =>
