@@ -37,7 +37,9 @@ case class JobId(id: String) {
 
 // users are currently represented by strings, "value class" allows
 // creating a wrapper with no runtime overhead
-class HtrcUser(val rep: String) extends AnyVal
+class HtrcUser(val rep: String) {
+  override def toString = rep
+}
 
 
 

@@ -73,7 +73,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           // get our job
           val job = 
             (HtrcSystem.jobCreator ? 
-             CreateJob(new HtrcUser(name), inputs, id)).mapTo[ActorRef]
+             CreateJob(user, inputs, id)).mapTo[ActorRef]
           // somehow we already have a JobId...
           jobs += (id -> HtrcJob(job))
           sender ! <elem>{"Job submitted: " + id}</elem>

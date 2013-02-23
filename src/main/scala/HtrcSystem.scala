@@ -78,7 +78,7 @@ object HtrcConfig {
 
   private val config = ConfigFactory.load("htrc.conf")
 
-  val rootResultUrl = "NOT_YET_A_URL"
+  val rootResultUrl = "http://localhost:8080/result/"
 
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("auth_token" -> config.getString("htrc.debug.token"))

@@ -7,6 +7,7 @@ import akka.actor.{ Actor, Props, ActorRef, PoisonPill }
 import akka.util.Timeout
 import scala.concurrent.duration._
 import akka.event.Logging
+import java.io._
 
 class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
@@ -25,6 +26,9 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   // As a local machine shell job, we just start our child directly.
   var child: ActorRef = null
   def makeChild = actorOf(Props(new ShellTask(user, inputs, id)))  
+
+  // mutable state party time
+  var results: List[JobResult] = Nil
 
   val behavior: PartialFunction[Any,Unit] = {
     case m: JobMessage => {
@@ -47,9 +51,15 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
             case InternalRunning =>
               status = Running(inputs, id)
             case InternalFinished =>
-              status = Finished(inputs, id, Nil)
+              val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
+              val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
+              results = Stdout(stdoutUrl) :: Stderr(stderrUrl) :: results
+              status = Finished(inputs, id, results)
             case InternalCrashed =>
-              status = Crashed(inputs, id, Nil)
+              val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
+              val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
+              results = Stdout(stdoutUrl) :: Stderr(stderrUrl) :: results            
+              status = Crashed(inputs, id, results)
           }
         case StdoutChunk(str) =>
           stdout.append(str + "\n")
@@ -66,6 +76,18 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
           child = makeChild
       }
     }
+  }
+
+  def writeFile(body: String, name: String, user: HtrcUser, id: JobId): String = {
+    // we compute what the appropriate destination is from the user and id
+    val root = "agent_result_directories"
+    val dest = root + "/" + user + "/" + id
+    // check if the folder exists
+    (new File(dest)).mkdirs()
+    val writer = new PrintWriter(new File(dest+"/"+name))
+    writer.write(body)
+    writer.close()
+    user + "/" + id + "/" + name
   }
 
   val unknown: PartialFunction[Any,Unit] = {

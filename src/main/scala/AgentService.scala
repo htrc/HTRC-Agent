@@ -116,6 +116,9 @@ trait AgentService extends HttpService {
         }
       }
     } ~
+    pathPrefix("result") {
+      getFromDirectory("agent_result_directories")
+    } ~
     pathPrefix("") {
       complete("Path does not match API call")
     }
