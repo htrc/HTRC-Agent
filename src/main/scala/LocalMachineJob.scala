@@ -3,7 +3,7 @@ package htrc.agent
 
 // An actor that supervises and runs the local machine job type.
 
-import akka.actor.{ Actor, Props, ActorRef }
+import akka.actor.{ Actor, Props, ActorRef, PoisonPill }
 import akka.util.Timeout
 import scala.concurrent.duration._
 import akka.event.Logging
@@ -29,6 +29,11 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   val behavior: PartialFunction[Any,Unit] = {
     case m: JobMessage => {
       m match {
+        case SaveJob(id) =>
+          sender ! <error>Job saving not implemented</error>
+        case DeleteJob(id) =>
+          sender ! <success>deleted job: {id}</success>
+          self ! PoisonPill
         case JobStatusRequest(id) =>
           log.info("job status request for job: " + id)
           sender ! status.renderXml

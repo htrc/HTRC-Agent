@@ -49,12 +49,22 @@ class HtrcAgent(user: HtrcUser) extends Actor {
 
         case SaveJob(jobId) => 
           log.info("Save job: " + jobId)
-          sender ! <elem>{"You requested to save job: " + jobId}</elem>
+          val job = jobs.get(jobId)
+          if ( job == None ) {
+            sender ! <error>job: {jobId} does not exist</error>
+          } else {
+            job.get dispatch(m) pipeTo sender
+          }
 
         case DeleteJob(jobId) => 
-
           log.info("Delete job: " + jobId)
-          sender ! <elem>{"Delete job request: " + jobId}</elem>
+          val job = jobs.get(jobId)
+          if ( job == None ) {
+            sender ! <error>job: {jobId} does not exist</error>
+          } else {
+            jobs -= jobId
+            job.get dispatch(m) pipeTo sender
+          }
 
         case RunAlgorithm(name, inputs) => 
           log.info("Run algorithm: " + name)
