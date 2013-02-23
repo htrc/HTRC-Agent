@@ -28,7 +28,7 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   log.info("shell task for user: " + user + " job: " + id + " launched")
 
-  parent ! StatusUpdate("Initializing")
+  parent ! StatusUpdate(InternalStaging)
 
   // Build output loggers. These should forward to the
   // supervising actor so they can be returned to the user.
@@ -92,7 +92,7 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     if(errors.length != 0) {
       errors.foreach { e =>
         log.error("Registry failed to write resource: " + e)
-        supe ! StatusUpdate("Crashed")
+        supe ! StatusUpdate(InternalCrashed)
       }
     } else {
       // to be here we must have not had errors, so do the work
@@ -105,16 +105,16 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       val sysProcess = SProcess(cmd, new File(workingDir))
       log.info("about to execute command: " + cmd)
       
-      supe ! StatusUpdate("Running")
+      supe ! StatusUpdate(InternalRunning)
       // Recall from above, this plogger forwards stdin and stdout to
       // the parent
       val exitCode = sysProcess ! plogger
 
       if(exitCode == 0) {
         // todo : send result info to parent
-        supe ! StatusUpdate("Finished")        
+        supe ! StatusUpdate(InternalFinished)        
       } else {
-        supe ! StatusUpdate("Crashed")
+        supe ! StatusUpdate(InternalCrashed)
       }
     }
   }

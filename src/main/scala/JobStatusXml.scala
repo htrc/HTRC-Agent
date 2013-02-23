@@ -70,6 +70,17 @@ case class Crashed(inputs: JobInputs, id: JobId, results: List[JobResult]) {
     </status>
 }
 
+// ... we don't have all the info necessary in the algorithm when it
+// actually does the notifying. So we use a different job ->
+// supervisor message and the supervisor builds the real one.
+
+trait InternalJobStatus
+case object InternalQueued extends InternalJobStatus
+case object InternalStaging extends InternalJobStatus
+case object InternalRunning extends InternalJobStatus
+case object InternalFinished extends InternalJobStatus
+case object InternalCrashed extends InternalJobStatus
+
 // We also need a way to render the XML for results.
 
 trait JobResult {

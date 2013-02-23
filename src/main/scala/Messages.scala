@@ -25,7 +25,7 @@ case object SavedJobStatuses extends AgentMessage
 case class JobOutputRequest(jobId: JobId, outputType: String) extends AgentMessage with JobMessage
 
 
-case class StatusUpdate(str: String) extends JobMessage
+case class StatusUpdate(status: InternalJobStatus) extends JobMessage
 case class StdoutChunk(str: String) extends JobMessage
 case class StderrChunk(str: String) extends JobMessage
 case object RunJob extends JobMessage

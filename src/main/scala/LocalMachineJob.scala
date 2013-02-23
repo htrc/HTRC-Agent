@@ -20,7 +20,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   // The mutable state representing current status.
   val stdout = new StringBuilder
   val stderr = new StringBuilder
-  var status = "Queued"
+  var status: InternalJobStatus = InternalQueued
 
   // As a local machine shell job, we just start our child directly.
   var child: ActorRef = null
