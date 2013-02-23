@@ -12,6 +12,7 @@ import scala.collection.mutable.HashMap
 import scala.concurrent.Future
 import akka.pattern.ask
 import akka.pattern.pipe
+import scala.xml._
 
 // parameter: the user this agent represents
 class HtrcAgent(user: HtrcUser) extends Actor {
@@ -48,12 +49,12 @@ class HtrcAgent(user: HtrcUser) extends Actor {
 
         case SaveJob(jobId) => 
           log.info("Save job: " + jobId)
-          sender ! "You requested to save job: " + jobId
+          sender ! <elem>{"You requested to save job: " + jobId}</elem>
 
         case DeleteJob(jobId) => 
 
           log.info("Delete job: " + jobId)
-          sender ! "Delete job request: " + jobId
+          sender ! <elem>{"Delete job request: " + jobId}</elem>
 
         case RunAlgorithm(name, inputs) => 
           log.info("Run algorithm: " + name)
@@ -65,14 +66,14 @@ class HtrcAgent(user: HtrcUser) extends Actor {
              CreateJob(new HtrcUser(name), inputs, id)).mapTo[ActorRef]
           // somehow we already have a JobId...
           jobs += (id -> HtrcJob(job))
-          sender ! "Job submitted: " + id
+          sender ! <elem>{"Job submitted: " + id}</elem>
           job map { j => j ! RunJob }
 
         case JobStatusRequest(jobId) => 
           log.info("Job status request: " + jobId)
           val job = jobs.get(jobId)
           if (job == None)
-            sender ! "job does not exist"
+            sender ! <elem>job does not exist</elem>
           else
             (job.get dispatch m) pipeTo sender
             
@@ -92,7 +93,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           log.info("Job output request: " + outputType)
           val job = jobs.get(jobId)
           if (job == None)
-            sender ! "job does not exist"
+            sender ! <elem>dne</elem>
           else
             (job.get dispatch m) pipeTo sender
       }
@@ -105,8 +106,10 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           j ? JobStatusRequest(id)
         }        
       }).toList
-    Future.sequence(futures).mapTo[List[String]].map { l =>
-      l.mkString("\n")
+    Future.sequence(futures).mapTo[List[NodeSeq]].map { l =>
+      <jobs>
+        {for( j <- l ) yield j}
+      </jobs>                                                       
     } pipeTo sender
   }
   

@@ -13,6 +13,7 @@ import scala.concurrent.duration._
 import akka.util.Timeout
 import scala.concurrent.Future
 import akka.event.Logging
+import scala.xml._
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
@@ -56,12 +57,12 @@ trait AgentService extends HttpService {
   // depending on whether or not they exist yet
 
   // the String response type is a huge hack! need to select something real
-  def dispatch(user: HtrcUser)(body: => AgentMessage): Future[String] = {
+  def dispatch(user: HtrcUser)(body: => AgentMessage): Future[NodeSeq] = {
     val agent = agents.lookupAgent(user)
     if(agent == None) {
-      (agentBuilder ? BuildAgent(user, body)).mapTo[String]
+      (agentBuilder ? BuildAgent(user, body)).mapTo[NodeSeq]
     } else {
-      (agent.get ? body).mapTo[String] 
+      (agent.get ? body).mapTo[NodeSeq] 
     }
   }
 
