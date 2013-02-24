@@ -76,7 +76,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
              CreateJob(user, inputs, id)).mapTo[ActorRef]
           // somehow we already have a JobId...
           jobs += (id -> HtrcJob(job))
-          sender ! <elem>{"Job submitted: " + id}</elem>
+          sender ! Queued(inputs, id).renderXml
           job map { j => j ! RunJob }
 
         case JobStatusRequest(jobId) => 
