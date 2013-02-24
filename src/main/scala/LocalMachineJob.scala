@@ -25,7 +25,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
 
   // As a local machine shell job, we just start our child directly.
   var child: ActorRef = null
-  def makeChild = actorOf(Props(new ShellTask(user, inputs, id)))  
+  def makeChild = actorOf(Props(new OdinTask(user, inputs, id)))  
 
   // mutable state party time
   var results: List[JobResult] = Nil
@@ -51,6 +51,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
             case InternalStaging =>
               status = Staging(inputs, id)
             case InternalRunning =>
+              log.info("got an internal running")
               status = Running(inputs, id)
             case InternalFinished =>
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)

@@ -2,7 +2,8 @@
 package htrc.agent
 
 // An actor that runs a task at the shell and sends status information
-// to the supervisor.
+// to the supervisor. In this case the shell task is actually to do a
+// remote job submission on Odin.
 
 import akka.actor.{ Actor, Props, ActorRef }
 import akka.util.Timeout
@@ -17,7 +18,7 @@ import akka.pattern.ask
 import scala.concurrent._
 import scala.collection.mutable.HashMap
 
-class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
+class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // actor configuration
   import context._
@@ -97,13 +98,20 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     } else {
       // to be here we must have not had errors, so do the work
 
-      // Now we need to copy the directory to odin
-      // todo
+      // config info, to move out to a file later
+      val odin = "hathitrust@odin"
 
-      // todo : modify this to use srun over ssh
+      log.info("workingDir: " + workingDir)
+
+      // Now we need to copy the directory to odin
+      val scpCmd = "scp -r %s %s:~/agent_working_directories/"
+      val scpRes = SProcess(scpCmd.format(workingDir, odin)) !
+
       // Our "system" parameters can be set as environment variables
       val env = "HTRC_WORKING_DIR=agent_working_directories/%s".format(id)
-      val cmd = "bash %s".format(inputs.runScript)
+      val cmdF = "ssh %s %s srun -N1 bash ~/agent_working_directories/%s/%s"
+      val cmd = cmdF.format(odin, env, id, inputs.runScript)
+      
       val sysProcess = SProcess(cmd, new File(workingDir))
       log.info("about to execute command: " + cmd)
       
