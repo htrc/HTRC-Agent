@@ -49,7 +49,7 @@ case class Staging(inputs: JobInputs, id: JobId) extends JobStatus {
 }
 
 case class Running(inputs: JobInputs, id: JobId) extends JobStatus {
-  val status = <status type="Staging"/>
+  val status = <status type="Running"/>
 }
 
 case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) extends JobStatus {
