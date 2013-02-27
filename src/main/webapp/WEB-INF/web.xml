@@ -20,4 +20,41 @@
         <url-pattern>/*</url-pattern>
     </servlet-mapping>
 
+    <filter>
+    <filter-name>OAuth2Filter</filter-name>
+    <filter-class>edu.indiana.d2i.htrc.oauth2.filter.OAuth2Filter</filter-class>
+    <init-param>
+        <param-name>oauth2.provider.url</param-name>
+        <param-value>https://htrc3.pti.indiana.edu:9443/services/</param-value>
+    </init-param>
+    <init-param>
+        <param-name>oauth2.provider.user</param-name>
+        <!-- We need to create application specific users for this. -->
+        <param-value>samitha</param-value>
+    </init-param>
+    <init-param>
+        <param-name>oauth2.provider.password</param-name>
+        <!-- Use the password corresponding to the above user. -->
+        <param-value>$amitha123</param-value>
+    </init-param>
+    <init-param>
+            <param-name>auditor.class</param-name>
+            <param-value>edu.indiana.d2i.htrc.audit.Log4jAuditor</param-value>
+    </init-param>
+    <init-param>
+        <param-name>log4j.properties.path</param-name>
+        <!-- Change this to point to your log4j.properties file. -->
+        <param-value>/home/toddaaro/research/htrc/HTRC-Compute-Agent/trunk/src/main/resources/log4j.properties</param-value>
+    </init-param>
+    <!-- We don't need these two parameters if we have CA signed certificates in WSO2 IS -->
+    <!--<init-param>
+        <param-name>javax.net.ssl.trustStore</param-name>
+        <param-value>/Users/milinda/HTRC/wso2is-4.0.0/repository/resources/security/wso2carbon.jks</param-value>
+      </init-param>
+    <init-param>
+        <param-name>javax.net.ssl.trustStorePassword</param-name>
+        <param-value>password</param-value>
+    </init-param>-->
+    </filter>
+
 </web-app>
