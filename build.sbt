@@ -8,10 +8,14 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
 resolvers ++= Seq(
   "typesafe repo"      at "http://repo.typesafe.com/typesafe/releases/",
-  "spray repo"         at "http://repo.spray.io/"
+  "spray repo"         at "http://repo.spray.io/",
+  "D2I Archiva" at "http://bitternut.cs.indiana.edu:10090/archiva/repository/internal/",
+  "WSO2 Nexus" at "http://maven.wso2.org/nexus/content/groups/wso2-public/",
+  "D2I Archiva Snapshots" at "http://bitternut.cs.indiana.edu:10090/archiva/repository/snapshots/"    
 )
 
 libraryDependencies ++= Seq(
+  "edu.indiana.d2i.htrc.oauth2" % "oauth2-servletfilter" % "1.0-SNAPSHOT",
   "io.spray"                %   "spray-servlet" % "1.1-M7",
   "io.spray"                %   "spray-routing" % "1.1-M7",
   "io.spray"                %   "spray-testkit" % "1.1-M7",
@@ -26,7 +30,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka"       %%  "akka-actor"    % "2.1.0", 
   "com.typesafe.akka"       %%  "akka-agent"    % "2.1.0",
   "com.typesafe.akka"       %%  "akka-slf4j"    % "2.1.0",
-  "ch.qos.logback" % "logback-classic" % "1.0.9"
+  "ch.qos.logback" % "logback-classic" % "1.0.9",
+  "edu.indiana.d2i.htrc.oauth2" % "oauth2-servletfilter"  % "1.0-SNAPSHOT"
 )
 
 seq(webSettings: _*)
