@@ -9,9 +9,9 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 resolvers ++= Seq(
   "typesafe repo"      at "http://repo.typesafe.com/typesafe/releases/",
   "spray repo"         at "http://repo.spray.io/",
-  "D2I Archiva" at "http://bitternut.cs.indiana.edu:10090/archiva/repository/internal/",
   "WSO2 Nexus" at "http://maven.wso2.org/nexus/content/groups/wso2-public/",
-  "D2I Archiva Snapshots" at "http://bitternut.cs.indiana.edu:10090/archiva/repository/snapshots/"    
+  "htrc snapshots" at "http://htrc.illinois.edu:8080/archiva/repository/snapshots",
+  "htrc internal" at "http://htrc.illinois.edu:8080/archiva/repository/internal"
 )
 
 libraryDependencies ++= Seq(
