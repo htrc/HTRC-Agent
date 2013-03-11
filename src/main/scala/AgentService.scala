@@ -48,7 +48,7 @@ trait AgentService extends HttpService {
   val agentBuilder = HtrcSystem.agentBuilder
 
   // for development just assume a username
-  val user = new HtrcUser("drhtrc")
+  val user = HtrcUser("drhtrc", "192.168.1.1")
 
   // our behavior is always to lookup a user, then do something
   // depending on whether or not they exist yet
@@ -69,7 +69,10 @@ trait AgentService extends HttpService {
     pathPrefix("agent") {      
       pathPrefix("algorithm") {
         pathPrefix("run") {
-          get { 
+          get { ctx =>
+
+            //log.info("REMOTE_USER: " + ctx.request.getRemoteUser)
+            log.info(ctx.request.entity.toString)
 
             val wordcountUser = SampleXmlInputs.wordcountUser
 
@@ -77,7 +80,7 @@ trait AgentService extends HttpService {
             val inputProps = 
               RegistryHttpClient.algorithmMetadata("Simple_Deployable_Word_Count", token)
 
-            complete(
+            ctx.complete(
               inputProps map { in =>
                 RunAlgorithm("Foo", JobInputs(JobSubmission(wordcountUser), in, token))
               } map { msg =>

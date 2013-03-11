@@ -48,7 +48,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
       m match {
 
         case SaveJob(jobId) => 
-          log.info("Save job: " + jobId)
+          log.info("SAVE_JOB\t{}\t{}\tJOB_ID: {}", user.name, user.ip, jobId)
           val job = jobs.get(jobId)
           if ( job == None ) {
             sender ! <error>job: {jobId} does not exist</error>
@@ -57,7 +57,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           }
 
         case DeleteJob(jobId) => 
-          log.info("Delete job: " + jobId)
+          log.info("DELETE_JOB\t{}\t{}\tJOB_ID: {}", user.name, user.ip, jobId)
           val job = jobs.get(jobId)
           if ( job == None ) {
             sender ! <error>job: {jobId} does not exist</error>
@@ -67,9 +67,10 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           }
 
         case RunAlgorithm(name, inputs) => 
-          log.info("Run algorithm: " + name)
           // our magic job id from ???
           val id = JobId(HtrcUtils.newJobId)
+          log.info("RUN_ALGORITHM\t{}\t{}\tJOB_ID: {}\t JOB_NAME: {}",
+                   user.name, user.ip, id, name)
           // get our job
           val job = 
             (HtrcSystem.jobCreator ? 
@@ -80,7 +81,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           job map { j => j ! RunJob }
 
         case JobStatusRequest(jobId) => 
-          log.info("Job status request: " + jobId)
+          log.info("JOB_STATUS\t{}\t{}\tJOB_ID: {}", user.name, user.ip, JobId)
           val job = jobs.get(jobId)
           if (job == None)
             sender ! <elem>job does not exist</elem>
@@ -88,19 +89,20 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             (job.get dispatch m) pipeTo sender
             
         case ActiveJobStatuses => 
-          log.info("Active job statuses")
+          log.info("ACTIVE_JOB_STATUS\t{}\t{}", user.name, user.ip)
           bulkJobStatus(sender)
 
         case SavedJobStatuses => 
-          log.info("Saved job statuses")
+          log.info("SAVED_JOB_STATUS\t{}\t{}", user.name, user.ip)
           bulkJobStatus(sender)
 
         case AllJobStatuses => 
-          log.info("All job statuses")
+          log.info("ALL_JOB_STATUS\t{}\t{}", user.name, user.ip)
           bulkJobStatus(sender)
 
         case JobOutputRequest(jobId, outputType) => 
-          log.info("Job output request: " + outputType)
+          log.info("JOB_OUTPUT\t{}\t{}\tJOB_ID: {}\tOUTPUT_TYPE: {}", 
+                   user.name, user.ip, jobId, outputType)
           val job = jobs.get(jobId)
           if (job == None)
             sender ! <elem>dne</elem>

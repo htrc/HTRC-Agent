@@ -27,7 +27,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   val registry = HtrcSystem.registry
 
-  log.info("shell task for user: " + user + " job: " + id + " launched")
+  log.info("ODIN_TASK_LAUNCHED\t{}\t{}\tJOB_ID: {}",
+           user.name, user.ip, id)
 
   parent ! StatusUpdate(InternalStaging)
 
@@ -98,12 +99,14 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     } else {
       // to be here we must have not had errors, so do the work
 
-      log.info("inputs all ready")
+      log.info("ODIN_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}",
+               user.name, user.ip, id)
 
       // config info, to move out to a file later
       val odin = "hathitrust@odin"
 
-      log.info("workingDir: " + workingDir)
+      log.info("ODIN_TASK_WORKING_DIR\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
+               user.name, user.ip, id, workingDir)
 
       // Now we need to copy the directory to odin
       val scpCmd = "scp -r %s %s:~/agent_working_directories/"
@@ -115,7 +118,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       val cmd = cmdF.format(odin, env, id, inputs.runScript)
       
       val sysProcess = SProcess(cmd, new File(workingDir))
-      log.info("about to execute command: " + cmd)
+      log.info("ODIN_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+               user.name, user.ip, id, cmd)
       
       supe ! StatusUpdate(InternalRunning)
       // Recall from above, this plogger forwards stdin and stdout to

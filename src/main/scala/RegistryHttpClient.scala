@@ -61,7 +61,8 @@ object RegistryHttpClient {
     // and now finally make a request
     val response = pipeline(HttpRequest(method = method, uri = path + query)).mapTo[HttpResponse]
 
-    log.info("query url: " + path + query)
+    log.info("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}",
+             token, query)
 
     response
 
@@ -94,7 +95,6 @@ object RegistryHttpClient {
     val q = query("worksets/"+name+"/volumes.txt", GET, token)
     q map { response =>
       writeFile(response.entity.buffer, dest)
-      log.info("wrote file: " + dest)
       true
     }
   }
@@ -110,7 +110,6 @@ object RegistryHttpClient {
     q map { response =>
       val bytes = response.entity.buffer
       writeFile(bytes, dest) 
-      log.info("wrote file: " + dest)
       true
     }
   }

@@ -27,19 +27,18 @@ class AgentBuilder extends Actor {
   def receive = {
 
     case BuildAgent(user, message) =>
-      log.info("build agent has to do work")
       val agent = agents.lookupAgent(user)
       if(agent == None) {
         // build the agent and forward message to new agent
-        val ref = HtrcSystem.system.actorOf(Props(new HtrcAgent(user)), name = user.rep)
+        val ref = HtrcSystem.system.actorOf(Props(new HtrcAgent(user)), name = user.name)
         agents.addAgent(user, ref)
         ref.forward(message)
       } else {
         // agent already exists, so forward to it
         agent.get.forward(message)
       }
-    
-      log.info("Building agent: " + user)
+  
+      log.info("\tBUILD_AGENT\t{}\t{}", user.name, user.ip)
 
   }
 
