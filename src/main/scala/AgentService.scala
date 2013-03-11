@@ -41,9 +41,6 @@ trait AgentService extends HttpService {
   val log = Logging(HtrcSystem.system.eventStream, "htrc.system")
   log.info("AgentService logger initialized")
 
-  // test our http client
-  // HttpClientTest.exampleOne()
-
   // to dispatch messages we need our global store of agents
   val agents = HtrcAgents
 
@@ -68,11 +65,25 @@ trait AgentService extends HttpService {
 
   // the agent api calls
   val agentRoute =
-    pathPrefix("agent") {
+    headerValueByName("Authorization") { tok =>
+    pathPrefix("agent") {      
       pathPrefix("algorithm") {
         pathPrefix("run") {
-          (get | post | put) {
-            complete(dispatch(user) { RunAlgorithm("Foo", SampleXmlInputs.wcInputs) })
+          (get | post | put) { 
+
+            val wordcountUser = SampleXmlInputs.wordcountUser
+
+            val token = tok.split(' ')(1)
+            val inputProps = 
+              RegistryHttpClient.algorithmMetadata("Simple_Deployable_Word_Count", token)
+
+            complete(
+              inputProps map { in =>
+                RunAlgorithm("Foo", JobInputs(JobSubmission(wordcountUser), in, token))
+              } map { msg =>
+                dispatch(user) { msg }
+              }
+            )                          
           }
         }
       } ~ 
@@ -119,9 +130,10 @@ trait AgentService extends HttpService {
     pathPrefix("result") {
       getFromDirectory("agent_result_directories")
     } ~
-    pathPrefix("") {
-      complete("Path does not match API call")
+    pathPrefix("") { 
+      complete("Path is not a valid API query.")
     }
-    
+                                      }      
+
 }
 

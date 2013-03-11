@@ -74,14 +74,14 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // include files.
 
   val dependenciesReady = inputs.dependencies map { case (path,name) =>
-    (registry ? WriteFile(path, name, workingDir)).mapTo[WriteStatus]
+    (registry ? WriteFile(path, name, workingDir, inputs.token)).mapTo[WriteStatus]
   } toList
 
   // We do the same thing with collections, but our command is
   // different.
   
   val collectionsReady = inputs.collections map { c =>
-    (registry ? WriteCollection(c, workingDir)).mapTo[WriteStatus]
+    (registry ? WriteCollection(c, workingDir, inputs.token)).mapTo[WriteStatus]
   } toList
 
   // Check if these things are all finished, once they are, continue.
@@ -97,6 +97,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       }
     } else {
       // to be here we must have not had errors, so do the work
+
+      log.info("inputs all ready")
 
       // config info, to move out to a file later
       val odin = "hathitrust@odin"

@@ -10,6 +10,7 @@ import akka.pattern.ask
 import scala.concurrent.ExecutionContext.Implicits.global
 import akka.util.Timeout
 import scala.concurrent.duration._
+import scala.xml._
 
 // Jobs currently being managed by an actor are actually futures
 // containing the monitoring actor's address. These are somewhat
@@ -25,6 +26,8 @@ case class HtrcJob(ref: Future[ActorRef]) {
   }
 
 }
+
+case class AlgorithmMetadata(raw: NodeSeq)
 
 // this will actually turn into a real class, but I don't know what
 // the representation will be so this is a placeholder

@@ -81,7 +81,7 @@ object HtrcConfig {
   val rootResultUrl = "http://localhost:8080/result/"
 
   val systemVariables = new MHashMap[String,String]
-  systemVariables += ("auth_token" -> config.getString("htrc.debug.token"))
+  //systemVariables += ("auth_token" -> config.getString("htrc.debug.token"))
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
 
 }

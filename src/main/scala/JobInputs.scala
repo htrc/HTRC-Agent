@@ -9,7 +9,7 @@ import scala.xml._
 import scala.collection.mutable.HashMap
 import scala.util.matching.Regex._
 
-case class JobInputs(user: JobSubmission, system: JobProperties) {
+case class JobInputs(user: JobSubmission, system: JobProperties, token: String) {
 
   // Now that we have both pieces if information, combine them.
 
@@ -24,6 +24,9 @@ case class JobInputs(user: JobSubmission, system: JobProperties) {
   val runScript = system.runScript
   val propertiesFileName = system.propertiesFileName
   val resultNames = system.resultNames
+
+  // insert the token into the hashmap pile, ugly
+  user.userInputs += ("auth_token" -> token)
 
   // We need to fill in the properties map with the user inputs. We
   // first create an ugly regex block.
@@ -103,7 +106,8 @@ case class JobProperties(metadata: NodeSeq) {
 object SampleXmlInputs {
 
   lazy val wcInputs = JobInputs(JobSubmission(wordcountUser),
-                                JobProperties(wordcount))
+                                JobProperties(wordcount),
+                                "fake")
 
 val wordcount = 
   <algorithm>
@@ -174,7 +178,7 @@ val wordcount =
   value="true"/>
  <param name="input_collection"
   type="collection"
-  value="1822_Pirates"/>
+  value="cwillis_lincoln"/>
   </parameters>
   </job>
 
@@ -226,7 +230,8 @@ val wordcount =
     </job>
 
   lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock),                 
-                                       JobProperties(sampleAlgorithm))                  
+                                       JobProperties(sampleAlgorithm),
+                                     "fake")                  
 
    
 

@@ -30,8 +30,8 @@ case class StdoutChunk(str: String) extends JobMessage
 case class StderrChunk(str: String) extends JobMessage
 case object RunJob extends JobMessage
 
-case class WriteFile(path: String, name: String, workingDir: String) extends RegistryMessage
-case class WriteCollection(name: String, workingDir: String) extends RegistryMessage
+case class WriteFile(path: String, name: String, workingDir: String, token: String) extends RegistryMessage
+case class WriteCollection(name: String, workingDir: String, token: String) extends RegistryMessage
 
 case class RegistryError(e: String) extends WriteStatus
 case object RegistryOk extends WriteStatus

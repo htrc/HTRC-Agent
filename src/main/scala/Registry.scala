@@ -14,6 +14,7 @@ import java.io.PrintWriter
 import scala.sys.process.{ Process => SProcess }
 import scala.sys.process.{ ProcessLogger => SProcessLogger }
 import scala.sys.process.{ ProcessBuilder => SProcessBuilder }
+import akka.pattern.pipe
 
 class Registry extends Actor {
 
@@ -45,12 +46,20 @@ class Registry extends Actor {
   val behavior: PartialFunction[Any,Unit] = {
     case m: RegistryMessage =>
       m match {
-        case WriteFile(path, name, dir) =>
+        case WriteFile(path, name, dir, token) =>
           log.info("writing file")
-          sender ! cp(storage + "/" + path, dir + "/" + name)
-        case WriteCollection(name, dir) =>
+          val dest = sender
+          //sender ! cp(storage + "/" + path, dir + "/" + name)
+          RegistryHttpClient.fileDownload(path, token, dir+"/"+name) map { b =>
+            RegistryOk
+          } pipeTo dest
+        case WriteCollection(name, dir, token) =>
           log.info("writing collection")
-          sender ! cp(storage + "/" + name, dir + "/" + name)
+          val dest = sender
+          RegistryHttpClient.collectionData(name, token, dir+"/"+name) map { b =>
+            RegistryOk
+          } pipeTo dest
+          //sender ! cp(storage + "/" + name, dir + "/" + name)
       }
   }
 
