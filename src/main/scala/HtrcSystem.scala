@@ -70,6 +70,16 @@ object HtrcUtils {
   def newJobId: String =
     UUID.randomUUID.toString
 
+  // Supposedly date isn't threadsafe, and I'm not doing anything
+  // about that. This is what we call "optimistic concurrency"...
+
+  def date: String = {
+    val raw = new java.util.Date
+    val df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    df.setTimeZone(java.util.TimeZone.getTimeZone("UTC"))
+    df.format(raw)
+  }
+
 }
 
 // The global store of configuration information.
@@ -85,7 +95,6 @@ object HtrcConfig {
   val registryPort = config.getInt("htrc.registry.port")
 
   val systemVariables = new MHashMap[String,String]
-  //systemVariables += ("auth_token" -> config.getString("htrc.debug.token"))
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
 
 }
