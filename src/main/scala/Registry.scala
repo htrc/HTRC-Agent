@@ -26,8 +26,7 @@ class Registry extends Actor {
 
   // logic code
 
-  // For now the "registry" is a directory with a few files in
-  // it. I'll copy from that directory to the working dir.
+  // For registry-free testing use a local dir and cp from it instead
 
   def cp(source: String, dest: String): Any = {
     val cmd = "cp %s %s".format(source,dest)
@@ -47,14 +46,14 @@ class Registry extends Actor {
     case m: RegistryMessage =>
       m match {
         case WriteFile(path, name, dir, token) =>
-          log.info("writing file")
+          log.info("writing file: " + name)
           val dest = sender
           //sender ! cp(storage + "/" + path, dir + "/" + name)
           RegistryHttpClient.fileDownload(path, token, dir+"/"+name) map { b =>
             RegistryOk
           } pipeTo dest
         case WriteCollection(name, dir, token) =>
-          log.info("writing collection")
+          log.info("writing collection: " + name)
           val dest = sender
           RegistryHttpClient.collectionData(name, token, dir+"/"+name) map { b =>
             RegistryOk

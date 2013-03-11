@@ -21,6 +21,7 @@ import HttpClient._
 import akka.event.Logging
 import scala.util.{Success, Failure}
 import scala.xml._
+import HtrcConfig._
 
 object RegistryHttpClient {
 
@@ -38,9 +39,9 @@ object RegistryHttpClient {
   def query(query: String, method: HttpMethod, token: String): Future[HttpResponse] = {
 
     // since we are using the registry I can just grab some info
-    val root = "htrc4.pti.indiana.edu"
-    val path = "/ExtensionAPI-0.4.0-SNAPSHOT/services/"
-    val port = 9763
+    val root = registryHost
+    val path = "/ExtensionAPI-"+registryVersion+"/services/"
+    val port = registryPort
 
     // create a client to use
     val httpClient = system.actorOf(Props(new HttpClient(ioBridge)))
@@ -60,14 +61,15 @@ object RegistryHttpClient {
     // and now finally make a request
     val response = pipeline(HttpRequest(method = method, uri = path + query)).mapTo[HttpResponse]
 
-    println("query url: " + path + query)
+    log.info("query url: " + path + query)
 
     response
 
   }
 
-  def printResponse(response: Future[HttpResponse]) {
+  // these two functions primarily for debugging
 
+  def printResponse(response: Future[HttpResponse]) {
     response onComplete {
       case Success(response) =>
         log.info(
@@ -80,7 +82,6 @@ object RegistryHttpClient {
       case Failure(error) =>
         log.error(error.toString)
     }
-
   }
 
   def queryAndPrint(str: String, method: HttpMethod, token: String) {
@@ -89,8 +90,6 @@ object RegistryHttpClient {
 
   // Specific Agent Queries
   
-  // functions to make queries the agent uses, includes result parsing
-
   def collectionData(name: String, token: String, dest: String): Future[Boolean] = {
     val q = query("worksets/"+name+"/volumes.txt", GET, token)
     q map { response =>

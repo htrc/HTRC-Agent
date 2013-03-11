@@ -78,7 +78,11 @@ object HtrcConfig {
 
   private val config = ConfigFactory.load("htrc.conf")
 
-  val rootResultUrl = "http://localhost:8080/result/"
+  val rootResultUrl = config.getString("htrc.results.url")
+
+  val registryHost = config.getString("htrc.registry.host")
+  val registryVersion = config.getString("htrc.registry.version")
+  val registryPort = config.getInt("htrc.registry.port")
 
   val systemVariables = new MHashMap[String,String]
   //systemVariables += ("auth_token" -> config.getString("htrc.debug.token"))
