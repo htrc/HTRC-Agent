@@ -69,7 +69,7 @@ trait AgentService extends HttpService {
     pathPrefix("agent") {      
       pathPrefix("algorithm") {
         pathPrefix("run") {
-          (get | post | put) { 
+          get { 
 
             val wordcountUser = SampleXmlInputs.wordcountUser
 
@@ -85,7 +85,28 @@ trait AgentService extends HttpService {
               }
             )                          
           }
-        }
+        } ~          
+          pathPrefix("run") {    
+            (post | put) {
+              entity(as[NodeSeq]) { userInput =>
+
+                val algorithm = userInput \ "algorithm" text
+
+                val token = tok.split(' ')(1)
+                val inputProps =
+                  RegistryHttpClient.algorithmMetadata(algorithm, token)
+
+                complete(
+                  inputProps map { in =>
+                    RunAlgorithm("Foo", JobInputs(JobSubmission(userInput), in, token))
+                  } map { msg =>
+                    dispatch(user) { msg }
+                  }
+                )
+              }
+            }
+          }
+   
       } ~ 
       pathPrefix("job") {
         pathPrefix("all") {
