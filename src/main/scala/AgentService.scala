@@ -1,3 +1,20 @@
+/*
+#
+# Copyright 2013 The Trustees of Indiana University
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+*/
+
 package htrc.agent
 
 import akka.actor.Actor
@@ -30,7 +47,6 @@ class AgentServiceActor extends Actor with AgentService {
 
 }
 
-
 // this trait defines our service behavior independently from the service actor
 trait AgentService extends HttpService {
 
@@ -47,13 +63,10 @@ trait AgentService extends HttpService {
   // for building new agents
   val agentBuilder = HtrcSystem.agentBuilder
 
-  // for development just assume a username
-  val user = HtrcUser("drhtrc", "192.168.1.1")
-
   // our behavior is always to lookup a user, then do something
   // depending on whether or not they exist yet
 
-  // the String response type is a huge hack! need to select something real
+  // NodeSeq should turn into some sort of HtrcResponse type with a marshaller
   def dispatch(user: HtrcUser)(body: => AgentMessage): Future[NodeSeq] = {
     val agent = agents.lookupAgent(user)
     if(agent == None) {
@@ -66,13 +79,13 @@ trait AgentService extends HttpService {
   // the agent api calls
   val agentRoute =
     headerValueByName("Authorization") { tok =>
+      headerValueByName("htrc-remote-user") { rawUser =>
     pathPrefix("agent") {      
       pathPrefix("algorithm") {
         pathPrefix("run") {
           get { ctx =>
 
-            //log.info("REMOTE_USER: " + ctx.request.getRemoteUser)
-            log.info(ctx.request.entity.toString)
+            println("rawUser: " + rawUser)
 
             val wordcountUser = SampleXmlInputs.wordcountUser
 
@@ -84,7 +97,7 @@ trait AgentService extends HttpService {
               inputProps map { in =>
                 RunAlgorithm("Foo", JobInputs(JobSubmission(wordcountUser), in, token))
               } map { msg =>
-                dispatch(user) { msg }
+                dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
               }
             )                          
           }
@@ -103,7 +116,7 @@ trait AgentService extends HttpService {
                   inputProps map { in =>
                     RunAlgorithm("Foo", JobInputs(JobSubmission(userInput), in, token))
                   } map { msg =>
-                    dispatch(user) { msg }
+                    dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
                   }
                 )
               }
@@ -114,38 +127,38 @@ trait AgentService extends HttpService {
       pathPrefix("job") {
         pathPrefix("all") {
           pathPrefix("status") {
-            complete(dispatch(user) { AllJobStatuses })
+            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { AllJobStatuses })
           }
         } ~
         pathPrefix("active") {
           pathPrefix("status") {
-            complete(dispatch(user) { ActiveJobStatuses })
+            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { ActiveJobStatuses })
           }
         } ~
         pathPrefix("saved") {
           pathPrefix("status") {
-            complete(dispatch(user) { SavedJobStatuses })
+            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { SavedJobStatuses })
           }
         } ~
         pathPrefix(PathElement) { id =>
           pathPrefix("status") {
-            complete(dispatch(user) { JobStatusRequest(JobId(id)) })
+            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobStatusRequest(JobId(id)) })
           } ~
           pathPrefix("save") {
-            complete(dispatch(user) { SaveJob(JobId(id)) })
+            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) {  SaveJob(JobId(id)) })
           } ~
           pathPrefix("delete") {
-            complete(dispatch(user) { DeleteJob(JobId(id)) })
+            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { DeleteJob(JobId(id)) })
           } ~
           pathPrefix("result") {
             pathPrefix("stdout") {
-              complete(dispatch(user) { JobOutputRequest(JobId(id), "stdout") })
+              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobOutputRequest(JobId(id), "stdout") })
             } ~
             pathPrefix("stderr") {
-              complete(dispatch(user) { JobOutputRequest(JobId(id), "stderr") })
+              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobOutputRequest(JobId(id), "stderr") })
             } ~
             pathPrefix("directory") {
-              complete(dispatch(user) { JobOutputRequest(JobId(id), "directory") })
+              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobOutputRequest(JobId(id), "directory") })
             }
           }
         }
@@ -158,6 +171,6 @@ trait AgentService extends HttpService {
       complete("Path is not a valid API query.")
     }
                                       }      
-
+                                      }
 }
 
