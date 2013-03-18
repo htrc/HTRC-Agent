@@ -80,97 +80,95 @@ trait AgentService extends HttpService {
   val agentRoute =
     headerValueByName("Authorization") { tok =>
       headerValueByName("htrc-remote-user") { rawUser =>
-    pathPrefix("agent") {      
-      pathPrefix("algorithm") {
-        pathPrefix("run") {
-          get { ctx =>
-
-            println("rawUser: " + rawUser)
-
-            val wordcountUser = SampleXmlInputs.wordcountUser
-
-            val token = tok.split(' ')(1)
-            val inputProps = 
-              RegistryHttpClient.algorithmMetadata("Simple_Deployable_Word_Count", token)
-
-            ctx.complete(
-              inputProps map { in =>
-                RunAlgorithm("Foo", JobInputs(JobSubmission(wordcountUser), in, token))
-              } map { msg =>
-                dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
+        pathPrefix("agent") {      
+          pathPrefix("algorithm") {
+            pathPrefix("run") {
+              get { ctx =>
+                val wordcountUser = SampleXmlInputs.wordcountUser               
+                val token = tok.split(' ')(1)
+                val inputProps = 
+                  RegistryHttpClient.algorithmMetadata("Simple_Deployable_Word_Count", token)
+                ctx.complete(
+                  inputProps map { in =>
+                    RunAlgorithm("Foo", JobInputs(JobSubmission(wordcountUser), in, token))
+                  } map { msg =>
+                    dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
+                  }
+                )                          
               }
-            )                          
-          }
-        } ~          
-          pathPrefix("run") {    
-            (post | put) {
-              entity(as[NodeSeq]) { userInput =>
-
+            } ~          
+            pathPrefix("run") {    
+              (post | put) {
+                entity(as[NodeSeq]) { userInput =>
                 val algorithm = userInput \ "algorithm" text
-
                 val token = tok.split(' ')(1)
                 val inputProps =
                   RegistryHttpClient.algorithmMetadata(algorithm, token)
 
-                complete(
-                  inputProps map { in =>
-                    RunAlgorithm("Foo", JobInputs(JobSubmission(userInput), in, token))
-                  } map { msg =>
-                    dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
-                  }
-                )
+                  complete(
+                    inputProps map { in =>
+                      RunAlgorithm("Foo", JobInputs(JobSubmission(userInput), in, token))
+                    } map { msg =>
+                      dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
+                    }
+                  )
+                }
+              }
+            }   
+          } ~ 
+          pathPrefix("job") {
+            pathPrefix("all") {
+              pathPrefix("status") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { AllJobStatuses })
+              }
+            } ~
+            pathPrefix("active") {
+              pathPrefix("status") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { ActiveJobStatuses })
+              }
+            } ~
+            pathPrefix("saved") {
+              pathPrefix("status") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { SavedJobStatuses })
+              }
+            } ~
+            pathPrefix(PathElement) { id =>
+              pathPrefix("status") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { JobStatusRequest(JobId(id)) })
+              } ~
+            pathPrefix("save") {
+              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                       {  SaveJob(JobId(id)) }
+              } ~
+              pathPrefix("delete") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { DeleteJob(JobId(id)) })
+              } ~
+              pathPrefix("result") {
+                pathPrefix("stdout") {
+                  complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                           { JobOutputRequest(JobId(id), "stdout") })
+              } ~
+              pathPrefix("stderr") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { JobOutputRequest(JobId(id), "stderr") })
+              } ~
+              pathPrefix("directory") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { JobOutputRequest(JobId(id), "directory") })
               }
             }
           }
-   
-      } ~ 
-      pathPrefix("job") {
-        pathPrefix("all") {
-          pathPrefix("status") {
-            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { AllJobStatuses })
-          }
-        } ~
-        pathPrefix("active") {
-          pathPrefix("status") {
-            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { ActiveJobStatuses })
-          }
-        } ~
-        pathPrefix("saved") {
-          pathPrefix("status") {
-            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { SavedJobStatuses })
-          }
-        } ~
-        pathPrefix(PathElement) { id =>
-          pathPrefix("status") {
-            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobStatusRequest(JobId(id)) })
-          } ~
-          pathPrefix("save") {
-            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) {  SaveJob(JobId(id)) })
-          } ~
-          pathPrefix("delete") {
-            complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { DeleteJob(JobId(id)) })
-          } ~
-          pathPrefix("result") {
-            pathPrefix("stdout") {
-              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobOutputRequest(JobId(id), "stdout") })
-            } ~
-            pathPrefix("stderr") {
-              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobOutputRequest(JobId(id), "stderr") })
-            } ~
-            pathPrefix("directory") {
-              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { JobOutputRequest(JobId(id), "directory") })
-            }
-          }
         }
+      } ~
+      pathPrefix("result") {
+        getFromDirectory("agent_result_directories")
+      } ~
+      pathPrefix("") { 
+        complete("Path is not a valid API query.")
       }
-    } ~
-    pathPrefix("result") {
-      getFromDirectory("agent_result_directories")
-    } ~
-    pathPrefix("") { 
-      complete("Path is not a valid API query.")
-    }
-                                      }      
-                                      }
+    }      
+  }
 }
 
