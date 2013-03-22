@@ -29,6 +29,8 @@ import scala.util.matching.Regex._
 
 case class JobInputs(user: JobSubmission, system: JobProperties, token: String) {
 
+  override def toString: String = "JobInputs(name: " + name + ")"
+
   // Now that we have both pieces if information, combine them.
 
   val userInputs = user.userInputs

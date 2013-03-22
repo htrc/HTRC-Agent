@@ -56,6 +56,9 @@ trait JobStatus {
       {status}
     </job_status>
 
+  override def toString: String = 
+    "JobStatus"
+
 }
 
 case class Queued(inputs: JobInputs, id: JobId) extends JobStatus {
