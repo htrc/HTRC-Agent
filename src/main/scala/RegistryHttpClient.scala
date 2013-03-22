@@ -109,8 +109,10 @@ object RegistryHttpClient {
 
   // Specific Agent Queries
   
-  def collectionData(name: String, token: String, dest: String): Future[Boolean] = {
-    val q = query("worksets/"+name+"/volumes.txt?public=true", GET, token)
+  def collectionData(rawName: String, token: String, dest: String): Future[Boolean] = {
+    val name = rawName.split('@')(0)
+    val author = rawName.split('@')(1)
+    val q = query("worksets/"+name+"/volumes.txt?author="+author, GET, token)
     q map { response =>
       writeFile(response.entity.buffer, dest)
       true
