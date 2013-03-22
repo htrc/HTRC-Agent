@@ -139,7 +139,7 @@ trait AgentService extends HttpService {
               } ~
             pathPrefix("save") {
               complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                       {  SaveJob(JobId(id)) }
+                       {  SaveJob(JobId(id)) })
               } ~
               pathPrefix("delete") {
                 complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
@@ -171,4 +171,5 @@ trait AgentService extends HttpService {
     }      
   }
 }
+
 

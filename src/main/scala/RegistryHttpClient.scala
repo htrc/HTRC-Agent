@@ -110,7 +110,7 @@ object RegistryHttpClient {
   // Specific Agent Queries
   
   def collectionData(name: String, token: String, dest: String): Future[Boolean] = {
-    val q = query("worksets/"+name+"/volumes.txt", GET, token)
+    val q = query("worksets/"+name+"/volumes.txt?public=true", GET, token)
     q map { response =>
       writeFile(response.entity.buffer, dest)
       true
@@ -118,13 +118,13 @@ object RegistryHttpClient {
   }
 
   def algorithmMetadata(name: String, token: String): Future[JobProperties] = {
-    val q = query("files/algorithmfolder/"+name+".xml", GET, token)
+    val q = query("files/algorithmfolder/"+name+".xml?public=true", GET, token)
     q map { response =>
       JobProperties(XML.loadString(response.entity.asString)) }
   }
     
   def fileDownload(name: String, token: String, dest: String): Future[Boolean] = {
-    val q = query("files/"+name, GET, token)
+    val q = query("files/"+name+"?public=true", GET, token)
     q map { response =>
       val bytes = response.entity.buffer
       writeFile(bytes, dest) 

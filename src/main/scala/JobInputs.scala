@@ -90,7 +90,7 @@ case class JobSubmission(arguments: NodeSeq) {
 
   val collections = arguments \ "parameters" \ "param" filter { e => 
     (e \ "@type" text) == "collection"
-  } map { e => e \ "@value" text } toList
+  } map { e =>(e \ "@value").text.split('@')(0) } toList
   
 }
 
