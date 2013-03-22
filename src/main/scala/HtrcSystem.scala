@@ -114,5 +114,6 @@ object HtrcConfig {
 
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
+  systemVariables += ("solr_proxy" -> config.getString("htrc.solr_proxy"))
 
 }
