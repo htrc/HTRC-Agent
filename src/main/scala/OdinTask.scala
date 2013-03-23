@@ -156,6 +156,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       // now scp the result folder back over
       val resultScpCmdF = "scp -r %s:~/agent_working_directories/%s %s"
       val resultScpCmd = resultScpCmdF.format(odin, id+"/"+outputDir, dest)
+      log.info("ODIN_TASK_RESULT_SCP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+               user.name, user.ip, id, resultScpCmd)
       val scpResultRes = SProcess(resultScpCmd) !
 
       // create a list of the result files
