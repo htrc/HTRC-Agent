@@ -82,14 +82,14 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
               stdoutResult = Stdout(stdoutUrl)
               stderrResult = Stderr(stderrUrl)
-              results = stdoutResult :: stderrResult :: Nil
+              results = stdoutResult :: stderrResult :: results
               status = Finished(inputs, id, results)
             case InternalCrashed =>
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
               stdoutResult = Stdout(stdoutUrl)
               stderrResult = Stderr(stderrUrl)
-              results = stdoutResult :: stderrResult :: Nil
+              results = stdoutResult :: stderrResult :: results
               status = Crashed(inputs, id, results)
           }
         case StdoutChunk(str) =>
