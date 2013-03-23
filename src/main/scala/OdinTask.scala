@@ -161,7 +161,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       val scpResultRes = SProcess(resultScpCmd) !
 
       // create a list of the result files
-      val dirResults = inputs.resultNames map { n => DirectoryResult(n) }
+      val dirResults = inputs.resultNames map { n => 
+        DirectoryResult(user.name+"/"+id+"/"+n) }
       log.info("ODIN_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
                user.name, user.ip, id, dirResults)
 
