@@ -29,6 +29,8 @@ import java.io._
 
 class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
+  import HtrcUtils._
+
   // actor configuration
   import context._
   implicit val timeout = Timeout(30 seconds)
@@ -54,6 +56,8 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   val behavior: PartialFunction[Any,Unit] = {
     case m: JobMessage => {
       m match {
+        case Result(res) =>
+          results = res :: results
         case SaveJob(id) =>
           sender ! <error>Job saving not implemented</error>
         case DeleteJob(id) =>
@@ -103,18 +107,6 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
           child = makeChild
       }
     }
-  }
-
-  def writeFile(body: String, name: String, user: HtrcUser, id: JobId): String = {
-    // we compute what the appropriate destination is from the user and id
-    val root = "agent_result_directories"
-    val dest = root + "/" + user + "/" + id
-    // check if the folder exists
-    (new File(dest)).mkdirs()
-    val writer = new PrintWriter(new File(dest+"/"+name))
-    writer.write(body)
-    writer.close()
-    user + "/" + id + "/" + name
   }
 
   val unknown: PartialFunction[Any,Unit] = {

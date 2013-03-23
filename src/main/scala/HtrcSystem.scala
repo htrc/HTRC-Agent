@@ -28,6 +28,7 @@ import akka.actor.{ ActorSystem, ActorRef, Props }
 import java.util.UUID
 import scala.collection.mutable.{ HashMap => MHashMap }
 import com.typesafe.config.ConfigFactory
+import java.io._
 
 object HtrcSystem {
 
@@ -98,6 +99,18 @@ object HtrcUtils {
     df.format(raw)
   }
 
+  def writeFile(body: String, name: String, user: HtrcUser, id: JobId): String = {
+    // we compute what the appropriate destination is from the user and id
+    val root = HtrcConfig.resultDir
+    val dest = root + "/" + user + "/" + id
+    // check if the folder exists
+    (new File(dest)).mkdirs()
+    val writer = new PrintWriter(new File(dest+"/"+name))
+    writer.write(body)
+    writer.close()
+      user + "/" + id + "/" + name
+  }
+  
 }
 
 // The global store of configuration information.

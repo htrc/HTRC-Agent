@@ -74,7 +74,7 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // Also create the result directory.
   val resultDir = {
-    val path = workingDir + File.separator + "job_results"
+    val path = workingDir + File.separator + HtrcConfig.systemVariables("output_dir")
     (new File(path)).mkdir()
     path
   }
@@ -144,8 +144,27 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       // the parent
       val exitCode = sysProcess ! plogger
 
+      // move the result back from odin
+
+      // start off by finding and creating the result directory if it
+      // doesn't exist
+      val outputDir = HtrcConfig.systemVariables("output_dir")
+      val resultLocation = HtrcConfig.resultDir
+      val dest = resultLocation + "/" + user.name + "/" + id
+      (new File(dest)).mkdirs()
+
+      // now scp the result folder back over
+      val resultScpCmdF = "scp -r %s:~/agent_working_directories/%s %s"
+      val resultScpCmd = resultScpCmdF.format(odin, id+"/"+outputDir, dest)
+      val scpResultRes = SProcess(resultScpCmd) !
+
+      // create a list of the result files
+      val dirResults = inputs.resultNames map { n => DirectoryResult(n) }
+
       if(exitCode == 0) {
-        // todo : send result info to parent
+        dirResults foreach { r =>
+          supe ! Result(r)
+        }
         supe ! StatusUpdate(InternalFinished)        
       } else {
         supe ! StatusUpdate(InternalCrashed)
