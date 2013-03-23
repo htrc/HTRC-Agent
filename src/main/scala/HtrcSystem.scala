@@ -107,6 +107,7 @@ object HtrcConfig {
   private val config = ConfigFactory.load("htrc.conf")
 
   val rootResultUrl = config.getString("htrc.results.url")
+  val resultDir = config.getString("htrc.results.location")
 
   val registryHost = config.getString("htrc.registry.host")
   val registryVersion = config.getString("htrc.registry.version")
@@ -115,5 +116,6 @@ object HtrcConfig {
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
   systemVariables += ("solr_proxy" -> config.getString("htrc.solr_proxy"))
+  systemVariables += ("output_dir" -> config.getString("htrc.output_dir"))
 
 }
