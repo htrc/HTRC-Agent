@@ -162,7 +162,7 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
       // create a list of the result files
       val dirResults = inputs.resultNames map { n => 
-        DirectoryResult(user.name+"/"+id+"/"+n) }
+        DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"n) }
       log.info("ODIN_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
                user.name, user.ip, id, dirResults)
 
