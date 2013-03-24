@@ -76,6 +76,8 @@ trait AgentService extends HttpService {
     }
   }
 
+  def token(t: String): String = t.split(' ')(1)
+
   // the agent api calls
   val agentRoute =
     headerValueByName("Authorization") { tok =>
@@ -120,7 +122,7 @@ trait AgentService extends HttpService {
             pathPrefix("all") {
               pathPrefix("status") {
                 complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                         { AllJobStatuses(tok) })
+                         { AllJobStatuses(token(tok)) })
               }
             } ~
             pathPrefix("active") {
@@ -132,7 +134,7 @@ trait AgentService extends HttpService {
             pathPrefix("saved") {
               pathPrefix("status") {
                 complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                         { SavedJobStatuses(tok) })
+                         { SavedJobStatuses(token(tok)) })
               }
             } ~
             pathPrefix(PathElement) { id =>
@@ -143,13 +145,13 @@ trait AgentService extends HttpService {
             pathPrefix("save") {
               (put | post) {
                 complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                         {  SaveJob(JobId(id), tok) })
+                         {  SaveJob(JobId(id), token(tok)) })
               }
             } ~
             pathPrefix("delete") {
               delete {
                 complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                       { DeleteJob(JobId(id), tok) })
+                       { DeleteJob(JobId(id), token(tok)) })
               }
             } ~
             pathPrefix("result") {

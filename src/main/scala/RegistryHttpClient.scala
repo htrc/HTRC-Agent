@@ -148,7 +148,7 @@ object RegistryHttpClient {
   val savedJobLocation = HtrcConfig.savedJobLocation
 
   def listSavedJobs(token: String): Future[List[String]] = {
-    val q = query("files/"+savedJobLocation, GET, token)
+    val q = query("files/"+savedJobLocation, OPTIONS, token)
     q map { response =>
       val raw = XML.loadString(response.entity.asString)
       (raw \ "entries" \ "entry") filter { entry =>
