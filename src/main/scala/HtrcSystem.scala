@@ -119,6 +119,8 @@ object HtrcConfig {
 
   private val config = ConfigFactory.load("htrc.conf")
 
+  val savedJobLocation = config.getString("htrc.registry.saved_job_location")
+
   val rootResultUrl = config.getString("htrc.results.url")
   val resultDir = config.getString("htrc.results.location")
 

@@ -40,6 +40,7 @@ import akka.event.Logging
 import scala.util.{Success, Failure}
 import scala.xml._
 import HtrcConfig._
+import MediaTypes._
 
 object RegistryHttpClient {
 
@@ -54,7 +55,7 @@ object RegistryHttpClient {
   // now anything we do can use the ioBridge to create connections
   // unknown : should I try and reuse an htpclient actor between queries?
 
-  def query(query: String, method: HttpMethod, token: String): Future[HttpResponse] = {
+  def query(query: String, method: HttpMethod, token: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
 
     // since we are using the registry I can just grab some info
     val root = registryHost
@@ -76,8 +77,16 @@ object RegistryHttpClient {
       ~> sendReceive(conduit)
     )
 
+    // how do we represent the content type of the xml?
+    val contentType = `application/xml`
+
     // and now finally make a request
-    val response = pipeline(HttpRequest(method = method, uri = path + query)).mapTo[HttpResponse]
+    val response = 
+      if(body == None)
+        pipeline(HttpRequest(method = method, uri = path + query)).mapTo[HttpResponse]
+      else
+        pipeline(HttpRequest(method = method, uri = path + query, 
+                             entity = HttpBody(contentType, body.get.toString))).mapTo[HttpResponse]
 
     log.info("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}",
              token, query)
@@ -134,6 +143,43 @@ object RegistryHttpClient {
     }
   }
 
+  // Saving and loading saved job information
+  
+  val savedJobLocation = HtrcConfig.savedJobLocation
+
+  def listSavedJobs(token: String): Future[List[String]] = {
+    val q = query("files/"+savedJobLocation, GET, token)
+    q map { response =>
+      val raw = XML.loadString(response.entity.asString)
+      (raw \ "entries" \ "entry") filter { entry =>
+        ((entry \ "contentType").text != "collection")
+      } map { entry => 
+        (entry \ "name").text
+      } toList
+    }
+  }    
+    
+  def downloadSavedJobs(names: List[String], token: String): Future[List[SavedHtrcJob]] = {
+    val qs = names map { n => query("files/"+savedJobLocation+"/"+n, GET, token) }
+
+    val fqs = Future.sequence(qs.toList)
+    val res = fqs map { li => li.map { response =>
+      val raw = XML.loadString(response.entity.asString)
+      SavedHtrcJob(raw)
+    }}
+    res
+  }
+
+  def saveJob(status: Finished, id: String, token: String): Future[Boolean] = {
+    val q = query("files/"+savedJobLocation+"/"+id, PUT, token, Some(status.saveXml))
+    q map { response => true }
+  }
+
+  def deleteJob(id: String, token: String): Future[Boolean] = {
+    val q = query("files/"+savedJobLocation+"/"+id, DELETE, token)
+    q map { response => true }
+  }
+     
   def now[T](f: Future[T]): T = scala.concurrent.Await.result(f, 5 seconds)
 
   def writeFile(bytes: Array[Byte], dest: String) {

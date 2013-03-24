@@ -50,6 +50,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
   // pre-fetch this information so when a user asks about old jobs the
   // information is available.
   val savedJobs = new HashMap[JobId, SavedHtrcJob]
+  var savedJobsReady = false
 
   // logging configuration
   val log = Logging(context.system, this)
@@ -65,23 +66,32 @@ class HtrcAgent(user: HtrcUser) extends Actor {
     case m: AgentMessage => 
       m match {
 
-        case SaveJob(jobId) => 
+        case SaveJob(jobId, token) => 
           log.info("SAVE_JOB\t{}\t{}\tJOB_ID: {}", user.name, user.ip, jobId)
           val job = jobs.get(jobId)
-          if ( job == None ) {
+          if ( job == None) {
             sender ! <error>job: {jobId} does not exist</error>
           } else {
             job.get dispatch(m) pipeTo sender
           }
 
-        case DeleteJob(jobId) => 
+        case DeleteJob(jobId, token) => 
           log.info("DELETE_JOB\t{}\t{}\tJOB_ID: {}", user.name, user.ip, jobId)
           val job = jobs.get(jobId)
-          if ( job == None ) {
+          val savedJob = savedJobs.get(jobId)
+          if ( job == None && savedJob == None ) {
             sender ! <error>job: {jobId} does not exist</error>
           } else {
-            jobs -= jobId
-            job.get dispatch(m) pipeTo sender
+            if( savedJob != None ) {
+              RegistryHttpClient.deleteJob(jobId.toString, token)
+              savedJobs -= jobId
+            }
+            if( job != None ) {
+              jobs -= jobId
+              job.get dispatch(m) pipeTo sender
+            } else {
+              sender ! <success>deleted job: {jobId}</success>
+            }
           }
 
         case RunAlgorithm(name, inputs) => 
@@ -110,13 +120,16 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           log.info("ACTIVE_JOB_STATUS\t{}\t{}", user.name, user.ip)
           bulkJobStatus(sender)
 
-        case SavedJobStatuses => 
+        case SavedJobStatuses(token) => 
           log.info("SAVED_JOB_STATUS\t{}\t{}", user.name, user.ip)
-          bulkJobStatus(sender)
+          loadSavedJobs(token)
+          sender ! <jobs>{for(j <- savedJobs.values) yield j.renderXml}</jobs>
 
-        case AllJobStatuses => 
-          log.info("ALL_JOB_STATUS\t{}\t{}", user.name, user.ip)
-          bulkJobStatus(sender)
+        case AllJobStatuses(token) => 
+          log.info("ALL_JOB_STATUS\t{}\t{}", user.name, user.ip)          
+          loadSavedJobs(token)
+          val saved = Some(savedJobs.values.toList)
+          bulkJobStatus(sender, saved)
 
         case JobOutputRequest(jobId, outputType) => 
           log.info("JOB_OUTPUT\t{}\t{}\tJOB_ID: {}\tOUTPUT_TYPE: {}", 
@@ -129,7 +142,19 @@ class HtrcAgent(user: HtrcUser) extends Actor {
       }
   }
 
-  def bulkJobStatus(sender: ActorRef) {
+  def loadSavedJobs(token: String) {
+    if(savedJobsReady == false) {
+      val f = RegistryHttpClient.listSavedJobs(token)
+      val savedJobsF = f flatMap { names =>
+        RegistryHttpClient.downloadSavedJobs(names, token)
+      }
+      val savedJobsRaw = scala.concurrent.Await.result(savedJobsF, 5 seconds)
+      savedJobsRaw.foreach(j => savedJobs += (JobId(j.id) -> j))
+      savedJobsReady = true
+    }
+  }
+
+  def bulkJobStatus(sender: ActorRef, saved: Option[List[SavedHtrcJob]] = None) {
     val futures =
       (for( (id,job) <- jobs ) yield {
         job.ref flatMap { j =>
@@ -137,9 +162,16 @@ class HtrcAgent(user: HtrcUser) extends Actor {
         }        
       }).toList
     Future.sequence(futures).mapTo[List[NodeSeq]].map { l =>
-      <jobs>
-        {for( j <- l ) yield j}
-      </jobs>                                                       
+      if(saved == None) {
+        <jobs>
+          {for( j <- l ) yield j}
+        </jobs>
+      } else {
+        <jobs>
+          {for( j <- l ) yield j}
+          {for( j <- saved.get ) yield j.renderXml}
+        </jobs>
+      }
     } pipeTo sender
   }
   

@@ -80,6 +80,21 @@ case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) exte
         {for(r <- results) yield r.renderXml}
       </results>
     </status>
+
+  def saveXml: NodeSeq = {
+    <job_status>
+      <job_name>{name}</job_name>
+      <user>{user}</user>
+      <algorithm>{algorithm}</algorithm>
+      {parameters}
+      <job_id>{id}</job_id>
+      <date>{date}</date>
+      <status type="Finished">
+        {for(r <- results) yield r.saveXml}
+      </status>
+    </job_status>
+  } 
+
 }
 
 case class Crashed(inputs: JobInputs, id: JobId, results: List[JobResult]) extends JobStatus {
@@ -106,9 +121,13 @@ case object InternalCrashed extends InternalJobStatus
 
 trait JobResult {
 
-  val root = HtrcConfig.rootResultUrl
+  // for portability we want to load this root value at *render* time
+  // specifying it as a def that is called by the renderXml function
+  // should do the trick
+  def root = HtrcConfig.rootResultUrl
   def name = url.split('/').last
   def renderXml = <result type={name}>{root+url}</result>
+  def saveXml = <result type={name}>{url}</result>
 
   val url: String
 
@@ -118,8 +137,55 @@ case class Stdout(url: String) extends JobResult
 case class Stderr(url: String) extends JobResult
 case class DirectoryResult(url: String) extends JobResult
 
+// When saving results we want to fetch them from the registry and
+// parse them back into JobResults
 
+object ResultParser {
+    
+  // saved results don't have the root part of the url
+  def toResult(e: Node): JobResult = {
+    val name = (e attribute("type")).get.text
+    val url = (e text)
+    name match {
+      case "stdout.txt" => Stdout(url)
+      case "stderr.txt" => Stderr(url)
+      case url => DirectoryResult(url)
+    }
+  }
 
+}
 
+// We store saved jobs as a SavedJobs object
 
+case class SavedHtrcJob(e: NodeSeq) {
+  
+  def id = (e \ "job_id").text
+  
+  val name = e \ "job_name"
+  val user = e \ "user"
+  val algorithm = e \ "algorithm"
+  val parameters = e \ "parameters"
+  val date = e \ "date"
+  val xmlResults = e \ "status" \ "results" \ "result"
+  val results = xmlResults map { r => ResultParser.toResult(r) }
+
+  def renderXml: NodeSeq = {
+    <job_status>
+      {name}
+      {user}
+      {algorithm}
+      {parameters}
+      <job_id>{id}</job_id>
+      {date}
+      <status type="Finished">
+        <results>
+          {for(r <- results) yield r.renderXml}
+        </results>
+      </status>
+    </job_status>
+  }
+
+}
+    
+               
 

@@ -47,10 +47,6 @@ case class HtrcJob(ref: Future[ActorRef]) {
 
 case class AlgorithmMetadata(raw: NodeSeq)
 
-// this will actually turn into a real class, but I don't know what
-// the representation will be so this is a placeholder
-class SavedHtrcJob(val rep: String) extends AnyVal
-
 // job ids are currently represented as strings
 case class JobId(id: String) {
   override def toString: String = id

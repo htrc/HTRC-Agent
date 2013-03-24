@@ -119,17 +119,20 @@ trait AgentService extends HttpService {
           pathPrefix("job") {
             pathPrefix("all") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { AllJobStatuses })
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { AllJobStatuses(tok) })
               }
             } ~
             pathPrefix("active") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { ActiveJobStatuses })
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { ActiveJobStatuses })
               }
             } ~
             pathPrefix("saved") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) { SavedJobStatuses })
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { SavedJobStatuses(tok) })
               }
             } ~
             pathPrefix(PathElement) { id =>
@@ -138,39 +141,42 @@ trait AgentService extends HttpService {
                          { JobStatusRequest(JobId(id)) })
               } ~
             pathPrefix("save") {
-              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                       {  SaveJob(JobId(id)) })
-              } ~
-              pathPrefix("delete") {
+              (put | post) {
                 complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                         { DeleteJob(JobId(id)) })
-              } ~
-              pathPrefix("result") {
-                pathPrefix("stdout") {
-                  complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                           { JobOutputRequest(JobId(id), "stdout") })
-              } ~
-              pathPrefix("stderr") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                         { JobOutputRequest(JobId(id), "stderr") })
-              } ~
-              pathPrefix("directory") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
-                         { JobOutputRequest(JobId(id), "directory") })
+                         {  SaveJob(JobId(id), tok) })
               }
+            } ~
+            pathPrefix("delete") {
+              delete {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                       { DeleteJob(JobId(id), tok) })
+              }
+            } ~
+            pathPrefix("result") {
+              pathPrefix("stdout") {
+                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                         { JobOutputRequest(JobId(id), "stdout") })
+            } ~
+            pathPrefix("stderr") {
+              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                       { JobOutputRequest(JobId(id), "stderr") })
+            } ~
+            pathPrefix("directory") {
+              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                       { JobOutputRequest(JobId(id), "directory") })
             }
           }
         }
-      } ~
-      pathPrefix("result") {
-        getFromDirectory("agent_result_directories")
-      } ~
-      pathPrefix("") { 
-        complete("Path is not a valid API query.")
       }
-    }      
-  }
-                                      
+    } ~
+    pathPrefix("result") {
+      getFromDirectory("agent_result_directories")
+    } ~
+    pathPrefix("") { 
+      complete("Path is not a valid API query.")
+    }
+  }      
+ }                                      
 }
 
 
