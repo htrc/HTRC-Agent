@@ -90,7 +90,9 @@ case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) exte
       <job_id>{id}</job_id>
       <date>{date}</date>
       <status type="Finished">
-        {for(r <- results) yield r.saveXml}
+        <results>
+          {for(r <- results) yield r.saveXml}
+        </results>
       </status>
     </job_status>
   } 
