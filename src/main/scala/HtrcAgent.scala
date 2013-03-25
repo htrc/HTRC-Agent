@@ -111,10 +111,14 @@ class HtrcAgent(user: HtrcUser) extends Actor {
         case JobStatusRequest(jobId) => 
           log.info("JOB_STATUS\t{}\t{}\tJOB_ID: {}", user.name, user.ip, JobId)
           val job = jobs.get(jobId)
-          if (job == None)
+          val savedJob = savedJobs.get(jobId)
+          if (job == None && savedJob == None) {
             sender ! <elem>job does not exist</elem>
-          else
+          } else if(savedJob != None) {
+            sender ! savedJob.get.renderXml
+          } else {
             (job.get dispatch m) pipeTo sender
+          }
             
         case ActiveJobStatuses => 
           log.info("ACTIVE_JOB_STATUS\t{}\t{}", user.name, user.ip)
