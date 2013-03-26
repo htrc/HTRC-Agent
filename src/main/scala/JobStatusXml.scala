@@ -38,6 +38,7 @@ trait JobStatus {
   val inputs: JobInputs
 
   val id: JobId
+  val submitter = inputs.user.submitter
   val name = inputs.name
   val user = inputs.user
   val algorithm = inputs.algorithm
@@ -51,7 +52,7 @@ trait JobStatus {
   def renderXml: NodeSeq =
     <job_status>
       <job_name>{name}</job_name>
-      <user>{user}</user>
+      <user>{submitter}</user>
       <algorithm>{algorithm}</algorithm>
       {parameters}
       <job_id>{id}</job_id>

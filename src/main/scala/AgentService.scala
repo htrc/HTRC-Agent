@@ -96,7 +96,7 @@ trait AgentService extends HttpService {
 
                   complete(
                     inputProps map { in =>
-                      RunAlgorithm(JobInputs(JobSubmission(userInput), 
+                      RunAlgorithm(JobInputs(JobSubmission(userInput, rawUser), 
                                              in, token, requestId, ip))
                     } map { msg =>
                       dispatch(HtrcUser(rawUser)) { msg }

@@ -71,7 +71,7 @@ case class JobInputs(user: JobSubmission, system: JobProperties,
   
 }
 
-case class JobSubmission(arguments: NodeSeq) {
+case class JobSubmission(arguments: NodeSeq, submitter: String) {
 
   // When we receive the arguments we want to parse them. The "inputs"
   // represent the parameters provided by the user. These are used to
@@ -126,7 +126,7 @@ case class JobProperties(metadata: NodeSeq) {
 
 object SampleXmlInputs {
 
-  lazy val wcInputs = JobInputs(JobSubmission(wordcountUser),
+  lazy val wcInputs = JobInputs(JobSubmission(wordcountUser, "fake"),
                                 JobProperties(wordcount),
                                 "fake", "fake", "fake")
 
@@ -250,7 +250,7 @@ val wordcount =
           </parameters>
     </job>
 
-  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock),                 
+  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock, "fake"),                 
                                        JobProperties(sampleAlgorithm),
                                      "fake", "fake", "fake")                  
 
