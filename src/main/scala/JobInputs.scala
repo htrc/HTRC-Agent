@@ -27,7 +27,8 @@ import scala.xml._
 import scala.collection.mutable.HashMap
 import scala.util.matching.Regex._
 
-case class JobInputs(user: JobSubmission, system: JobProperties, token: String) {
+case class JobInputs(user: JobSubmission, system: JobProperties, 
+                     token: String, requestId: String, ip: String) {
 
   override def toString: String = "JobInputs(name: " + name + ")"
 
@@ -127,7 +128,7 @@ object SampleXmlInputs {
 
   lazy val wcInputs = JobInputs(JobSubmission(wordcountUser),
                                 JobProperties(wordcount),
-                                "fake")
+                                "fake", "fake", "fake")
 
 val wordcount = 
   <algorithm>
@@ -251,7 +252,7 @@ val wordcount =
 
   lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock),                 
                                        JobProperties(sampleAlgorithm),
-                                     "fake")                  
+                                     "fake", "fake", "fake")                  
 
    
 

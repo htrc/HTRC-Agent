@@ -36,8 +36,8 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   implicit val timeout = Timeout(30 seconds)
   val log = Logging(context.system, this)
 
-  log.info("LOCAL_MACHINE_JOB_ACTOR_STARTED\t{}\t{}\tJOB_ID: {}",
-           user.name, user.ip, id)
+  log.debug("LOCAL_MACHINE_JOB_ACTOR_STARTED\t{}\t{}\tJOB_ID: {}",
+           user.name, "ip", id)
 
   // The mutable state representing current status.
   val stdout = new StringBuilder
@@ -53,6 +53,15 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   var stdoutResult: Stdout = null
   var stderrResult: Stderr = null
 
+  def logEnd(t: String) {
+    // for audit log analyzer
+    // type end_status request_id user ip token job_id job_name algorithm run_time
+    val fstr = "JOB_TERMINATION\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s".format(t, 
+               inputs.requestId, user.name, inputs.ip, inputs.token, id,
+               inputs.name, inputs.algorithm, "TO_BE_INSERTED")
+    log.info(fstr)
+  }
+    
   val behavior: PartialFunction[Any,Unit] = {
     case m: JobMessage => {
       m match {
@@ -71,12 +80,12 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
           sender ! <success>deleted job: {id}</success>
           self ! PoisonPill
         case JobStatusRequest(id) =>
-          log.info("JOB_ACTOR_STATUS_REQUEST\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
-                   user.name, user.ip, id, status)
+          log.debug("JOB_ACTOR_STATUS_REQUEST\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
+                   user.name, "ip", id, status)
           sender ! status.renderXml
         case StatusUpdate(newStatus) =>
-          log.info("JOB_ACTOR_STATUS_UPDATE\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
-                   user.name, user.ip, id, newStatus)
+          log.debug("JOB_ACTOR_STATUS_UPDATE\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
+                   user.name, "ip", id, newStatus)
           newStatus match {
             case InternalQueued =>
               status = Queued(inputs, id)
@@ -85,6 +94,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
             case InternalRunning =>
               status = Running(inputs, id)
             case InternalFinished =>
+              logEnd("FINISHED")
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
               stdoutResult = Stdout(stdoutUrl)
@@ -92,6 +102,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
               results = stdoutResult :: stderrResult :: results
               status = Finished(inputs, id, results)
             case InternalCrashed =>
+              logEnd("CRASHED")
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
               stdoutResult = Stdout(stdoutUrl)
@@ -110,7 +121,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
         case JobOutputRequest(id, outputType) =>
           sender ! "unrecognized output type: " + outputType
         case RunJob =>
-          log.info("launching job")
+          log.debug("launching job")
           child = makeChild
       }
     }

@@ -63,22 +63,20 @@ class Registry extends Actor {
   val behavior: PartialFunction[Any,Unit] = {
     case m: RegistryMessage =>
       m match {
-        case WriteFile(path, name, dir, token) =>
-          log.info("REGISTRY_WRITE_FILE\tNAME: {}\tTOKEN: {}",
-                   name, token)
+        case WriteFile(path, name, dir, inputs) =>
+          log.debug("REGISTRY_WRITE_FILE\tNAME: {}\tTOKEN: {}",
+                   name, inputs.token)
           val dest = sender
-          //sender ! cp(storage + "/" + path, dir + "/" + name)
-          RegistryHttpClient.fileDownload(path, token, dir+"/"+name) map { b =>
+          RegistryHttpClient.fileDownload(path, inputs, dir+"/"+name) map { b =>
             RegistryOk
           } pipeTo dest
-        case WriteCollection(name, dir, token) =>
-          log.info("REGISTRY_WRITE_COLLECTION\tNAME: {}\tTOKEN: {}",
-                   name, token)
+        case WriteCollection(name, dir, inputs) =>
+          log.debug("REGISTRY_WRITE_COLLECTION\tNAME: {}\tTOKEN: {}",
+                   name, inputs.token)
           val dest = sender
-          RegistryHttpClient.collectionData(name, token, dir+"/"+name) map { b =>
+          RegistryHttpClient.collectionData(name, inputs, dir+"/"+name) map { b =>
             RegistryOk
           } pipeTo dest
-          //sender ! cp(storage + "/" + name, dir + "/" + name)
       }
   }
 

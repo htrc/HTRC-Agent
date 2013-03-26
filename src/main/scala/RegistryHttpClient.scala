@@ -88,7 +88,7 @@ object RegistryHttpClient {
         pipeline(HttpRequest(method = method, uri = path + query, 
                              entity = HttpBody(contentType, body.get.toString))).mapTo[HttpResponse]
 
-    log.info("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}",
+    log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}",
              token, query)
 
     response
@@ -118,10 +118,17 @@ object RegistryHttpClient {
 
   // Specific Agent Queries
   
-  def collectionData(rawName: String, token: String, dest: String): Future[Boolean] = {
+  def collectionData(rawName: String, inputs: JobInputs, dest: String): Future[Boolean] = {
+    // audit log analyzer output
+    // type collection_name request_id ip token job_id job_name algorithm
+    val fstr = "REGISTRY_FETCH_COLLECTION\t{}\t{}\t{}\t{}\t{}\t{}".format(
+             rawName, inputs.requestId, inputs.ip, inputs.token,
+             inputs.name, inputs.algorithm)
+    log.info(fstr)
+
     val name = rawName.split('@')(0)
     val author = rawName.split('@')(1)
-    val q = query("worksets/"+name+"/volumes.txt?author="+author, GET, token)
+    val q = query("worksets/"+name+"/volumes.txt?author="+author, GET, inputs.token)
     q map { response =>
       writeFile(response.entity.buffer, dest)
       true
@@ -134,8 +141,16 @@ object RegistryHttpClient {
       JobProperties(XML.loadString(response.entity.asString)) }
   }
     
-  def fileDownload(name: String, token: String, dest: String): Future[Boolean] = {
-    val q = query("files/"+name+"?public=true", GET, token)
+  def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
+    
+    // audit log analyzer output
+    // type collection_name request_id ip token job_id job_name algorithm
+    val fstr = "REGISTRY_FETCH_FILE\t{}\t{}\t{}\t{}\t{}\t{}".format(
+             name, inputs.requestId, inputs.ip, inputs.token,
+             inputs.name, inputs.algorithm)
+    log.info(fstr)
+
+    val q = query("files/"+name+"?public=true", GET, inputs.token)
     q map { response =>
       val bytes = response.entity.buffer
       writeFile(bytes, dest) 

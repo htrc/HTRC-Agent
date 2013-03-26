@@ -91,14 +91,14 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // include files.
 
   val dependenciesReady = inputs.dependencies map { case (path,name) =>
-    (registry ? WriteFile(path, name, workingDir, inputs.token)).mapTo[WriteStatus]
+    (registry ? WriteFile(path, name, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
   // We do the same thing with collections, but our command is
   // different.
   
   val collectionsReady = inputs.collections map { c =>
-    (registry ? WriteCollection(c, workingDir, inputs.token)).mapTo[WriteStatus]
+    (registry ? WriteCollection(c, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
   // Check if these things are all finished, once they are, continue.

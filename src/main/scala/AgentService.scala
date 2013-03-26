@@ -55,7 +55,7 @@ trait AgentService extends HttpService {
   // logging setup
   import HtrcLogSources._
   val log = Logging(HtrcSystem.system.eventStream, "htrc.system")
-  log.info("AgentService logger initialized")
+  log.debug("AgentService logger initialized")
 
   // to dispatch messages we need our global store of agents
   val agents = HtrcAgents
@@ -81,24 +81,11 @@ trait AgentService extends HttpService {
   // the agent api calls
   val agentRoute =
     headerValueByName("Authorization") { tok =>
+      headerValueByName("htrc-remote-address") { ip =>
+      headerValueByName("htrc-request-id") { requestId =>
       headerValueByName("htrc-remote-user") { rawUser =>
         pathPrefix("agent") {      
           pathPrefix("algorithm") {
-            pathPrefix("run") {
-              get { ctx =>
-                val wordcountUser = SampleXmlInputs.wordcountUser               
-                val token = tok.split(' ')(1)
-                val inputProps = 
-                  RegistryHttpClient.algorithmMetadata("Simple_Deployable_Word_Count", token)
-                ctx.complete(
-                  inputProps map { in =>
-                    RunAlgorithm("Foo", JobInputs(JobSubmission(wordcountUser), in, token))
-                  } map { msg =>
-                    dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
-                  }
-                )                          
-              }
-            } ~          
             pathPrefix("run") {    
               (post | put) {
                 entity(as[NodeSeq]) { userInput =>
@@ -109,9 +96,10 @@ trait AgentService extends HttpService {
 
                   complete(
                     inputProps map { in =>
-                      RunAlgorithm("Foo", JobInputs(JobSubmission(userInput), in, token))
+                      RunAlgorithm(JobInputs(JobSubmission(userInput), 
+                                             in, token, requestId, ip))
                     } map { msg =>
-                      dispatch(HtrcUser(rawUser, "0.0.0.0")) { msg }
+                      dispatch(HtrcUser(rawUser)) { msg }
                     }
                   )
                 }
@@ -121,50 +109,50 @@ trait AgentService extends HttpService {
           pathPrefix("job") {
             pathPrefix("all") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                          { AllJobStatuses(token(tok)) })
               }
             } ~
             pathPrefix("active") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                          { ActiveJobStatuses })
               }
             } ~
             pathPrefix("saved") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                          { SavedJobStatuses(token(tok)) })
               }
             } ~
             pathPrefix(PathElement) { id =>
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                          { JobStatusRequest(JobId(id)) })
               } ~
             pathPrefix("save") {
               (put | post) {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                          {  SaveJob(JobId(id), token(tok)) })
               }
             } ~
             pathPrefix("delete") {
               delete {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                        { DeleteJob(JobId(id), token(tok)) })
               }
             } ~
             pathPrefix("result") {
               pathPrefix("stdout") {
-                complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+                complete(dispatch(HtrcUser(rawUser)) 
                          { JobOutputRequest(JobId(id), "stdout") })
             } ~
             pathPrefix("stderr") {
-              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+              complete(dispatch(HtrcUser(rawUser)) 
                        { JobOutputRequest(JobId(id), "stderr") })
             } ~
             pathPrefix("directory") {
-              complete(dispatch(HtrcUser(rawUser, "0.0.0.0")) 
+              complete(dispatch(HtrcUser(rawUser)) 
                        { JobOutputRequest(JobId(id), "directory") })
             }
           }
@@ -180,5 +168,5 @@ trait AgentService extends HttpService {
   }      
  }                                      
 }
-
+}}
 

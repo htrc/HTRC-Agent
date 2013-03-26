@@ -50,7 +50,7 @@ trait ComputeResource extends Actor {
     case m: ComputeResourceMessage =>
       m match {
         case CreateJob(user, inputs, id) =>
-          log.info("compute resource creating job for user: " + user)
+          log.debug("compute resource creating job for user: " + user)
           val job = createJob(user, inputs, id)
           sender ! job
       }

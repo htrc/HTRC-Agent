@@ -41,8 +41,8 @@ class LocalMachineResource extends ComputeResource {
   def createJob(user: HtrcUser, inputs: JobInputs, id: JobId): ActorRef = {
 
 
-    log.info("LOCAL_MACHINE_RESOURCE_CREATING_JOB\t{}\t{}\tJOB_ID: {}",
-             user.name, user.ip, id)
+    log.debug("LOCAL_MACHINE_RESOURCE_CREATING_JOB\t{}\t{}\tJOB_ID: {}",
+             user.name, "ip", id)
     
     // create a child actor of type LocalMachineJob
     val child = context.actorOf(Props(new LocalMachineJob(user, inputs, id)), name = id.id)

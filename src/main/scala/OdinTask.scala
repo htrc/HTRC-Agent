@@ -45,8 +45,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   val registry = HtrcSystem.registry
 
-  log.info("ODIN_TASK_LAUNCHED\t{}\t{}\tJOB_ID: {}",
-           user.name, user.ip, id)
+  log.debug("ODIN_TASK_LAUNCHED\t{}\t{}\tJOB_ID: {}",
+           user.name, inputs.ip, id)
 
   parent ! StatusUpdate(InternalStaging)
 
@@ -93,14 +93,14 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // include files.
 
   val dependenciesReady = inputs.dependencies map { case (path,name) =>
-    (registry ? WriteFile(path, name, workingDir, inputs.token)).mapTo[WriteStatus]
+    (registry ? WriteFile(path, name, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
   // We do the same thing with collections, but our command is
   // different.
   
   val collectionsReady = inputs.collections map { c =>
-    (registry ? WriteCollection(c, workingDir, inputs.token)).mapTo[WriteStatus]
+    (registry ? WriteCollection(c, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
   // Check if these things are all finished, once they are, continue.
@@ -117,14 +117,14 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     } else {
       // to be here we must have not had errors, so do the work
 
-      log.info("ODIN_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}",
-               user.name, user.ip, id)
+      log.debug("ODIN_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}",
+               user.name, inputs.ip, id)
 
       // config info, to move out to a file later
       val odin = "hathitrust@odin"
 
-      log.info("ODIN_TASK_WORKING_DIR\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
-               user.name, user.ip, id, workingDir)
+      log.debug("ODIN_TASK_WORKING_DIR\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
+               user.name, inputs.ip, id, workingDir)
 
       // Now we need to copy the directory to odin
       val scpCmd = "scp -r %s %s:~/agent_working_directories/"
@@ -136,8 +136,8 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       val cmd = cmdF.format(odin, env, id, inputs.runScript)
       
       val sysProcess = SProcess(cmd, new File(workingDir))
-      log.info("ODIN_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
-               user.name, user.ip, id, cmd)
+      log.debug("ODIN_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+               user.name, inputs.ip, id, cmd)
       
       supe ! StatusUpdate(InternalRunning)
       // Recall from above, this plogger forwards stdin and stdout to
@@ -156,15 +156,15 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       // now scp the result folder back over
       val resultScpCmdF = "scp -r %s:~/agent_working_directories/%s %s"
       val resultScpCmd = resultScpCmdF.format(odin, id+"/"+outputDir, dest)
-      log.info("ODIN_TASK_RESULT_SCP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
-               user.name, user.ip, id, resultScpCmd)
+      log.debug("ODIN_TASK_RESULT_SCP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+               user.name, inputs.ip, id, resultScpCmd)
       val scpResultRes = SProcess(resultScpCmd) !
 
       // create a list of the result files
       val dirResults = inputs.resultNames map { n => 
         DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
-      log.info("ODIN_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
-               user.name, user.ip, id, dirResults)
+      log.debug("ODIN_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
+               user.name, inputs.ip, id, dirResults)
 
       if(exitCode == 0) {
         dirResults foreach { r =>

@@ -50,8 +50,8 @@ class JobCreator extends Actor {
     case m: JobCreatorMessage => 
       m match {
         case msg @ CreateJob(user, inputs, id) =>
-          log.info("JOB_CREATION\t{}\t{}\tJOB_ID: {}",
-                   user.name, user.ip, id)
+          log.debug("JOB_CREATION\t{}\t{}\tJOB_ID: {}",
+                   user.name, "ip", id)
           localMachineResource forward msg
       }
   }

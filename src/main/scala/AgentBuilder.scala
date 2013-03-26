@@ -56,7 +56,7 @@ class AgentBuilder extends Actor {
         agent.get.forward(message)
       }
   
-      log.info("\tBUILD_AGENT\t{}\t{}", user.name, user.ip)
+      log.debug("\tBUILD_AGENT\t{}\t{}", user.name, "fake")
 
   }
 

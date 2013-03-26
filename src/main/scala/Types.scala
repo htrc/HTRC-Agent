@@ -54,7 +54,7 @@ case class JobId(id: String) {
 
 // users are currently represented by strings, "value class" allows
 // creating a wrapper with no runtime overhead
-case class HtrcUser(name: String, ip: String) {
+case class HtrcUser(name: String) {
   override def toString = name
 }
 

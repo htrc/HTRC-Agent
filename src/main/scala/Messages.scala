@@ -35,7 +35,7 @@ case class CreateJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends JobCr
 
 case class SaveJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
 case class DeleteJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
-case class RunAlgorithm(name: String, inputs: JobInputs) extends AgentMessage
+case class RunAlgorithm(inputs: JobInputs) extends AgentMessage
 case class JobStatusRequest(jobId: JobId) extends AgentMessage with JobMessage
 case object ActiveJobStatuses extends AgentMessage
 case class AllJobStatuses(token: String) extends AgentMessage
@@ -49,8 +49,8 @@ case class StderrChunk(str: String) extends JobMessage
 case object RunJob extends JobMessage
 case class Result(res: JobResult) extends JobMessage
 
-case class WriteFile(path: String, name: String, workingDir: String, token: String) extends RegistryMessage
-case class WriteCollection(name: String, workingDir: String, token: String) extends RegistryMessage
+case class WriteFile(path: String, name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
+case class WriteCollection(name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
 
 case class RegistryError(e: String) extends WriteStatus
 case object RegistryOk extends WriteStatus
