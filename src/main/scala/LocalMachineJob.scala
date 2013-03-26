@@ -62,6 +62,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
           status match {
             case s @ Finished(_,id,_) =>
               RegistryHttpClient.saveJob(s, id.toString, token)
+              s.saved = "saved"
               sender ! <job>Saved job</job>
             case s => 
               sender ! <error>Job not yet finished or is crashed. Failed to save.</error>

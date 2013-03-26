@@ -39,11 +39,14 @@ trait JobStatus {
 
   val id: JobId
   val name = inputs.name
-  val user = "default_user"
+  val user = inputs.user
   val algorithm = inputs.algorithm
   val parameters = inputs.rawParameters
   val status: Elem
   val date = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).format(new java.util.Date)
+
+  // switch to "saved" when job is saved
+  var saved = "unsaved"
 
   def renderXml: NodeSeq =
     <job_status>
@@ -53,6 +56,7 @@ trait JobStatus {
       {parameters}
       <job_id>{id}</job_id>
       <date>{date}</date>
+      <saved>{saved}</saved>
       {status}
     </job_status>
 
@@ -89,6 +93,7 @@ case class Finished(inputs: JobInputs, id: JobId, results: List[JobResult]) exte
       {parameters}
       <job_id>{id}</job_id>
       <date>{date}</date>
+      <saved>saved</saved>
       <status type="Finished">
         <results>
           {for(r <- results) yield r.saveXml}
@@ -179,6 +184,7 @@ case class SavedHtrcJob(e: NodeSeq) {
       {parameters}
       <job_id>{id}</job_id>
       {date}
+      <saved>saved</saved>
       <status type="Finished">
         <results>
           {for(r <- results) yield r.renderXml}
