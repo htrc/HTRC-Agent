@@ -121,7 +121,7 @@ object RegistryHttpClient {
   def collectionData(rawName: String, inputs: JobInputs, dest: String): Future[Boolean] = {
     // audit log analyzer output
     // type collection_name request_id ip token job_id job_name algorithm
-    val fstr = "REGISTRY_FETCH_COLLECTION\t{}\t{}\t{}\t{}\t{}\t{}".format(
+    val fstr = "REGISTRY_FETCH_COLLECTION\t%s\t%s\t%s\t%s\t%s\t%s".format(
              rawName, inputs.requestId, inputs.ip, inputs.token,
              inputs.name, inputs.algorithm)
     log.info(fstr)
@@ -145,7 +145,7 @@ object RegistryHttpClient {
     
     // audit log analyzer output
     // type collection_name request_id ip token job_id job_name algorithm
-    val fstr = "REGISTRY_FETCH_FILE\t{}\t{}\t{}\t{}\t{}\t{}".format(
+    val fstr = "REGISTRY_FETCH_FILE\t%s\t%s\t%s\t%s\t%s\t%s".format(
              name, inputs.requestId, inputs.ip, inputs.token,
              inputs.name, inputs.algorithm)
     log.info(fstr)
