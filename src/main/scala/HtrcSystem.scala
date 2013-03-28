@@ -29,6 +29,7 @@ import java.util.UUID
 import scala.collection.mutable.{ HashMap => MHashMap }
 import com.typesafe.config.ConfigFactory
 import java.io._
+import scala.concurrent.stm._
 
 object HtrcSystem {
 
@@ -119,6 +120,10 @@ object HtrcConfig {
 
   private val config = ConfigFactory.load("htrc.conf")
 
+  val localResourceType = config.getString("htrc.compute.local_resource_type")
+  val jobThrottling = config.getBoolean("htrc.compute.job_throttling")
+  val maxJobs = config.getInt("htrc.compute.max_jobs")
+
   val savedJobLocation = config.getString("htrc.registry.saved_job_location")
 
   val rootResultUrl = config.getString("htrc.results.url")
@@ -133,4 +138,34 @@ object HtrcConfig {
   systemVariables += ("solr_proxy" -> config.getString("htrc.solr_proxy"))
   systemVariables += ("output_dir" -> config.getString("htrc.output_dir"))
 
+}
+
+object JobThrottler {
+
+  val count: Ref[Int] = Ref(0)
+
+  def addJob() =
+    atomic { implicit t =>
+      count.transform { _ + 1 }
+          }
+  
+  def removeJob() =
+    atomic { implicit t =>
+      count.transform { _ - 1 }
+          }
+  
+  def getJobCount =
+    atomic { implicit t =>
+      count.get
+          }
+  
+  
+  def jobsOk: Boolean = {
+    if (getJobCount <= HtrcConfig.maxJobs) {
+      true
+    } else {
+      false
+    }
+  }
+  
 }

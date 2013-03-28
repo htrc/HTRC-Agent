@@ -93,25 +93,36 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           }
 
         case RunAlgorithm(inputs) =>  
-          // our magic job id from ???
-          val id = JobId(HtrcUtils.newJobId)
-          
-          // for audit log anaylzer
-          // type request_id user ip token job_id job_name algorithm
-          val fstr = "JOB_SUBMISSION\t%s\t%s\t%s\t%s\t%s\t%s\t%s"
-          log.info(fstr.format(inputs.requestId, user.name, inputs.ip, 
-                               inputs.token, id.toString,
-                               inputs.name, inputs.algorithm))
-          
-          // get our job
-          val job = 
-            (HtrcSystem.jobCreator ? 
-             CreateJob(user, inputs, id)).mapTo[ActorRef]
-          // somehow we already have a JobId...
-          jobs += (id -> HtrcJob(job))
-          sender ! Queued(inputs, id).renderXml
-          job map { j => j ! RunJob }
 
+          // we want to check if our naive throttling is active and
+          // rejecting jobs
+          if( HtrcConfig.jobThrottling && !JobThrottler.jobsOk ) {
+            log.info("Rejecting job due to overloading")
+            sender ! <error>System has exceed maximum active job count, please try again later.</error>
+          } else {
+
+            JobThrottler.addJob()
+            
+            // our magic job id from ???
+            val id = JobId(HtrcUtils.newJobId)
+            
+            // for audit log anaylzer
+            // type request_id user ip token job_id job_name algorithm
+            val fstr = "JOB_SUBMISSION\t%s\t%s\t%s\t%s\t%s\t%s\t%s"
+            log.info(fstr.format(inputs.requestId, user.name, inputs.ip, 
+                                 inputs.token, id.toString,
+                                 inputs.name, inputs.algorithm))
+            
+            // get our job
+            val job = 
+              (HtrcSystem.jobCreator ? 
+               CreateJob(user, inputs, id)).mapTo[ActorRef]
+            // somehow we already have a JobId...
+            jobs += (id -> HtrcJob(job))
+            sender ! Queued(inputs, id).renderXml
+            job map { j => j ! RunJob }
+          }
+            
         case JobStatusRequest(jobId) => 
           val job = jobs.get(jobId)
           val savedJob = savedJobs.get(jobId)

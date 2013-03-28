@@ -20,7 +20,8 @@
 package htrc.agent
 
 // An actor that runs a task at the shell and sends status information
-// to the supervisor.
+// to the supervisor. In this case the shell task is actually to do a
+// remote job submission on Odin.
 
 import akka.actor.{ Actor, Props, ActorRef }
 import akka.util.Timeout
@@ -44,7 +45,8 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   val registry = HtrcSystem.registry
 
-  log.info("shell task for user: " + user + " job: " + id + " launched")
+  log.debug("SHELL_TASK_LAUNCHED\t{}\t{}\tJOB_ID: {}",
+           user.name, inputs.ip, id)
 
   parent ! StatusUpdate(InternalStaging)
 
@@ -72,7 +74,7 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // Also create the result directory.
   val resultDir = {
-    val path = workingDir + File.separator + "job_results"
+    val path = workingDir + File.separator + HtrcConfig.systemVariables("output_dir")
     (new File(path)).mkdir()
     path
   }
@@ -115,23 +117,50 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     } else {
       // to be here we must have not had errors, so do the work
 
-      // Now we need to copy the directory to odin
-      // todo
+      log.debug("SHELL_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}",
+               user.name, inputs.ip, id)
 
-      // todo : modify this to use srun over ssh
+      log.debug("SHELL_TASK_WORKING_DIR\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
+               user.name, inputs.ip, id, workingDir)
+
       // Our "system" parameters can be set as environment variables
       val env = "HTRC_WORKING_DIR=agent_working_directories/%s".format(id)
-      val cmd = "bash %s".format(inputs.runScript)
+      val cmdF = "%s bash ~/agent_working_directories/%s/%s"
+      val cmd = cmdF.format(env, id, inputs.runScript)
+      
       val sysProcess = SProcess(cmd, new File(workingDir))
-      log.info("about to execute command: " + cmd)
+      log.debug("SHELL_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+               user.name, inputs.ip, id, cmd)
       
       supe ! StatusUpdate(InternalRunning)
       // Recall from above, this plogger forwards stdin and stdout to
       // the parent
       val exitCode = sysProcess ! plogger
 
+      // start off by finding and creating the result directory if it
+      // doesn't exist
+      val outputDir = HtrcConfig.systemVariables("output_dir")
+      val resultLocation = HtrcConfig.resultDir
+      val dest = resultLocation + "/" + user.name + "/" + id
+      (new File(dest)).mkdirs()
+
+      // now cp the result folder back over
+      val resultCpCmdF = "cp -r ~/agent_working_directories/%s %s"
+      val resultCpCmd = resultCpCmdF.format(id+"/"+outputDir, dest)
+      log.debug("SHELL_TASK_RESULT_CP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+               user.name, inputs.ip, id, resultCpCmd)
+      val scpResultRes = SProcess(resultCpCmd) !
+
+      // create a list of the result files
+      val dirResults = inputs.resultNames map { n => 
+        DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
+      log.debug("SHELL_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
+               user.name, inputs.ip, id, dirResults)
+
       if(exitCode == 0) {
-        // todo : send result info to parent
+        dirResults foreach { r =>
+          supe ! Result(r)
+        }
         supe ! StatusUpdate(InternalFinished)        
       } else {
         supe ! StatusUpdate(InternalCrashed)

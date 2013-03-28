@@ -46,7 +46,15 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
 
   // As a local machine shell job, we just start our child directly.
   var child: ActorRef = null
-  def makeChild = actorOf(Props(new OdinTask(user, inputs, id)))  
+  // our makeChild should check the config file to see if we are using
+  // odin or shell tasks
+  def makeChild = {
+    if(HtrcConfig.localResourceType == "odin") {
+      actorOf(Props(new OdinTask(user, inputs, id)))  
+    } else {
+      actorOf(Props(new ShellTask(user, inputs, id)))
+    }
+  }
 
   // mutable state party time
   var results: List[JobResult] = Nil
@@ -101,6 +109,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
             case InternalRunning =>
               status = Running(inputs, id)
             case InternalFinished =>
+              JobThrottler.removeJob()
               logEnd("FINISHED")
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
@@ -109,6 +118,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
               results = stdoutResult :: stderrResult :: results
               status = Finished(inputs, id, results)
             case InternalCrashed =>
+              JobThrottler.removeJob()
               logEnd("CRASHED")
               val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
               val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
