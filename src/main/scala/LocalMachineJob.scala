@@ -63,15 +63,15 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
 
   // how long did the job take?
   val startTime = java.lang.System.currentTimeMillis
-  def totalTime: Long = { 
+  def totalTime: String = { 
     val endTime = java.lang.System.currentTimeMillis
-    (endTime - startTime) / 60
+    ((endTime - startTime) / 60).toString
   }
 
   def logEnd(t: String) {
     // for audit log analyzer
     // type end_status request_id user ip token job_id job_name algorithm run_time
-    val fstr = "JOB_TERMINATION\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s".format(t, 
+    val fstr = "JOB_TERMINATION\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s".format(t, 
                inputs.requestId, user.name, inputs.ip, inputs.token, id,
                inputs.name, inputs.algorithm, totalTime)
     log.info(fstr)
