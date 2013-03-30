@@ -157,7 +157,7 @@ object ResultParser {
     name match {
       case "stdout.txt" => Stdout(url)
       case "stderr.txt" => Stderr(url)
-      case url => DirectoryResult(url)
+      case str => DirectoryResult(url)
     }
   }
 
