@@ -67,7 +67,7 @@ object RegistryHttpClient {
 
     // now we define a conduit, which is a use of the client
     val conduit = system.actorOf(
-      props = Props(new HttpConduit(httpClient, root, port))
+      props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true))
     )
     
     // the pipeline is exactly what happens with our request
@@ -136,6 +136,10 @@ object RegistryHttpClient {
   }
 
   def algorithmMetadata(name: String, token: String): Future[JobProperties] = {
+//   val fstr = "REGISTRY_FETCH_FILE\t%s\t%s\t%s\t%s\t%s\t%s".format(
+//             name, inputs.requestId, inputs.ip, inputs.token,
+//             inputs.name, inputs.algorithm)
+//    log.info(fstr)
     val q = query("files/algorithmfolder/"+name+".xml?public=true", GET, token)
     q map { response =>
       JobProperties(XML.loadString(response.entity.asString)) }
