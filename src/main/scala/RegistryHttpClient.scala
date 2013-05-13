@@ -37,6 +37,7 @@ import akka.pattern.ask
 import HttpConduit._
 import HttpClient._
 import akka.event.Logging
+import akka.event.slf4j.Logger
 import scala.util.{Success, Failure}
 import scala.xml._
 import HtrcConfig._
@@ -48,6 +49,7 @@ object RegistryHttpClient {
   implicit val timeout = Timeout(5 seconds)
   implicit val system = HtrcSystem.system
   val log = Logging(system, "registry-http-client")
+  val auditLog = Logger("audit")
 
   // initialize the bridge to the IO layer used by Spray
   val ioBridge = IOExtension(system).ioBridge()
@@ -124,7 +126,7 @@ object RegistryHttpClient {
     val fstr = "REGISTRY_FETCH_COLLECTION\t%s\t%s\t%s\t%s\t%s\t%s".format(
              rawName, inputs.requestId, inputs.ip, inputs.token,
              inputs.name, inputs.algorithm)
-    log.info(fstr)
+    auditLog.info(fstr)
 
     val name = rawName.split('@')(0)
     val author = rawName.split('@')(1)
@@ -152,7 +154,7 @@ object RegistryHttpClient {
     val fstr = "REGISTRY_FETCH_FILE\t%s\t%s\t%s\t%s\t%s\t%s".format(
              name, inputs.requestId, inputs.ip, inputs.token,
              inputs.name, inputs.algorithm)
-    log.info(fstr)
+    auditLog.info(fstr)
 
     val q = query("files/"+name+"?public=true", GET, inputs.token)
     q map { response =>

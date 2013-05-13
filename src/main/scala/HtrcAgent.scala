@@ -26,6 +26,7 @@ import akka.actor.{ Actor, ActorRef }
 import akka.util.Timeout
 import scala.concurrent.duration._
 import akka.event.Logging
+import akka.event.slf4j.Logger
 import scala.collection.mutable.HashMap
 import scala.concurrent.Future
 import akka.pattern.ask
@@ -54,6 +55,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
 
   // logging configuration
   val log = Logging(context.system, this)
+  val auditLog = Logger("audit")
 
   // to add some type safety define the message types and do an
   // *exhaustive* match on those types, if not exhaustive the compiler
@@ -109,7 +111,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             // for audit log anaylzer
             // type request_id user ip token job_id job_name algorithm
             val fstr = "JOB_SUBMISSION\t%s\t%s\t%s\t%s\t%s\t%s\t%s"
-            log.info(fstr.format(inputs.requestId, user.name, inputs.ip, 
+            auditLog.info(fstr.format(inputs.requestId, user.name, inputs.ip, 
                                  inputs.token, id.toString,
                                  inputs.name, inputs.algorithm))
             

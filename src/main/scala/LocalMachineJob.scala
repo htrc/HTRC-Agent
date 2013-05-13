@@ -25,6 +25,7 @@ import akka.actor.{ Actor, Props, ActorRef, PoisonPill }
 import akka.util.Timeout
 import scala.concurrent.duration._
 import akka.event.Logging
+import akka.event.slf4j.Logger
 import java.io._
 
 class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
@@ -35,6 +36,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   import context._
   implicit val timeout = Timeout(30 seconds)
   val log = Logging(context.system, this)
+  val auditLog = Logger("audit")
 
   log.debug("LOCAL_MACHINE_JOB_ACTOR_STARTED\t{}\t{}\tJOB_ID: {}",
            user.name, "ip", id)
@@ -74,7 +76,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
     val fstr = "JOB_TERMINATION\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s".format(t, 
                inputs.requestId, user.name, inputs.ip, inputs.token, id,
                inputs.name, inputs.algorithm, totalTime)
-    log.info(fstr)
+    auditLog.info(fstr)
   }
     
   val behavior: PartialFunction[Any,Unit] = {

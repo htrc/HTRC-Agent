@@ -27,6 +27,7 @@ import akka.actor.{ Actor, Props, ActorRef }
 import akka.util.Timeout
 import scala.concurrent.duration._
 import akka.event.Logging
+import akka.event.slf4j.Logger
 import scala.sys.process.{ Process => SProcess }
 import scala.sys.process.{ ProcessLogger => SProcessLogger }
 import scala.sys.process.{ ProcessBuilder => SProcessBuilder }
@@ -200,7 +201,7 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   def receive = {
     case m =>
-      log.error("shell task")
+      log.error("odin task")
   }
 
 }
