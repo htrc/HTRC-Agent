@@ -67,7 +67,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   val startTime = java.lang.System.currentTimeMillis
   def totalTime: String = { 
     val endTime = java.lang.System.currentTimeMillis
-    ((endTime - startTime) / 60).toString
+    ((endTime - startTime) / 1000).toString
   }
 
   def logEnd(t: String) {
