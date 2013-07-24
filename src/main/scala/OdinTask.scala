@@ -133,7 +133,7 @@ class OdinTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
       // Our "system" parameters can be set as environment variables
       val env = "HTRC_WORKING_DIR=agent_working_directories/%s".format(id)
-      val cmdF = "ssh -t -t %s %s srun -N1 bash ~/agent_working_directories/%s/%s"
+      val cmdF = "ssh -t -t -q %s %s srun -N1 bash ~/agent_working_directories/%s/%s"
       val cmd = cmdF.format(odin, env, id, inputs.runScript)
       
       val sysProcess = SProcess(cmd, new File(workingDir))
