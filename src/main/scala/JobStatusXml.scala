@@ -66,12 +66,22 @@ trait JobStatus {
 
 }
 
+// following was named Queued when there was no QueuedOnTarget class; this is
+// the status at the moment when the job's LocalMachineJob instance is
+// created
 case class Queued(inputs: JobInputs, id: JobId) extends JobStatus {
-  val status = <status type="Queued"/>
+  val status = <status type="Created"/>
 }
 
 case class Staging(inputs: JobInputs, id: JobId) extends JobStatus {
   val status = <status type="Staging"/>
+}
+
+// QueuedOnTarget ("queued on target machine on which jobs are run") refers
+// to the state when the job has been placed on the cluster's job queue,
+// e.g., on Quarry; so named because class Queued already exists
+case class QueuedOnTarget(inputs: JobInputs, id: JobId) extends JobStatus {
+  val status = <status type="Queued"/>
 }
 
 case class Running(inputs: JobInputs, id: JobId) extends JobStatus {
@@ -121,6 +131,7 @@ case class Crashed(inputs: JobInputs, id: JobId, results: List[JobResult]) exten
 trait InternalJobStatus
 case object InternalQueued extends InternalJobStatus
 case object InternalStaging extends InternalJobStatus
+case object InternalQueuedOnTarget extends InternalJobStatus
 case object InternalRunning extends InternalJobStatus
 case object InternalFinished extends InternalJobStatus
 case object InternalCrashed extends InternalJobStatus
