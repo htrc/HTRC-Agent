@@ -27,7 +27,7 @@ import scala.concurrent.stm._
 import akka.actor.{ ActorSystem, ActorRef, Props }
 import java.util.UUID
 import scala.collection.mutable.{ HashMap => MHashMap }
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory, ConfigList}
 import java.io._
 import scala.concurrent.stm._
 
@@ -121,6 +121,7 @@ object HtrcConfig {
   private val config = ConfigFactory.load("htrc.conf")
 
   val localResourceType = config.getString("htrc.compute.local_resource_type")
+  val jobScheduler = config.getString("htrc.compute.job-scheduler")
   val jobThrottling = config.getBoolean("htrc.compute.job_throttling")
   val maxJobs = config.getInt("htrc.compute.max_jobs")
 
@@ -133,11 +134,112 @@ object HtrcConfig {
   val registryVersion = config.getString("htrc.registry.version")
   val registryPort = config.getInt("htrc.registry.port")
 
+  // information regarding compute resource (on which jobs are run)
+  val computeResource = "htrc." + localResourceType + "."
+  val computeResourceUser = config.getString(computeResource + "user")
+  val computeResourceWorkingDir = 
+    config.getString(computeResource + "working-dir")
+  val dependencyDir = config.getString(computeResource + "dependency-dir")
+  val javaCmd = config.getString(computeResource + "java-command")
+  val javaMaxHeapSize = config.getString(computeResource + "java-max-heap-size")
+
+  val walltimesPath = computeResource + "PBS-walltimes"
+  val algWalltimes = 
+    if (config.hasPath(walltimesPath))
+    walltimesConfigToHashMap(config.getConfig(walltimesPath + 
+                                              ".algorithm-walltimes"))
+    else null
+  val maxWalltime = 
+    if (config.hasPath(walltimesPath)) 
+    config.getString(walltimesPath + ".max-walltime")
+    else "10:00:00"
+
+  val numVolsParamName = 
+    config.getString("htrc.job-parameters.num-volumes-param-name")
+  val algWithNoHeaderInWorksets = 
+    config.getStringList("htrc.alg-with-no-header-in-worksets")
+
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
   systemVariables += ("solr_proxy" -> config.getString("htrc.solr_proxy"))
   systemVariables += ("output_dir" -> config.getString("htrc.output_dir"))
 
+  // checks if the given job requires the job workset to contain a header
+  // row, such as "volume_id, class, ..."
+  def requiresWorksetWithHeader(inputs: JobInputs): Boolean = {
+    ! algWithNoHeaderInWorksets.contains(inputs.algorithm)
+  }
+
+  // the following method is valid only for PBSTask jobs running on compute
+  // resources that require a poll script to check job status, e.g., quarry,
+  // bigred2
+  def getJobStatusPollScript: String = {
+    config.getString(computeResource + "job-status-poll-script")
+  }
+
+  def getQsubOptions: String = {
+    config.getString(computeResource + "qsub-options")
+  }
+
+  def getNumVols(numVolsParamName: String, properties: MHashMap[String, String]): Int = {
+    properties.find({case(k, v) => k contains numVolsParamName}) match {
+      case Some((key, value)) => value.toInt
+      case None => -1
+    }
+  }
+
+  def getPBSWalltime(inputs: JobInputs): String = {
+    val numVols = getNumVols(numVolsParamName, inputs.properties)
+    if (numVols != -1) {
+      getPBSWalltime(inputs.algorithm, numVols)
+    }
+    else {
+      val algWalltimePath = walltimesPath + ".no-volume-count-walltimes." + 
+                            inputs.algorithm
+      if (config.hasPath(algWalltimePath)) 
+      config.getString(algWalltimePath)
+      else maxWalltime
+    }
+  }
+
+  def getPBSWalltime(algorithm: String, numVols: Int): String = {
+    def intInRange(t: (Int, Int, String)): Boolean = {
+      t match {
+        case (lower, upper, walltime) => 
+          if ((lower <= numVols) && (numVols <= upper)) true else false
+      }
+    }
+    if (algWalltimes.isDefinedAt(algorithm)) {
+      algWalltimes(algorithm).find(intInRange) match {
+        case Some((lower, upper, walltime)) => walltime
+        case None => maxWalltime
+      }
+    }
+    else maxWalltime
+  }
+
+  def walltimesConfigToHashMap(walltimesConfig: Config): MHashMap[String, List[(Int, Int, String)]] = {
+    val result = new MHashMap[String, List[(Int, Int, String)]]
+
+    val walltimes = walltimesConfig.entrySet.iterator
+    while (walltimes.hasNext) {
+      val elem = walltimes.next
+      val algorithm = elem.getKey.asInstanceOf[String]
+      val ls = elem.getValue.asInstanceOf[ConfigList]
+      var lsTuples: List[(Int, Int, String)] = Nil
+      // ls = [[1, 20, "00:30:00"], ...], list of 3-element lists
+      val lsIterator = ls.iterator
+      while (lsIterator.hasNext) {
+        val tuple = lsIterator.next.asInstanceOf[ConfigList]
+        val lower = tuple.get(0).unwrapped.asInstanceOf[Int]
+        val upper = tuple.get(1).unwrapped.asInstanceOf[Int]
+        val walltime = tuple.get(2).unwrapped.asInstanceOf[String]
+        lsTuples = (lower, upper, walltime) :: lsTuples
+      }
+      result += (algorithm -> lsTuples.reverse)
+    }
+    result
+  }
 }
 
 object JobThrottler {
