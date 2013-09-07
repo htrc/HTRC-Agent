@@ -57,7 +57,7 @@ object RegistryHttpClient {
   // now anything we do can use the ioBridge to create connections
   // unknown : should I try and reuse an htpclient actor between queries?
 
-  def query(query: String, method: HttpMethod, token: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
+  def queryRegistry(query: String, method: HttpMethod, token: String, acceptContentType: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
 
     // since we are using the registry I can just grab some info
     val root = registryHost
@@ -74,7 +74,7 @@ object RegistryHttpClient {
     
     // the pipeline is exactly what happens with our request
     val pipeline: HttpRequest => Future[HttpResponse] = (
-      addHeader("Accept", "application/xml")
+      addHeader("Accept", acceptContentType)
       ~> addHeader("Authorization", "Bearer " + token)
       ~> sendReceive(conduit)
     )
@@ -90,11 +90,15 @@ object RegistryHttpClient {
         pipeline(HttpRequest(method = method, uri = path + query, 
                              entity = HttpBody(contentType, body.get.toString))).mapTo[HttpResponse]
 
-    log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}",
-             token, query)
+    log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
 
     response
+  }
 
+  // all methods except for collectionData require content type of the
+  // response to be "application/xml"
+  def query(queryStr: String, method: HttpMethod, token: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
+    queryRegistry(queryStr, method, token, "application/xml", body)
   }
 
   // these two functions primarily for debugging
@@ -130,10 +134,25 @@ object RegistryHttpClient {
 
     val name = rawName.split('@')(0)
     val author = rawName.split('@')(1)
-    val q = query("worksets/"+name+"/volumes.txt?author="+author, GET, inputs.token)
+    val q =
+      if (HtrcConfig.requiresWorksetWithHeader(inputs))
+      // use new REST call to deal with worksets that may contain class
+      // labels and other metadata apart from volume ids, and returns a list
+      // with a "volume_id, class, ..." header
+      queryRegistry("worksets/"+name+"/volumes?author="+author, GET, 
+                    inputs.token, "text/csv")
+      // otherwise, use old REST call to get just a list of volume ids,
+      // without any header row; required for Marc_Downloader,
+      // Simple_Deployable_Word_count
+      else queryRegistry("worksets/"+name+"/volumes.txt?author="+author, GET, 
+                         inputs.token, "application/xml")
+
     q map { response =>
-      writeFile(response.entity.buffer, dest)
-      true
+      if (response.status.isSuccess) {
+        writeFile(response.entity.buffer, dest)
+        true
+      }
+      else false
     }
   }
 
@@ -158,9 +177,12 @@ object RegistryHttpClient {
 
     val q = query("files/"+name+"?public=true", GET, inputs.token)
     q map { response =>
-      val bytes = response.entity.buffer
-      writeFile(bytes, dest) 
-      true
+      if (response.status.isSuccess) {
+        val bytes = response.entity.buffer
+        writeFile(bytes, dest) 
+        true
+      }
+      else false
     }
   }
 
