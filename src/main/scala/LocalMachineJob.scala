@@ -49,10 +49,12 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   // As a local machine shell job, we just start our child directly.
   var child: ActorRef = null
   // our makeChild should check the config file to see if we are using
-  // odin or shell tasks
+  // PBS, SLURM, or shell tasks
   def makeChild = {
-    if(HtrcConfig.localResourceType == "odin") {
-      actorOf(Props(new OdinTask(user, inputs, id)))  
+    if (HtrcConfig.jobScheduler == "PBS") {
+      actorOf(Props(new PBSTask(user, inputs, id)))  
+    } else if (HtrcConfig.jobScheduler == "SLURM") {
+      actorOf(Props(new SLURMTask(user, inputs, id)))  
     } else {
       actorOf(Props(new ShellTask(user, inputs, id)))
     }
@@ -65,9 +67,14 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
 
   // how long did the job take?
   val startTime = java.lang.System.currentTimeMillis
+  var jobRuntime = "0"
   def totalTime: String = { 
-    val endTime = java.lang.System.currentTimeMillis
-    ((endTime - startTime) / 1000).toString
+    if (HtrcConfig.jobScheduler == "PBS")
+    jobRuntime
+    else {
+      val endTime = java.lang.System.currentTimeMillis
+      ((endTime - startTime) / 1000).toString
+    }
   }
 
   def logEnd(t: String) {
@@ -108,13 +115,24 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
               status = Queued(inputs, id)
             case InternalStaging =>
               status = Staging(inputs, id)
+            case InternalQueuedOnTarget =>
+              status = QueuedOnTarget(inputs, id)
             case InternalRunning =>
               status = Running(inputs, id)
             case InternalFinished =>
               JobThrottler.removeJob()
               logEnd("FINISHED")
-              val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
-              val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
+              // for SLURMTask, the job's stdout, stderr are piped to a
+              // ProcessLogger and these need to written out to files; for
+              // PBSTask, qsub directs stdout and stderr to files
+              val stdoutUrl = 
+                if (HtrcConfig.jobScheduler == "PBS")
+                (user + "/" + id + "/" + "stdout.txt")
+                else writeFile(stdout.toString, "stdout.txt", user, id)
+              val stderrUrl = 
+                if (HtrcConfig.jobScheduler == "PBS")
+                (user + "/" + id + "/" + "stderr.txt")
+                else writeFile(stderr.toString, "stderr.txt", user, id)
               stdoutResult = Stdout(stdoutUrl)
               stderrResult = Stderr(stderrUrl)
               results = stdoutResult :: stderrResult :: results
@@ -122,8 +140,14 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
             case InternalCrashed =>
               JobThrottler.removeJob()
               logEnd("CRASHED")
-              val stdoutUrl = writeFile(stdout.toString, "stdout.txt", user, id)
-              val stderrUrl = writeFile(stderr.toString, "stderr.txt", user, id)
+              val stdoutUrl = 
+                if (HtrcConfig.jobScheduler == "PBS")
+                (user + "/" + id + "/" + "stdout.txt")
+                else writeFile(stdout.toString, "stdout.txt", user, id)
+              val stderrUrl = 
+                if (HtrcConfig.jobScheduler == "PBS")
+                (user + "/" + id + "/" + "stderr.txt")
+                else writeFile(stderr.toString, "stderr.txt", user, id)
               stdoutResult = Stdout(stdoutUrl)
               stderrResult = Stderr(stderrUrl)
               results = stdoutResult :: stderrResult :: results
@@ -133,6 +157,8 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
           stdout.append(str + "\n")
         case StderrChunk(str) =>
           stderr.append(str + "\n")
+        case JobRuntime(str) =>
+          jobRuntime = str
         case JobOutputRequest(id, "stdout") =>
           sender ! stdoutResult.renderXml
         case JobOutputRequest(id, "stderr") =>
