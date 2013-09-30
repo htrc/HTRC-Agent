@@ -38,8 +38,8 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
   val log = Logging(context.system, this)
   val auditLog = Logger("audit")
 
-  log.debug("LOCAL_MACHINE_JOB_ACTOR_STARTED\t{}\t{}\tJOB_ID: {}",
-           user.name, "ip", id)
+  // log.debug("LOCAL_MACHINE_JOB_ACTOR_STARTED\t{}\t{}\tJOB_ID: {}",
+  //         user.name, "ip", id)
 
   // The mutable state representing current status.
   val stdout = new StringBuilder
@@ -104,8 +104,8 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
           sender ! <success>deleted job: {id}</success>
           self ! PoisonPill
         case JobStatusRequest(id) =>
-          log.debug("JOB_ACTOR_STATUS_REQUEST\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
-                   user.name, "ip", id, status)
+          // log.debug("JOB_ACTOR_STATUS_REQUEST\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
+          //         user.name, "ip", id, status)
           sender ! status.renderXml
         case StatusUpdate(newStatus) =>
           log.debug("JOB_ACTOR_STATUS_UPDATE\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
