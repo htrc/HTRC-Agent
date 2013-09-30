@@ -143,6 +143,7 @@ object HtrcConfig {
   val javaCmd = config.getString(computeResource + "java-command")
   val javaMaxHeapSize = config.getString(computeResource + "java-max-heap-size")
 
+  // algWallTimes, maxWalltime are used only in PBSTask
   val walltimesPath = computeResource + "PBS-walltimes"
   val algWalltimes = 
     if (config.hasPath(walltimesPath))
@@ -158,6 +159,12 @@ object HtrcConfig {
     config.getString("htrc.job-parameters.num-volumes-param-name")
   val algWithNoHeaderInWorksets = 
     config.getStringList("htrc.alg-with-no-header-in-worksets")
+
+  // homeDir is used only in ShellTask
+  val homeDirPath = computeResource + "home-dir"
+  val homeDir = if (config.hasPath(homeDirPath)) 
+                config.getString(homeDirPath)
+                else ""
 
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
