@@ -50,7 +50,8 @@ class AgentServiceActor extends Actor with AgentService {
 // this trait defines our service behavior independently from the service actor
 trait AgentService extends HttpService {
 
-  implicit val timeout = Timeout(5 seconds)
+// implicit val timeout = Timeout(5 seconds)
+  implicit val timeout = Timeout(30 seconds)
 
   // logging setup
   import HtrcLogSources._
@@ -109,6 +110,7 @@ trait AgentService extends HttpService {
           pathPrefix("job") {
             pathPrefix("all") {
               pathPrefix("status") {
+		log.debug("Handling all status request");
                 complete(dispatch(HtrcUser(rawUser)) 
                          { AllJobStatuses(token(tok)) })
               }
