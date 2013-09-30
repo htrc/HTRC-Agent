@@ -27,6 +27,7 @@ import akka.actor.{ Actor, Props, ActorRef }
 import akka.util.Timeout
 import scala.concurrent.duration._
 import akka.event.Logging
+import akka.event.slf4j.Logger
 import scala.sys.process.{ Process => SProcess }
 import scala.sys.process.{ ProcessLogger => SProcessLogger }
 import scala.sys.process.{ ProcessBuilder => SProcessBuilder }
@@ -112,6 +113,13 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     if(errors.length != 0) {
       errors.foreach { e =>
         log.error("Registry failed to write resource: " + e)
+        HtrcUtils.writeFile("", "stdout.txt", user, id)
+        e match {
+          case RegistryError(resource) => 
+            HtrcUtils.writeFile("Error in retrieving " + resource +
+                                " from the registry.", 
+                                "stderr.txt", user, id)
+        }
         supe ! StatusUpdate(InternalCrashed)
       }
     } else {
@@ -124,11 +132,45 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
                user.name, inputs.ip, id, workingDir)
 
       // Our "system" parameters can be set as environment variables
-      val env = "HTRC_WORKING_DIR=agent_working_directories/%s".format(id)
-      val cmdF = "%s bash ~/agent_working_directories/%s/%s"
-      val cmd = cmdF.format(env, id, inputs.runScript)
-      
-      val sysProcess = SProcess(cmd, new File(workingDir))
+      // val env = "/data1/htrc/htrc-agent/trunk/agent_working_directories/%s".format(id)
+      // val envP = ("HTRC_WORKING_DIR" -> env)
+      // val cmdF = "bash /data1/htrc/htrc-agent/trunk/agent_working_directories/%s/%s"
+      // val cmd = cmdF.format(id, inputs.runScript)
+      // // Need the Meandre port this time.
+      // val envM = ("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString)
+      // val sysProcess = SProcess(cmd, new File("/home/hathitrust"), envP, envM)
+
+      val targetWorkingDir = HtrcConfig.computeResourceWorkingDir
+
+      val envWorkingDir = ("HTRC_WORKING_DIR" -> (targetWorkingDir + "/" + id))
+      val envDependencyDir = ("HTRC_DEPENDENCY_DIR" -> HtrcConfig.dependencyDir)
+      val envJavaCmd = ("JAVA_CMD" -> HtrcConfig.javaCmd)
+      val envJavaMaxHeapSize = 
+        ("JAVA_MAX_HEAP_SIZE" -> HtrcConfig.javaMaxHeapSize)
+      val envMeandrePort = 
+        ("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString)
+
+      val cmdF = "bash %s/%s/%s"
+      val cmd = cmdF.format(targetWorkingDir, id, inputs.runScript)
+
+      // val env = 
+      //   "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
+      //   " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
+      //   " JAVA_CMD=" + HtrcConfig.javaCmd +
+      //   " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize +
+      //   " HTRC_MEANDRE_PORT=" + MeandrePortAllocator.get.toString
+
+      // val cmdF = "%s bash %s/%s/%s"
+      // val cmd = cmdF.format(env, targetWorkingDir, id, inputs.runScript)
+
+      println("Run job command: " + cmd)
+
+      val sysProcess = SProcess(cmd, new File(HtrcConfig.homeDir), 
+                                envWorkingDir, envDependencyDir, envJavaCmd, 
+                                envJavaMaxHeapSize, envMeandrePort)
+
+      // val sysProcess = SProcess(cmd, new File(HtrcConfig.homeDir))
+
       log.debug("SHELL_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
                user.name, inputs.ip, id, cmd)
       
@@ -136,17 +178,24 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       // Recall from above, this plogger forwards stdin and stdout to
       // the parent
       val exitCode = sysProcess ! plogger
+      
+      log.debug("SHELL_TASK_COMPLETE\t{}\t{}", id, exitCode)
 
       // start off by finding and creating the result directory if it
       // doesn't exist
       val outputDir = HtrcConfig.systemVariables("output_dir")
       val resultLocation = HtrcConfig.resultDir
       val dest = resultLocation + "/" + user.name + "/" + id
+
+      log.debug("SHELL_TASK_CREATING_OUTPUTDIR\t{}\t{}", id, resultLocation)
+      
       (new File(dest)).mkdirs()
 
       // now cp the result folder back over
-      val resultCpCmdF = "cp -r ~/agent_working_directories/%s %s"
-      val resultCpCmd = resultCpCmdF.format(id+"/"+outputDir, dest)
+      // val resultCpCmdF = "cp -r /data1/htrc/htrc-agent/trunk/agent_working_directories/%s %s"
+      // val resultCpCmd = resultCpCmdF.format(id+"/"+outputDir, dest)
+      val resultCpCmdF = "cp -r %s/%s/%s %s"
+      val resultCpCmd = resultCpCmdF.format(targetWorkingDir, id, outputDir, dest)
       log.debug("SHELL_TASK_RESULT_CP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
                user.name, inputs.ip, id, resultCpCmd)
       val scpResultRes = SProcess(resultCpCmd) !
