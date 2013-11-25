@@ -68,7 +68,8 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // Before we can write to a working directory, we must create one.
   val workingDir = {
-    val root = "agent_working_directories"
+    // val root = "agent_working_directories"
+    val root = HtrcConfig.localAgentWorkingDir
 
     (new File(root + File.separator + id)).mkdirs()
     root + File.separator + id
