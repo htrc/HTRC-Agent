@@ -111,7 +111,15 @@ object HtrcUtils {
     writer.close()
       user + "/" + id + "/" + name
   }
-  
+
+  // appends to a given file (full path has to be specified), even if the
+  // file does not exist; however, intermediate dirs in the specified path
+  // must exist
+  def appendToFile(content: String, file: String) = {
+    val writer = new FileWriter(file, true) 
+    writer.write(content)
+    writer.close()
+  }
 }
 
 // The global store of configuration information.
@@ -129,6 +137,8 @@ object HtrcConfig {
 
   val rootResultUrl = config.getString("htrc.results.url")
   val resultDir = config.getString("htrc.results.location")
+
+  val localAgentWorkingDir = config.getString("htrc.local_agent_working_dir")
 
   val registryHost = config.getString("htrc.registry.host")
   val registryVersion = config.getString("htrc.registry.version")
