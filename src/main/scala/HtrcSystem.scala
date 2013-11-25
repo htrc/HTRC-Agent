@@ -278,3 +278,20 @@ object JobThrottler {
   }
   
 }
+
+object MeandrePortAllocator {
+
+  val count: Ref[Int] = Ref(30000)
+  def get: Int = {
+    atomic { implicit t =>
+      count.transform { c =>
+        if(c > 65000)
+          30000
+        else
+          c + 1
+      }
+      count.get
+    }
+  }
+
+}
