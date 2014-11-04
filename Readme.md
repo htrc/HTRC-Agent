@@ -1,11 +1,3 @@
+The agent provides a REST API for launching, monitoring, and managing jobs. At present, HTRC jobs include Meandre algorithms and Java programs for text mining and analysis. HTRC jobs are launched on HPC systems. 
 
-This is a start on a "spray" version of the HTRC agent. It uses
-spray-servlet instead of spray-can so it will deploy to Jetty.
-
-This readme hasn't really been written yet. The joys of rapid
-development...
-
-The code in this "initial commit" is the progress I've made so far
-while using git. (yes yes...) Finally swapping this code over as I
-should have awhile ago.
-
+The agent is written in Scala. It uses Spray (http://spray.io/) for receiving and dispatching HTTP requests and responses. It parallelizes handling of these requests using the Akka (http://akka.io/) framework.
