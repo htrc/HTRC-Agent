@@ -39,6 +39,8 @@ import scala.collection.mutable.HashMap
 
 class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
+  import HtrcUtils._
+
   // actor configuration
   import context._
   implicit val timeout = Timeout(30 seconds)
@@ -51,12 +53,12 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   parent ! StatusUpdate(InternalStaging)
 
-  // Build output loggers. These should forward to the
-  // supervising actor so they can be returned to the user.
-  
+  // Build output loggers. 
+  val stdout = new StringBuilder
+  val stderr = new StringBuilder
   val plogger = SProcessLogger(
-    (o: String) => parent ! StdoutChunk(o),
-    (e: String) => parent ! StderrChunk(e))
+    (o: String) => stdout.append(o + "\n"),
+    (e: String) => stderr.append(e + "\n"))
 
   // At this point we might want to ... interact with the inputs. This
   // would be a set of Futures that when all resolved provide what we
@@ -77,14 +79,19 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // Also create the result directory.
   val resultDir = {
-    val path = workingDir + File.separator + HtrcConfig.systemVariables("output_dir")
+    val path = 
+      workingDir + File.separator + HtrcConfig.systemVariables("output_dir")
     (new File(path)).mkdir()
     path
   }
 
+  val target = HtrcConfig.computeResourceUser
+  val targetWorkingDir = HtrcConfig.computeResourceWorkingDir
+  val jobClientOutFile = targetWorkingDir + "/" + id + "/job-client.out"
+  val jobClientErrFile = targetWorkingDir + "/" + id + "/job-client.err"
+
   // Write the properties.
   writeProperties(inputs.properties, inputs.propertiesFileName, workingDir)
-
   
   // To fetch information from the registry we send it a message with
   // both the registry path and the output path. Instead of responding
@@ -106,27 +113,39 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     (registry ? WriteCollection(c, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
+  // create job client script to launch AgentJobClient with the algorithm as
+  // a sub-process
+  // val timelimit = "-1"
+  val timelimit = HtrcConfig.getPBSWalltime(inputs)
+  val envVars = 
+    JobClientUtils.jobClientEnvVars(inputs, id, 
+                                    (targetWorkingDir + "/" + id), timelimit)
+  HtrcSystem.jobClientScriptCreator.
+    createJobClientScript(envVars, workingDir + "/" + HtrcConfig.jobClientScript,
+                          log)
+
   // Check if these things are all finished, once they are, continue.
-
   val supe = parent
-
   Future.sequence(dependenciesReady ++ collectionsReady) map { statuses =>
     val errors = statuses.collect( _ match { case v @ RegistryError(e) => v })
     if(errors.length != 0) {
       errors.foreach { e =>
         log.error("Registry failed to write resource: " + e)
-        supe ! StatusUpdate(InternalCrashed)
+        // HtrcUtils.writeFile("", "stdout.txt", user, id)
+        var errorMsg = "Error in retrieving resource from the registry."
+        e match {
+          case RegistryError(resource) => 
+            // HtrcUtils.writeFile("Error in retrieving " + resource +
+            //                     " from the registry.", 
+            //                     "stderr.txt", user, id)
+            errorMsg = "Error in retrieving " + resource + " from the registry."
+        }
+        supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
       }
     } else {
       // to be here we must have not had errors, so do the work
-
       log.debug("SLURM_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}",
                user.name, inputs.ip, id)
-
-      // config info, to move out to a file later
-      val target = HtrcConfig.computeResourceUser
-      val targetWorkingDir = HtrcConfig.computeResourceWorkingDir
-
       log.debug("SLURM_TASK_WORKING_DIR\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
                user.name, inputs.ip, id, workingDir)
 
@@ -135,65 +154,69 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       val scpCmd = scpCmdF.format(workingDir, target, targetWorkingDir)
       val scpRes = SProcess(scpCmd) !
 
-      val scpCmdRes = scpCmd + ", result = " + scpRes
-      log.debug("SLURM_SCP_BEFORE_TASK\t{}\t{}\tJOB_ID: {}\tCMD: {}", 
-                user.name, inputs.ip, id, scpCmdRes)
+      log.debug("SLURM_TASK_SCP_COMMAND\t{}\tJOB_ID: {}\tCOMMAND: {}\tRESULT: {}",
+               user.name, id, scpCmd, scpRes)
 
       // Our "system" parameters can be set as environment variables
-      // val env = "HTRC_WORKING_DIR=agent_working_directories/%s".format(id)
-      val env = 
-        "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
-        " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
-        " JAVA_CMD=" + HtrcConfig.javaCmd +
-        " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize
+      // val env = 
+      //   "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
+      //   " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
+      //   " JAVA_CMD=" + HtrcConfig.javaCmd +
+      //   " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize
 
-      val cmdF = "ssh -t -t -q %s %s srun -N1 bash %s/%s/%s"
-      val cmd = cmdF.format(target, env, targetWorkingDir, id, inputs.runScript)
-
+      // val cmdF = "ssh -t -t -q %s srun -N1 bash %s/%s/%s"
+      // val cmd = 
+      //   cmdF.format(target, targetWorkingDir, id, HtrcConfig.jobClientScript)
+      val cmdF = 
+        "ssh -t -t -q %s sbatch %s -t %s -o %s -e %s %s/%s/%s"
+      val cmd = cmdF.format(target, HtrcConfig.getSbatchOptions, timelimit, 
+                            jobClientOutFile, jobClientErrFile, 
+                            targetWorkingDir, id, HtrcConfig.jobClientScript)
       val sysProcess = SProcess(cmd, new File(workingDir))
-      log.debug("SLURM_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
-               user.name, inputs.ip, id, cmd)
-      
-      supe ! StatusUpdate(InternalRunning)
-      // Recall from above, this plogger forwards stdin and stdout to
-      // the parent
       val exitCode = sysProcess ! plogger
-      log.debug("SLURM_TASK_QSUB_COMMAND\t{}\t{}\tJOB_ID: {}\tRESULT: {}",
-                user.name, inputs.ip, id, exitCode)
+      
+      // supe ! StatusUpdate(InternalRunning)
+
+      log.debug("SLURM_TASK_SBATCH_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}", 
+                user.name, id, cmd, exitCode)
+      log.debug("SLURM_TASK_SBATCH_OUT\t{}\tJOB_ID: {}\tOUT: {}",
+                user.name, id, stdout)
+      log.debug("SLURM_TASK_SBATCH_ERR\t{}\tJOB_ID: {}\tERR: {}",
+                user.name, id, stderr)
 
       // move the result back from the cluster
 
       // start off by finding and creating the result directory if it
       // doesn't exist
-      val outputDir = HtrcConfig.systemVariables("output_dir")
-      val resultLocation = HtrcConfig.resultDir
-      val dest = resultLocation + "/" + user.name + "/" + id
-      (new File(dest)).mkdirs()
+      // val outputDir = HtrcConfig.systemVariables("output_dir")
+      // val resultLocation = HtrcConfig.resultDir
+      // val dest = resultLocation + "/" + user.name + "/" + id
+      // (new File(dest)).mkdirs()
 
       // now scp the result folder back over
-      val resultScpCmdF = "scp -r %s:%s/%s/%s %s"
-      val resultScpCmd = 
-        resultScpCmdF.format(target, targetWorkingDir, id, outputDir, dest)
-      val scpResultRes = SProcess(resultScpCmd) !
+      // val resultScpCmdF = "scp -r %s:%s/%s/%s %s"
+      // val resultScpCmd = 
+      //   resultScpCmdF.format(target, targetWorkingDir, id, outputDir, dest)
+      // val scpResultRes = SProcess(resultScpCmd) !
 
-      val resultScpCmdRes = resultScpCmd + ", result = " + scpResultRes
-      log.debug("SLURM_TASK_RESULT_SCP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
-               user.name, inputs.ip, id, resultScpCmdRes)
+      // val resultScpCmdRes = resultScpCmd + ", result = " + scpResultRes
+      // log.debug("SLURM_TASK_RESULT_SCP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
+      //          user.name, inputs.ip, id, resultScpCmdRes)
 
       // create a list of the result files
-      val dirResults = inputs.resultNames map { n => 
-        DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
-      log.debug("SLURM_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
-               user.name, inputs.ip, id, dirResults)
+      // val dirResults = inputs.resultNames map { n => 
+      //   DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
+      // log.debug("SLURM_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
+      //          user.name, inputs.ip, id, dirResults)
 
-      if(exitCode == 0) {
-        dirResults foreach { r =>
-          supe ! Result(r)
-        }
-        supe ! StatusUpdate(InternalFinished)        
-      } else {
-        supe ! StatusUpdate(InternalCrashed)
-      }
+      // if(exitCode == 0) {
+      //   dirResults foreach { r =>
+      //     supe ! Result(r)
+      //   }
+      //   supe ! StatusUpdate(InternalFinished)        
+      // } else {
+      //   supe ! StatusUpdate(InternalCrashed)
+      // }
     }
   }
 

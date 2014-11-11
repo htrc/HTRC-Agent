@@ -21,6 +21,8 @@ package htrc.agent
 
 // Messages not specific to the agent, eventually refactor to better locations
 
+import scala.xml._
+
 case class BuildAgent(user: HtrcUser, message: AgentMessage)
 
 sealed trait JobCreatorMessage
@@ -32,27 +34,44 @@ sealed trait WriteStatus
 
 case class CreateJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends JobCreatorMessage with ComputeResourceMessage
 
-
 case class SaveJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
 case class DeleteJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
 case class RunAlgorithm(inputs: JobInputs) extends AgentMessage
-case class JobStatusRequest(jobId: JobId) extends AgentMessage with JobMessage
+case class JobStatusRequest(jobId: JobId) extends AgentMessage
 case object ActiveJobStatuses extends AgentMessage
 case class AllJobStatuses(token: String) extends AgentMessage
 case class SavedJobStatuses(token: String) extends AgentMessage
-case class JobOutputRequest(jobId: JobId, outputType: String) extends AgentMessage with JobMessage
+// case class JobOutputRequest(jobId: JobId, outputType: String) extends AgentMessage with JobMessage
 
+// msg sent to HtrcAgent upon receipt of job/<jobid>/updatestatus from
+// AgentJobClient
+case class UpdateJobStatus(jobId: JobId, token: String, 
+                           content: NodeSeq) extends AgentMessage {
+  // val statusStr = content \\ "status" \ "@type" text
+}
 
+// InternalUpdateJobStatus contains a JobId and the new status of the job; it
+// is received by HtrcAgent from itself or other actors such as
+// LocalMachineJob and JobCompletionTask
+case class InternalUpdateJobStatus(jobId: JobId, status: JobStatus, 
+                                   token: String) extends AgentMessage
+
+// JobSaveCompleted is sent by HtrcAgent to itself once the registry call to
+// save a job with status JobComplete has been completed
+case class JobSaveCompleted(jobId: JobId, status: JobComplete, 
+                            saveResult: Boolean) extends AgentMessage
+
+// StatusUpdate is sent from PBSTask, SLURMTask, Shelltask to LocalMachineJob
 case class StatusUpdate(status: InternalJobStatus) extends JobMessage
-case class StdoutChunk(str: String) extends JobMessage
-case class StderrChunk(str: String) extends JobMessage
-case class JobRuntime(str: String) extends JobMessage
 case object RunJob extends JobMessage
-case class Result(res: JobResult) extends JobMessage
+
+// case class StdoutChunk(str: String) extends JobMessage
+// case class StderrChunk(str: String) extends JobMessage
+// case class JobRuntime(str: String) extends JobMessage
+// case class Result(res: JobResult) extends JobMessage
 
 case class WriteFile(path: String, name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
 case class WriteCollection(name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
 
 case class RegistryError(e: String) extends WriteStatus
 case object RegistryOk extends WriteStatus
-

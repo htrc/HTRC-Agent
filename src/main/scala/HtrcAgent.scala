@@ -73,7 +73,15 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           if ( job == None) {
             sender ! <error>job: {jobId} does not exist</error>
           } else {
-            job.get dispatch(m) pipeTo sender
+            // job.get dispatch(m) pipeTo sender
+            job.get.status match {
+              case s @ Finished(_,id,_,_) =>
+                RegistryHttpClient.saveJob(s, id.toString, token)
+                s.saved = "saved"
+                sender ! <job>Saved job</job>
+              case s => 
+                sender ! <error>Job not yet finished or is crashed. Failed to save.</error>
+            }
           }
 
         case DeleteJob(jobId, token) => 
@@ -93,6 +101,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
               sender ! <success>deleted job: {jobId}</success>
             }
           }
+
 
         case RunAlgorithm(inputs) =>  
 
@@ -120,7 +129,8 @@ class HtrcAgent(user: HtrcUser) extends Actor {
               (HtrcSystem.jobCreator ? 
                CreateJob(user, inputs, id)).mapTo[ActorRef]
             // somehow we already have a JobId...
-            jobs += (id -> HtrcJob(job))
+            val jobStatus = Queued(inputs, id)
+            jobs += (id -> HtrcJob(job, jobStatus))
             sender ! Queued(inputs, id).renderXml
             job map { j => j ! RunJob }
           }
@@ -133,7 +143,8 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           } else if(savedJob != None) {
             sender ! savedJob.get.renderXml
           } else {
-            (job.get dispatch m) pipeTo sender
+            // (job.get dispatch m) pipeTo sender
+            sender ! job.get.status.renderXml
           }
             
         case ActiveJobStatuses => 
@@ -148,12 +159,94 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           val saved = Some(savedJobs.values.toList)
           bulkJobStatus(sender, saved)
 
-        case JobOutputRequest(jobId, outputType) => 
+        // temporarily commented out; should be uncommented when stderr,
+        // stdout etc. are available for the job
+        // case JobOutputRequest(jobId, outputType) => 
+        //   val job = jobs.get(jobId)
+        //   if (job == None)
+        //     sender ! <elem>dne</elem>
+        //   else
+        //     (job.get dispatch m) pipeTo sender
+
+        // UpdateJobStatus is received here after a msg is received by the
+        // agent from an instance of AgentJobClient
+        case updateStatus @ UpdateJobStatus(jobId, tok, newStatus) => 
+          log.debug("UpdateJobStatus(" + jobId + ", " + newStatus + 
+                    ") received by HtrcAgent(" + user + ")")
+
+          val successMsg = <success>Update of job status successful.</success>
+          val errorMsg = <error>Error in update of job status: Non-existent jobId {jobId}.</error>
+
+          val job = jobs.get(jobId)
+          val res = job map {j => 
+            self ! InternalUpdateJobStatus(jobId, JobStatus(j.status, newStatus), 
+                                           tok)
+            successMsg
+          } getOrElse { 
+            log.debug("ERROR: HtrcAgent({}) received UpdateJobStatus for " + 
+                      "non-existent job\tJOB_ID: {}\tSTATUS: {}",
+                      user.name, jobId, newStatus)
+            errorMsg
+          }
+          sender ! res
+
+        // InternalUpdateJobStatus msgs are received from this actor or from
+        // other actors such as LocalMachineJob, JobCompletionTask
+        case InternalUpdateJobStatus(jobId, status, token) => 
+          log.debug("InternalUpdateJobStatus(" + jobId + ", " + status + ", " +
+                    token + ") received by HtrcAgent(" + user + ")")
           val job = jobs.get(jobId)
           if (job == None)
-            sender ! <elem>dne</elem>
+            log.debug("ERROR: HtrcAgent({}) received InternalUpdateJobStatus " + 
+                      "for non-existent job\tJOB_ID: {}\tSTATUS: {}",
+                      user.name, jobId, status)
           else
-            (job.get dispatch m) pipeTo sender
+            status match {
+              case s: PendingCompletion => 
+                JobCompletionTask(s, token, context) 
+              case s: JobComplete =>
+                handleCompletedJobs(jobId, s, token)
+                // val f = RegistryHttpClient.saveJob(s, jobId.toString, token)
+                // f map {res => 
+                //   if (res)  {
+                //     savedJobs += (jobId -> (new SavedHtrcJob(s)))
+                //     jobs -= jobId
+                //   }
+                //   else {
+                //     log.debug("ERROR in processing InternalJobUpdateStatus: " + 
+                //               "unable to save job to the registry")
+                //     job.get.setStatus(s)
+                //   }
+                // }
+              case _ => job.get.setStatus(status)
+              // case s @ FinishedPendingCompletion(_,_,_,_) => 
+              //   JobCompletionTask(s, context) 
+              // case s @ TimedOutPendingCompletion(_,_,_,_) => 
+              //   JobCompletionTask(s, context) 
+              // case s @ CrashedPendingCompletion(_,_,_,_,_) => 
+              //   JobCompletionTask(s, context) 
+              // case s @ CrashedWithErrorPendingCompletion(_,_,_,_,_) => 
+              //   JobCompletionTask(s, context) 
+            }
+
+        // JobSaveCompleted is sent by HtrcAgent to itself once the registry
+        // call to save a job with status JobComplete has been completed
+        case JobSaveCompleted(jobId, status, saveResult) => 
+          if (saveResult)  {
+            savedJobs += (jobId -> (new SavedHtrcJob(status)))
+            jobs -= jobId
+          }
+          else {
+            log.debug("ERROR in processing InternalJobUpdateStatus: " + 
+                      "unable to save job to the registry")
+            val job = jobs.get(jobId)
+            job map {j => j.setStatus(status)} getOrElse {
+              log.debug("ERROR: HtrcAgent({}) received JobSaveCompleted " + 
+                      "for non-existent job\tJOB_ID: {}\tSTATUS: {}",
+                      user.name, jobId, status)
+            }
+            // job.get.setStatus(status)
+          }
       }
   }
 
@@ -169,7 +262,25 @@ class HtrcAgent(user: HtrcUser) extends Actor {
     }
   }
 
+  // statuses of active jobs are stored in "jobs" in the HtrcJob object
   def bulkJobStatus(sender: ActorRef, saved: Option[List[SavedHtrcJob]] = None) {
+    val jobStatusMsg = 
+      <jobs>
+        {for( j <- jobs.values.toList ) yield j.status.renderXml}
+        {for( j <- saved.getOrElse(Nil) ) yield j.renderXml}
+      </jobs>
+    sender ! jobStatusMsg
+  }
+
+  def handleCompletedJobs(jobId: JobId, status: JobComplete, token: String) = {
+    val f = RegistryHttpClient.saveJob(status, jobId.toString, token)
+    f map {res => self ! JobSaveCompleted(jobId, status, res)}
+  }
+
+  // old version of bulkJobStatus: sends msgs to LocalMachineJob actors for
+  // active jobs to obtain their statuses
+  def oldBulkJobStatus(sender: ActorRef, 
+                       saved: Option[List[SavedHtrcJob]] = None) {
     val futures =
       (for( (id,job) <- jobs ) yield {
         job.ref flatMap { j =>
@@ -189,7 +300,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
       }
     } pipeTo sender
   }
-  
+
   val unknown: PartialFunction[Any,Unit] = {
     case m => 
       log.error("agent for user: " + user + " received unhandled message")
@@ -199,6 +310,4 @@ class HtrcAgent(user: HtrcUser) extends Actor {
   // compiler-checked, generate the receive method
 
   def receive = behavior orElse unknown
-
-
 }

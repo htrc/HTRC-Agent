@@ -52,6 +52,9 @@ object HtrcSystem {
 
   val registry = system.actorOf(Props(new Registry), name = "registry")
 
+  // object to create job client script files
+  val jobClientScriptCreator = 
+     new JobClientScriptCreator(HtrcConfig.skelJobClientScript) 
 }
 
 // our global store of what agents exist
@@ -100,7 +103,7 @@ object HtrcUtils {
     df.format(raw)
   }
 
-  def writeFile(body: String, name: String, user: HtrcUser, id: JobId): String = {
+  def writeFile(body: String, name: String, user: String, id: JobId): String = {
     // we compute what the appropriate destination is from the user and id
     val root = HtrcConfig.resultDir
     val dest = root + "/" + user + "/" + id
@@ -109,8 +112,11 @@ object HtrcUtils {
     val writer = new PrintWriter(new File(dest+"/"+name))
     writer.write(body)
     writer.close()
-      user + "/" + id + "/" + name
+    user + "/" + id + "/" + name
   }
+
+  def writeFile(body: String, name: String, user: HtrcUser, id: JobId): String =
+    writeFile(body, name, user.name, id)
 
   // appends to a given file (full path has to be specified), even if the
   // file does not exist; however, intermediate dirs in the specified path
@@ -119,6 +125,23 @@ object HtrcUtils {
     val writer = new FileWriter(file, true) 
     writer.write(content)
     writer.close()
+  }
+
+  def fileExists(file: String): Boolean = 
+    (new File(file)).exists
+
+  // append to possibly non-empty stdout.txt, stderr.txt files; arg "file" is
+  // expected to be either "stdout.txt" or "stderr.txt"
+  def appendToStdOutErrFile(content: String, fullFilePath: String) = {
+    if (content.length > 0) {
+      val divider = "\n\n" + "=" * 81 + "\n"
+
+      println("fileExists(" + fullFilePath + ") = " + fileExists(fullFilePath))
+
+      if (fileExists(fullFilePath))
+        appendToFile(divider + content, fullFilePath)
+      else appendToFile(content, fullFilePath)
+    }
   }
 }
 
@@ -140,6 +163,11 @@ object HtrcConfig {
 
   val localAgentWorkingDir = config.getString("htrc.local_agent_working_dir")
 
+  val skelJobClientScript = config.getString("htrc.skel_job_client_script")
+  val jobClientScript = config.getString("htrc.job_client_script")
+
+  val agentEndpoint = config.getString("htrc.agent_endpoint");
+
   val registryHost = config.getString("htrc.registry.host")
   val registryVersion = config.getString("htrc.registry.version")
   val registryPort = config.getInt("htrc.registry.port")
@@ -153,8 +181,8 @@ object HtrcConfig {
   val javaCmd = config.getString(computeResource + "java-command")
   val javaMaxHeapSize = config.getString(computeResource + "java-max-heap-size")
 
-  // algWallTimes, maxWalltime are used only in PBSTask
-  val walltimesPath = computeResource + "PBS-walltimes"
+  // algWallTimes, maxWalltime are used in PBSTask and SLURMTask
+  val walltimesPath = computeResource + "walltimes"
   val algWalltimes = 
     if (config.hasPath(walltimesPath))
     walltimesConfigToHashMap(config.getConfig(walltimesPath + 
@@ -198,11 +226,17 @@ object HtrcConfig {
     config.getString(computeResource + "qsub-options")
   }
 
+  def getSbatchOptions: String = {
+    config.getString(computeResource + "sbatch-options")
+  }
+
   def getNumVols(numVolsParamName: String, properties: MHashMap[String, String]): Int = {
-    properties.find({case(k, v) => k contains numVolsParamName}) match {
-      case Some((key, value)) => value.toInt
-      case None => -1
-    }
+    val res = properties.find({case(k, v) => k contains numVolsParamName})
+    (res map {case(key, value) => value.toInt}) getOrElse -1
+    // properties.find({case(k, v) => k contains numVolsParamName}) match {
+    //   case Some((key, value)) => value.toInt
+    //   case None => -1
+    // }
   }
 
   def getPBSWalltime(inputs: JobInputs): String = {
@@ -226,14 +260,27 @@ object HtrcConfig {
           if ((lower <= numVols) && (numVols <= upper)) true else false
       }
     }
-    if (algWalltimes.isDefinedAt(algorithm)) {
-      algWalltimes(algorithm).find(intInRange) match {
-        case Some((lower, upper, walltime)) => walltime
-        case None => maxWalltime
+    val result = 
+      if (algWalltimes.isDefinedAt(algorithm)) {
+        val res = algWalltimes(algorithm).find(intInRange)
+        (res map {case(l, u, walltime) => walltime}) getOrElse maxWalltime
+        // algWalltimes(algorithm).find(intInRange) match {
+        //   case Some((lower, upper, walltime)) => walltime
+        //   case None => maxWalltime
       }
-    }
-    else maxWalltime
+      else maxWalltime
+    // println("getPBSWalltime(" + algorithm + ", " + numVols + ") = " + result)
+    result
   }
+
+  // return "user@domain" used to access specified computeResource
+  def targetUser(computeResource: String) =
+    config.getString("htrc." + computeResource + ".user")
+
+  // return the path of the working directory for jobs on the specified
+  // computeResource
+  def targetWorkingDir(computeResource: String) =
+    config.getString("htrc." + computeResource + ".working-dir")
 
   def walltimesConfigToHashMap(walltimesConfig: Config): MHashMap[String, List[(Int, Int, String)]] = {
     val result = new MHashMap[String, List[(Int, Int, String)]]

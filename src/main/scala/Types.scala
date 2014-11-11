@@ -33,7 +33,7 @@ import scala.xml._
 // Jobs currently being managed by an actor are actually futures
 // containing the monitoring actor's address. These are somewhat
 // irritating to deal with, so a wrapper class.
-case class HtrcJob(ref: Future[ActorRef]) {
+case class HtrcJob(ref: Future[ActorRef], var status: JobStatus) {
 
   implicit val timeout = Timeout(30 seconds)
 
@@ -43,6 +43,9 @@ case class HtrcJob(ref: Future[ActorRef]) {
     }
   }
 
+  def setStatus(newStatus: JobStatus) = {
+    status = newStatus
+  }
 }
 
 case class AlgorithmMetadata(raw: NodeSeq)

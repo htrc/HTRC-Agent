@@ -85,11 +85,13 @@ trait AgentService extends HttpService {
       headerValueByName("htrc-remote-address") { ip =>
       headerValueByName("htrc-request-id") { requestId =>
       headerValueByName("htrc-remote-user") { rawUser =>
+        val userName = rawUser.split('@')(0)
         pathPrefix("agent") {      
           pathPrefix("algorithm") {
             pathPrefix("run") {    
               (post | put) {
                 entity(as[NodeSeq]) { userInput =>
+
                 val algorithm = userInput \ "algorithm" text
                 val token = tok.split(' ')(1)
                 val inputProps =
@@ -97,10 +99,10 @@ trait AgentService extends HttpService {
 
                   complete(
                     inputProps map { in =>
-                      RunAlgorithm(JobInputs(JobSubmission(userInput, rawUser), 
+                      RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
                                              in, token, requestId, ip))
                     } map { msg =>
-                      dispatch(HtrcUser(rawUser)) { msg }
+                      dispatch(HtrcUser(userName)) { msg }
                     }
                   )
                 }
@@ -111,53 +113,70 @@ trait AgentService extends HttpService {
             pathPrefix("all") {
               pathPrefix("status") {
 		log.debug("Handling all status request");
-                complete(dispatch(HtrcUser(rawUser)) 
+                complete(dispatch(HtrcUser(userName)) 
                          { AllJobStatuses(token(tok)) })
               }
             } ~
             pathPrefix("active") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser)) 
+                complete(dispatch(HtrcUser(userName)) 
                          { ActiveJobStatuses })
               }
             } ~
             pathPrefix("saved") {
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser)) 
+                complete(dispatch(HtrcUser(userName)) 
                          { SavedJobStatuses(token(tok)) })
               }
             } ~
             pathPrefix(PathElement) { id =>
               pathPrefix("status") {
-                complete(dispatch(HtrcUser(rawUser)) 
+                complete(dispatch(HtrcUser(userName)) 
                          { JobStatusRequest(JobId(id)) })
               } ~
             pathPrefix("save") {
               (put | post) {
-                complete(dispatch(HtrcUser(rawUser)) 
+                complete(dispatch(HtrcUser(userName)) 
                          {  SaveJob(JobId(id), token(tok)) })
               }
             } ~
             pathPrefix("delete") {
               delete {
-                complete(dispatch(HtrcUser(rawUser)) 
+                complete(dispatch(HtrcUser(userName)) 
                        { DeleteJob(JobId(id), token(tok)) })
               }
             } ~
-            pathPrefix("result") {
-              pathPrefix("stdout") {
-                complete(dispatch(HtrcUser(rawUser)) 
-                         { JobOutputRequest(JobId(id), "stdout") })
-            } ~
-            pathPrefix("stderr") {
-              complete(dispatch(HtrcUser(rawUser)) 
-                       { JobOutputRequest(JobId(id), "stderr") })
-            } ~
-            pathPrefix("directory") {
-              complete(dispatch(HtrcUser(rawUser)) 
-                       { JobOutputRequest(JobId(id), "directory") })
-            }
-          }
+            pathPrefix("updatestatus") {
+              (put | post) {
+                entity(as[NodeSeq]) { userInput =>
+                  println("ROBIN: tok = " + tok +
+                          ", userName = " + userName +
+                          ", userInput = " + userInput)
+                // complete("Received msg /job/" + id + 
+                //          "/updatestatus for user " + userName)
+                  complete(dispatch(HtrcUser(userName)) 
+                           { UpdateJobStatus(JobId(id), token(tok), 
+                                             userInput) })
+	        }
+	      }
+	    }
+            // uncomment the following when stderr, stdout of jobs are
+            // available
+            // ~
+            // pathPrefix("result") {
+            //   pathPrefix("stdout") {
+            //     complete(dispatch(HtrcUser(userName)) 
+            //              { JobOutputRequest(JobId(id), "stdout") })
+            // } ~
+            // pathPrefix("stderr") {
+            //   complete(dispatch(HtrcUser(userName)) 
+            //            { JobOutputRequest(JobId(id), "stderr") })
+            // } ~
+            // pathPrefix("directory") {
+            //   complete(dispatch(HtrcUser(userName)) 
+            //            { JobOutputRequest(JobId(id), "directory") })
+            // }
+          // }
         }
       }
     } ~

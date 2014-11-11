@@ -38,7 +38,6 @@ import scala.concurrent._
 import scala.collection.mutable.HashMap
 
 class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
-
   case class JobExecutionException(stdout: String, stderr: String) extends Exception
   case class CopyFromComputeResourceException(stdout: String, stderr: String) extends Exception
 
@@ -60,8 +59,11 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // details about user and job dir on the compute resource
   val target = HtrcConfig.computeResourceUser
   val targetWorkingDir = HtrcConfig.computeResourceWorkingDir
-  val stdoutFile = targetWorkingDir + "/" + id + "/stdout.txt"
-  val stderrFile = targetWorkingDir + "/" + id + "/stderr.txt"
+  val jobClientOutFile = targetWorkingDir + "/" + id + "/job-client.out"
+  val jobClientErrFile = targetWorkingDir + "/" + id + "/job-client.err"
+
+  // val stdoutFile = targetWorkingDir + "/" + id + "/stdout.txt"
+  // val stderrFile = targetWorkingDir + "/" + id + "/stderr.txt"
 
   // name of dir into which job result files are placed (not a complete path)
   val outputDir = HtrcConfig.systemVariables("output_dir")
@@ -120,21 +122,32 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     (registry ? WriteCollection(c, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
+  // create job client script to launch AgentJobClient with the algorithm as
+  // a sub-process
+  val walltime = HtrcConfig.getPBSWalltime(inputs)
+  val envVars = 
+    JobClientUtils.jobClientEnvVars(inputs, id, (targetWorkingDir + "/" + id),
+                                    walltime)
+  HtrcSystem.jobClientScriptCreator.
+    createJobClientScript(envVars, workingDir + "/" + HtrcConfig.jobClientScript, 
+    log)
+
   // Check if these things are all finished, once they are, continue.
   Future.sequence(dependenciesReady ++ collectionsReady) map { statuses =>
     val errors = statuses.collect( _ match { case v @ RegistryError(e) => v })
-    println(errors)
     if(errors.length != 0) {
       errors.foreach { e =>
         log.error("Registry failed to write resource: " + e)
-        HtrcUtils.writeFile("", "stdout.txt", user, id)
+        // HtrcUtils.writeFile("", "stdout.txt", user, id)
+        var errorMsg = "Error in retrieving resource from the registry."
         e match {
           case RegistryError(resource) => 
-            HtrcUtils.writeFile("Error in retrieving " + resource +
-                                " from the registry.", 
-                                "stderr.txt", user, id)
+            // HtrcUtils.writeFile("Error in retrieving " + resource +
+            //                     " from the registry.", 
+            //                     "stderr.txt", user, id)
+            errorMsg = "Error in retrieving " + resource + " from the registry."
         }
-        supe ! StatusUpdate(InternalCrashed)
+        supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
       }
     } else {
       // to be here we must have not had errors, so do the work
@@ -150,28 +163,30 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
         supe ! StatusUpdate(InternalQueuedOnTarget)
 
         // check job status until it is completed
-        val jobExitStatus = checkJobStatus(jobid)
+        // jobExitStatus = checkJobStatus(jobid)
 
-        // copy job results from compute resource to local dir
-        copyFromComputeResource()
+        // copy stderr.txt, stdout.txt from compute resource to local dir
+        // copyFromComputeResource()
 
-        processJobResults()
-	if(jobExitStatus == 0)
-        supe ! StatusUpdate(InternalFinished)        
-        else supe ! StatusUpdate(InternalCrashed)
+        // processJobResults()
+	// if(jobExitStatus == 0)
+        // supe ! StatusUpdate(InternalFinished)        
+        // else supe ! StatusUpdate(InternalCrashed(true))
       }
       catch {
         case JobExecutionException(stdout, stderr) => {
-          HtrcUtils.writeFile(stdout, "stdout.txt", user, id)
-          HtrcUtils.writeFile(stderr, "stderr.txt", user, id)
-          supe ! StatusUpdate(InternalCrashed)
+          supe ! StatusUpdate(InternalCrashedWithError(stderr, stdout))
+          // HtrcUtils.writeFile(stdout, "stdout.txt", user, id)
+          // HtrcUtils.writeFile(stderr, "stderr.txt", user, id)
+          // supe ! StatusUpdate(InternalCrashed(false))
         }
-        case CopyFromComputeResourceException(stdout, stderr) => {
-          processJobResults()
-	  appendToStdOutErrFile(stdout, "stdout.txt")
-	  appendToStdOutErrFile(stderr, "stderr.txt")
-          supe ! StatusUpdate(InternalCrashed)
-        }
+        // case CopyFromComputeResourceException(stdout, stderr) => {
+        //   // processJobResults()
+        //   val pathPrefix = winResultDir + "/"
+	//   HtrcUtils.appendToStdOutErrFile(stdout, pathPrefix + "stdout.txt")
+	//   HtrcUtils.appendToStdOutErrFile(stderr, pathPrefix + "stderr.txt")
+        //   supe ! StatusUpdate(InternalCrashed(true))
+        // }
       }
     }
   }
@@ -231,19 +246,19 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
           }
         } )
 
-    val env = 
-      "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
-      " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
-      " JAVA_CMD=" + HtrcConfig.javaCmd +
-      " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize
+    // val env = 
+    //   "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
+    //   " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
+    //   " JAVA_CMD=" + HtrcConfig.javaCmd +
+    //   " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize
 
-    val walltime = HtrcConfig.getPBSWalltime(inputs)
+    // val walltime = HtrcConfig.getPBSWalltime(inputs)
 
-    val cmdF = "ssh -t -t -q %s %s qsub %s " +
+    val cmdF = "ssh -t -t -q %s qsub %s " +
     "-l walltime=%s -o %s -e %s -V -W umask=0122 %s/%s/%s"
-    val cmd = cmdF.format(target, env, HtrcConfig.getQsubOptions, walltime, 
-                          stdoutFile, stderrFile, targetWorkingDir, id, 
-                          inputs.runScript)
+    val cmd = cmdF.format(target, HtrcConfig.getQsubOptions, walltime, 
+                          jobClientOutFile, jobClientErrFile, targetWorkingDir, 
+                          id, HtrcConfig.jobClientScript)
     
     val sysProcess = SProcess(cmd, new File(workingDir))
     val exitVal = sysProcess ! qsubLogger
@@ -262,130 +277,137 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // check job status on compute resource; returns the job's exit status if
   // the job-status-check process is successful, and throws
   // JobExecutionException upon error
-  def checkJobStatus(jobid: String) = {
-    var jobExitStatus = 0
-    val qstatOut = new StringBuilder
-    val qstatErr = new StringBuilder
+  // def checkJobStatus(jobid: String) = {
+  //   var jobExitStatus = 0
+  //   val qstatOut = new StringBuilder
+  //   val qstatErr = new StringBuilder
 
-    // logger for process running qstatLoop.sh on cluster; qstatLoop.sh prints
-    // status updates to stdout, which are sent as StatusUpdate msgs to parent
-    val qstatLogger = SProcessLogger(
-      (o: String) => 
-      { log.debug("PBS_QSTAT_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
-                  user.name, inputs.ip, id, o)
-        if (o.contains("Job is running"))
-          parent ! StatusUpdate(InternalRunning)
-        else if (o.contains("exit_status"))
-               jobExitStatus = o.trim.stripPrefix("exit_status = ").toInt
-        else if (o.contains("total_runtime"))
-               parent ! JobRuntime(o.trim.stripPrefix("total_runtime = ")) 
-        else qstatOut.append(o + "\n") },
-      (e: String) => 
-        { // "tcgetattr: Invalid argument" in stderr results from the use of
-	  // the -t flag with ssh; this msg can be ignored
-          if (!e.contains("tcgetattr: Invalid argument")) {
-            qstatErr.append(e + "\n")
-            log.debug("PBS_QSTAT_ERROR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
-                      user.name, inputs.ip, id, e)
-          } 
-        } )
+  //   // logger for process running qstatLoop.sh on cluster; qstatLoop.sh prints
+  //   // status updates to stdout, which are sent as StatusUpdate msgs to parent
+  //   val qstatLogger = SProcessLogger(
+  //     (o: String) => 
+  //     { log.debug("PBS_QSTAT_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+  //                 user.name, inputs.ip, id, o)
+  //       if (o.contains("Job is running"))
+  //         parent ! StatusUpdate(InternalRunning)
+  //       else if (o.contains("exit_status"))
+  //              jobExitStatus = o.trim.stripPrefix("exit_status = ").toInt
+  //       else if (o.contains("total_runtime"))
+  //              parent ! JobRuntime(o.trim.stripPrefix("total_runtime = ")) 
+  //       else qstatOut.append(o + "\n") },
+  //     (e: String) => 
+  //       { // "tcgetattr: Invalid argument" in stderr results from the use of
+  // 	  // the -t flag with ssh; this msg can be ignored
+  //         if (!e.contains("tcgetattr: Invalid argument")) {
+  //           qstatErr.append(e + "\n")
+  //           log.debug("PBS_QSTAT_ERROR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+  //                     user.name, inputs.ip, id, e)
+  //         } 
+  //       } )
 
-    val qstatCmdF = 
-      "ssh -t -t -q -o ServerAliveInterval=500 %s bash %s %s"
-    val qstatCmd = 
-      qstatCmdF.format(target, HtrcConfig.getJobStatusPollScript, jobid)
+  //   val qstatCmdF = 
+  //     "C:/cygwin/bin/ssh -t -t -q -o ServerAliveInterval=500 %s bash %s %s"
+  //   val qstatCmd = 
+  //     qstatCmdF.format(target, HtrcConfig.getJobStatusPollScript, jobid)
 
-    val exitVal = SProcess(qstatCmd) ! qstatLogger
+  //   val exitVal = SProcess(qstatCmd) ! qstatLogger
 
-    log.debug("PBS_TASK_QSTATLOOP_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
-    	      user.name, id, qstatCmd, exitVal)
+  //   log.debug("PBS_TASK_QSTATLOOP_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
+  //   	      user.name, id, qstatCmd, exitVal)
 
-    if (exitVal != 0) {
-      val errorMsg = "Unable to check job status on compute resource (" + 
-                     HtrcConfig.localResourceType + ").\n"
-      throw JobExecutionException(qstatOut.toString, 
-                                  errorMsg + qstatErr.toString)
-    }
-    else jobExitStatus
-  }
+  //   if (exitVal != 0) {
+  //     val errorMsg = "Unable to check job status on compute resource (" + 
+  //                    HtrcConfig.localResourceType + ").\n"
+  //     throw JobExecutionException(qstatOut.toString, 
+  //                                 errorMsg + qstatErr.toString)
+  //   }
+  //   else jobExitStatus
+  // }
 
-  // copy job results, stdout.txt, stderr.txt from compute resource; throws
+  // copy stdout.txt, stderr.txt from compute resource; throws
   // CopyFromComputeResourceException upon error
-  def copyFromComputeResource() = {
-    val scpOut = new StringBuilder
-    val scpErr = new StringBuilder
+  // def copyFromComputeResource() = {
+  //   val scpOut = new StringBuilder
+  //   val scpErr = new StringBuilder
 
-    val scpLogger = SProcessLogger(
-    (o: String) => 
-      { log.debug("PBS_SCP_FROM_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
-                  user.name, inputs.ip, id, o)
-        scpOut.append(o + "\n") },
-    (e: String) => 
-      { log.debug("PBS_SCP_FROM_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
-                  user.name, inputs.ip, id, e)
-        scpErr.append(e + "\n") })
+  //   val scpLogger = SProcessLogger(
+  //   (o: String) => 
+  //     { log.debug("PBS_SCP_FROM_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+  //                 user.name, inputs.ip, id, o)
+  //       scpOut.append(o + "\n") },
+  //   (e: String) => 
+  //     { log.debug("PBS_SCP_FROM_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+  //                 user.name, inputs.ip, id, e)
+  //       scpErr.append(e + "\n") })
 
-    (new File(localResultDir)).mkdirs() 
+  //   (new File(winResultDir)).mkdirs() 
 
-    val scpCmdF = "scp -r %s:%s/%s/%s %s:%s %s:%s %s"
-    val scpCmd = 
-      scpCmdF.format(target, targetWorkingDir, id, outputDir, 
-                     target, stdoutFile, 
-                     target, stderrFile, 
-                     localResultDir)
-    val scpRes = SProcess(scpCmd) ! scpLogger
+  //   // val scpCmdF = "C:/cygwin/bin/scp -r %s:%s/%s/%s %s:%s %s:%s %s"
+  //   // val scpCmd = 
+  //   //   scpCmdF.format(target, targetWorkingDir, id, outputDir, 
+  //   //                  target, stdoutFile, 
+  //   //                  target, stderrFile, 
+  //   //                  localResultDir)
 
-    log.debug("PBS_TASK_RESULT_SCP\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
-	      user.name, id, scpCmd, scpRes)
+  //   val scpCmdF = "C:/cygwin/bin/scp -r %s:%s %s:%s %s"
+  //   val scpCmd = 
+  //     scpCmdF.format(target, stdoutFile, 
+  //                    target, stderrFile, 
+  //                    localResultDir)
+  //   val scpRes = SProcess(scpCmd) ! scpLogger
 
-    if (scpRes != 0) {
-      val errorMsg = "Unable to copy some/all results from compute resource (" + 
-                     HtrcConfig.localResourceType + ").\n"
-      throw CopyFromComputeResourceException(scpOut.toString, 
-                                             errorMsg + scpErr.toString)
-    }
-  }
+  //   log.debug("PBS_TASK_RESULT_SCP\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
+  // 	      user.name, id, scpCmd, scpRes)
 
-  def fileExists(file: String): Boolean = 
-    (new File(file)).exists
+  //   if (scpRes != 0) {
+  //     val errorMsg = "Unable to copy stderr.txt or stdout.txt from " + 
+  //                    "compute resource (" + HtrcConfig.localResourceType + 
+  //                    ").\n"
+  //     throw CopyFromComputeResourceException(scpOut.toString, 
+  //                                            errorMsg + scpErr.toString)
+  //   }
+  // }
 
-  def localJobResultFile(file: String): String =
-    localResultDir + "/" + outputDir + "/" + file
+  // def fileExists(file: String): Boolean = 
+  //   (new File(file)).exists
+
+  // def localJobResultFile(file: String): String =
+  //   winResultDir + "/" + outputDir + "/" + file
 
   // append to possibly non-empty stdout.txt, stderr.txt files; arg "file" is
   // expected to be either "stdout.txt" or "stderr.txt"; localResultDir must
   // have been created at an earlier point
-  def appendToStdOutErrFile(content: String, file: String) = {
-    if (content.length > 0) {
-      val divider = "\n\n" + "=" * 81 + "\n"
-      val fullFilePath = localResultDir + "/" + file
+  // def appendToStdOutErrFile(content: String, file: String) = {
+  //   if (content.length > 0) {
+  //     val divider = "\n\n" + "=" * 81 + "\n"
+  //     val fullFilePath = localResultDir + "/" + file
 
-      println("fileExists(" + fullFilePath + ") = " + fileExists(fullFilePath))
+  //     println("fileExists(" + fullFilePath + ") = " + fileExists(fullFilePath))
 
-      if (fileExists(fullFilePath))
-      HtrcUtils.appendToFile(divider + content, fullFilePath)
-      else HtrcUtils.appendToFile(content, fullFilePath)
-    }
-  }
+  //     if (fileExists(fullFilePath))
+  //     HtrcUtils.appendToFile(divider + content, fullFilePath)
+  //     else HtrcUtils.appendToFile(content, fullFilePath)
+  //   }
+  // }
 
   // for every valid job result file, send a msg to parent to add the result
   // to the final list-of-results
-  def processJobResults() = {
-    // go through expected job result filenames, and check if they exist in
-    // the local result dir; jobs may return exit val 0 even when the job was
-    // unsuccessful and did not produce result files; or the copy from the
-    // compute resource may have failed to copy some/all job result files
-    val validResults = 
-      inputs.resultNames filter {x => fileExists(localJobResultFile(x))}
+  // def processJobResults() = {
+  //   // go through expected job result filenames, and check if they exist in
+  //   // the local result dir; jobs may return exit val 0 even when the job was
+  //   // unsuccessful and did not produce result files; or the copy from the
+  //   // compute resource may have failed to copy some/all job result files
+  //   val validResults = 
+  //     inputs.resultNames filter {x => fileExists(localJobResultFile(x))}
 
-    val dirResults = validResults map { n => 
-      DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
-    log.debug("PBS_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
-	      user.name, inputs.ip, id, dirResults)
+  //   val dirResults = validResults map { n => 
+  //     DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
+  //   log.debug("PBS_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
+  // 	      user.name, inputs.ip, id, dirResults)
 
-    // add valid results to list-of-results 
-    dirResults foreach { r => supe ! Result(r) }
-  }
+  //   // add valid results to list-of-results 
+  //   dirResults foreach { r => supe ! Result(r) }
+  // }
 
   // Helper to write properties file to disk
   def writeProperties(properties: HashMap[String,String],

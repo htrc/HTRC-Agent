@@ -69,7 +69,8 @@ object RegistryHttpClient {
 
     // now we define a conduit, which is a use of the client
     val conduit = system.actorOf(
-      props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true))
+      // props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true)) // prod stack: sslEnabled = true
+      props = Props(new HttpConduit(httpClient, root, port))
     )
     
     // the pipeline is exactly what happens with our request
@@ -207,15 +208,38 @@ object RegistryHttpClient {
 
     val fqs = Future.sequence(qs.toList)
     val res = fqs map { li => li.map { response =>
-      val raw = XML.loadString(response.entity.asString)
-      SavedHtrcJob(raw)
+      try {
+        val raw = XML.loadString(response.entity.asString)
+        SavedHtrcJob(raw)
+      } catch {
+        // ignore files in files/<savedJobLocation> that are not in the 
+        // expected format
+        case e: Exception => 
+          log.debug("REGISTRY_DOWNLOAD_SAVED_JOBS warning: unexpected error " +
+                    "in reading file(s) in files/" + savedJobLocation + 
+                    ". Exception " + e)
+          null
+      } 
     }}
-    res
+    // remove null values produced by files that are not in the expected format 
+    res map { ls => ls.filter(_ != null) }
   }
 
-  def saveJob(status: Finished, id: String, token: String): Future[Boolean] = {
-    val q = query("files/"+savedJobLocation+"/"+id, PUT, token, Some(status.saveXml))
-    q map { response => true }
+  def saveJob(status: JobComplete, id: String, 
+              token: String): Future[Boolean] = {
+    // use the new registry extension API that requires the username
+    val saveJobQuery = "files/" + savedJobLocation + "/" + id + 
+                       "?user=" + status.submitter
+    val q = query(saveJobQuery, PUT, token, Some(status.saveXml))
+    q map { response => 
+      if (response.status.isSuccess) 
+        true 
+      else {
+        log.debug("REGISTRY_CLIENT_SAVE_JOB_ERROR\tQUERY: {}\tSTATUS: {}", 
+                  saveJobQuery, response.status)
+        false
+      }
+    }
   }
 
   def deleteJob(id: String, token: String): Future[Boolean] = {
