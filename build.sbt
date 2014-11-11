@@ -4,18 +4,17 @@ version       := "0.17.0"
 
 scalaVersion  := "2.10.0"
 
-scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
+scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-language:postfixOps", "-encoding", "utf8")
 
 resolvers ++= Seq(
   "typesafe repo"      at "http://repo.typesafe.com/typesafe/releases/",
   "spray repo"         at "http://repo.spray.io/",
   "WSO2 Nexus" at "http://maven.wso2.org/nexus/content/groups/wso2-public/",
-  "htrc snapshots" at "http://htrc.illinois.edu:8080/archiva/repository/snapshots",
-  "htrc internal" at "http://htrc.illinois.edu:8080/archiva/repository/internal"
+  "htrc nexus" at "http://htrc.illinois.edu/nexus/content/groups/public"
 )
 
 libraryDependencies ++= Seq(
-  "edu.indiana.d2i.htrc.oauth2" % "oauth2-servletfilter" % "1.0-SNAPSHOT",
+  "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter" % "2.0-SNAPSHOT",
   "io.spray"                %   "spray-servlet" % "1.1-M7",
   "io.spray"                %   "spray-routing" % "1.1-M7",
   "io.spray"                %   "spray-testkit" % "1.1-M7",
@@ -31,7 +30,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka"       %%  "akka-agent"    % "2.1.0",
   "com.typesafe.akka"       %%  "akka-slf4j"    % "2.1.0",
   "ch.qos.logback" % "logback-classic" % "1.0.9",
-  "edu.indiana.d2i.htrc.oauth2" % "oauth2-servletfilter"  % "1.0-SNAPSHOT"
+  "org.apache.httpcomponents" % "httpcore" % "4.3.2",
+  "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
 )
 
 seq(webSettings: _*)
