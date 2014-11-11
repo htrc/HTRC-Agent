@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{HH:mm:ss.SSS} \(%F:%L\) [%logger{0}] [%level] - %msg%n%ex{short}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Enable logging for the following loggers at the specified level (overrides global setting) -->
+    <logger name="htrc" level="DEBUG"/> <!-- all descending from specified package -->
+
+    <!-- Enable Beagle output in Eclipse -->
+    <!-- <consolePlugin/> -->
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
