@@ -34,7 +34,7 @@ sealed trait WriteStatus
 
 case class CreateJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends JobCreatorMessage with ComputeResourceMessage
 
-case class SaveJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
+case class SaveJob(jobId: JobId, token: String) extends AgentMessage
 case class DeleteJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
 case class RunAlgorithm(inputs: JobInputs) extends AgentMessage
 case class JobStatusRequest(jobId: JobId) extends AgentMessage

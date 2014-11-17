@@ -93,15 +93,15 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
       m match {
         // case Result(res) =>
         //   results = res :: results
-        case SaveJob(id, token) =>
-          status match {
-            case s @ Finished(_,id,_,_) =>
-              RegistryHttpClient.saveJob(s, id.toString, token)
-              s.saved = "saved"
-              sender ! <job>Saved job</job>
-            case s => 
-              sender ! <error>Job not yet finished or is crashed. Failed to save.</error>
-          }
+        // case SaveJob(id, token) =>
+        //   status match {
+        //     case s @ Finished(_,id,_,_) =>
+        //       RegistryHttpClient.saveJob(s, id.toString, token)
+        //       s.saved = "saved"
+        //       sender ! <job>Saved job</job>
+        //     case s => 
+        //       sender ! <error>Job not yet finished or is crashed. Failed to save.</error>
+        //   }
         case DeleteJob(id, token) =>
           sender ! <success>deleted job: {id}</success>
           self ! PoisonPill

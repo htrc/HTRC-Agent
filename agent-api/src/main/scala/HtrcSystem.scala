@@ -172,6 +172,26 @@ object HtrcConfig {
   val registryVersion = config.getString("htrc.registry.version")
   val registryPort = config.getInt("htrc.registry.port")
 
+  val idServerHost = config.getString("htrc.id_server.host")
+  val idServerPort = config.getInt("htrc.id_server.port")
+  val idServerTokenEndPoint = config.getString("htrc.id_server.token_endpoint")
+
+  val clientIdFormFieldName = 
+    config.getString("htrc.id_server.client_id_form_field_name")
+  val clientSecretFormFieldName = 
+    config.getString("htrc.id_server.client_secret_form_field_name")
+  val grantTypeFormFieldName = 
+    config.getString("htrc.id_server.grant_type_form_field_name")
+  val clientCredentialsGrantType = 
+    config.getString("htrc.id_server.client_credentials_grant_type")
+  val accessTokenFieldName = 
+    config.getString("htrc.id_server.access_token_field_name")
+
+  // id, secret of the OAuth client used by the agent to interact with the
+  // identity server
+  val agentClientId = config.getString("htrc.id_server.agent_client_id")
+  val agentClientSecret = config.getString("htrc.id_server.agent_client_secret")
+
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."
   val computeResourceUser = config.getString(computeResource + "user")

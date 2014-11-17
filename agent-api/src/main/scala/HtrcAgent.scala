@@ -75,12 +75,17 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           } else {
             // job.get dispatch(m) pipeTo sender
             job.get.status match {
-              case s @ Finished(_,id,_,_) =>
-                RegistryHttpClient.saveJob(s, id.toString, token)
-                s.saved = "saved"
-                sender ! <job>Saved job</job>
+              case s: JobComplete =>
+                val f = RegistryHttpClient.saveJob(s, jobId.toString, token)
+                f map {res => 
+                  self ! JobSaveCompleted(jobId, s, res)
+                  if (res) 
+                    sender ! <job>Saved job</job>
+                  else
+                    sender ! <error>Error while trying to to save job.</error>
+                }
               case s => 
-                sender ! <error>Job not yet finished or is crashed. Failed to save.</error>
+                sender ! <error>Job not yet finished. Failed to save.</error>
             }
           }
 
@@ -101,7 +106,6 @@ class HtrcAgent(user: HtrcUser) extends Actor {
               sender ! <success>deleted job: {jobId}</success>
             }
           }
-
 
         case RunAlgorithm(inputs) =>  
 
@@ -148,7 +152,8 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           }
             
         case ActiveJobStatuses => 
-          bulkJobStatus(sender)
+          // bulkJobStatus(sender)
+          activeJobStatus(sender)
 
         case SavedJobStatuses(token) => 
           loadSavedJobs(token)
@@ -230,7 +235,12 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             }
 
         // JobSaveCompleted is sent by HtrcAgent to itself once the registry
-        // call to save a job with status JobComplete has been completed
+        // call to save a job with status JobComplete has been completed;
+        // there are 2 kinds of "job saves": (a) jobs are automatically saved
+        // to the registry once they are completed, (b) in case of jobs where
+        // (a) fails, the user may attempt to explicitly save the job; a
+        // JobSaveCompleted msg may be received by HtrcAgent in both
+        // situations, (a) and (b)
         case JobSaveCompleted(jobId, status, saveResult) => 
           if (saveResult)  {
             savedJobs += (jobId -> (new SavedHtrcJob(status)))
@@ -262,7 +272,10 @@ class HtrcAgent(user: HtrcUser) extends Actor {
     }
   }
 
-  // statuses of active jobs are stored in "jobs" in the HtrcJob object
+  // statuses of jobs that are not saved are stored in "jobs" in the HtrcJob
+  // object; so, "jobs" includes active jobs (status Created, Staging,
+  // Queued, or Running) and completed jobs (status Finished, Crashed, or
+  // TimedOut
   def bulkJobStatus(sender: ActorRef, saved: Option[List[SavedHtrcJob]] = None) {
     val jobStatusMsg = 
       <jobs>
@@ -272,9 +285,25 @@ class HtrcAgent(user: HtrcUser) extends Actor {
     sender ! jobStatusMsg
   }
 
+  // statuses of active jobs in the "jobs" list; the "jobs" list contains all
+  // jobs that have not been saved to the registry
+  def activeJobStatus(sender: ActorRef) {
+    val jobStatusMsg = 
+      <jobs>
+        {for( j <- jobs.values.toList if (!(j.status.isInstanceOf[JobComplete]))) 
+           yield j.status.renderXml}
+      </jobs>
+    sender ! jobStatusMsg
+  }
+
   def handleCompletedJobs(jobId: JobId, status: JobComplete, token: String) = {
-    val f = RegistryHttpClient.saveJob(status, jobId.toString, token)
-    f map {res => self ! JobSaveCompleted(jobId, status, res)}
+    val ccTokenFuture = IdentityServerClient.getClientCredentialsToken
+    ccTokenFuture map { clientCredentialsToken =>
+      val tok = 
+        if (clientCredentialsToken != null) clientCredentialsToken else token 
+      val f = RegistryHttpClient.saveJob(status, jobId.toString, tok)
+      f map {res => self ! JobSaveCompleted(jobId, status, res)}
+    }
   }
 
   // old version of bulkJobStatus: sends msgs to LocalMachineJob actors for
