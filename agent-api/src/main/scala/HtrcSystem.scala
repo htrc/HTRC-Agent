@@ -235,13 +235,6 @@ object HtrcConfig {
     ! algWithNoHeaderInWorksets.contains(inputs.algorithm)
   }
 
-  // the following method is valid only for PBSTask jobs running on compute
-  // resources that require a poll script to check job status, e.g., quarry,
-  // bigred2
-  def getJobStatusPollScript: String = {
-    config.getString(computeResource + "job-status-poll-script")
-  }
-
   def getQsubOptions: String = {
     config.getString(computeResource + "qsub-options")
   }
