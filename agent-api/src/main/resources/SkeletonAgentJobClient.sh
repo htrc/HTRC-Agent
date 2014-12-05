@@ -4,4 +4,4 @@
 # the algorithm child process run
 echo "Hostname: `hostname --fqdn`"
 
-$JAVA_CMD -Xmx512m -jar $HOME/leena/agent-job-client/AJC/AgentJobClient.jar -d $HTRC_WORKING_DIR -s $SHELL -t $HTRC_TIME_LIMIT -j $HTRC_JOBID -a $HTRC_AGENT_ENDPOINT $HTRC_WORKING_DIR/$HTRC_ALG_SCRIPT
+$JAVA_CMD -Xmx512m -jar $HTRC_DEPENDENCY_DIR/AgentJobClient.jar -d $HTRC_WORKING_DIR -s $SHELL -t $HTRC_TIME_LIMIT -j $HTRC_JOBID -a $HTRC_AGENT_ENDPOINT $HTRC_WORKING_DIR/$HTRC_ALG_SCRIPT
