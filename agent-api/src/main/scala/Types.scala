@@ -61,5 +61,8 @@ case class HtrcUser(name: String) {
   override def toString = name
 }
 
+// exception representing errors that occur up to and including the point of
+// queuing the job on the compute resource
+case class JobSetupException(stdout: String, stderr: String) extends Exception
 
 
