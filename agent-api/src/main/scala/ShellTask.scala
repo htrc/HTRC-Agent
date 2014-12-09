@@ -31,8 +31,10 @@ import akka.event.slf4j.Logger
 import scala.sys.process.{ Process => SProcess }
 import scala.sys.process.{ ProcessLogger => SProcessLogger }
 import scala.sys.process.{ ProcessBuilder => SProcessBuilder }
+import scala.sys.process.ProcessIO
 import java.io.File
 import java.io.PrintWriter
+import java.io.InputStream
 import akka.pattern.ask
 import scala.concurrent._
 import scala.collection.mutable.HashMap
@@ -53,12 +55,8 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   parent ! StatusUpdate(InternalStaging)
 
-  // Build output loggers.
-  val stdout = new StringBuilder
-  val stderr = new StringBuilder
-  val plogger = SProcessLogger(
-    (o: String) => stdout.append(o + "\n"),
-    (e: String) => stderr.append(e + "\n"))
+  // name of dir into which job result files are placed (not a complete path)
+  val outputDir = HtrcConfig.systemVariables("output_dir")
 
   // At this point we might want to ... interact with the inputs. This
   // would be a set of Futures that when all resolved provide what we
@@ -79,7 +77,7 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // Also create the result directory.
   val resultDir = {
-    val path = workingDir + File.separator + HtrcConfig.systemVariables("output_dir")
+    val path = workingDir + File.separator + outputDir
     (new File(path)).mkdir()
     path
   }
@@ -87,7 +85,6 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // Write the properties.
   writeProperties(inputs.properties, inputs.propertiesFileName, workingDir)
 
-  
   // To fetch information from the registry we send it a message with
   // both the registry path and the output path. Instead of responding
   // with the information it writes it out to disk for us. The
@@ -117,13 +114,9 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     if(errors.length != 0) {
       errors.foreach { e =>
         log.error("Registry failed to write resource: " + e)
-        // HtrcUtils.writeFile("", "stdout.txt", user, id)
         var errorMsg = "Error in retrieving resource from the registry."
         e match {
           case RegistryError(resource) => 
-            // HtrcUtils.writeFile("Error in retrieving " + resource +
-            //                     " from the registry.", 
-            //                     "stderr.txt", user, id)
             errorMsg = "Error in retrieving " + resource + " from the registry."
         }
         supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
@@ -138,79 +131,45 @@ class ShellTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
                user.name, inputs.ip, id, workingDir)
 
       val targetWorkingDir = HtrcConfig.computeResourceWorkingDir
+      val jobClientOutFile = targetWorkingDir + "/" + id + "/job-client.out"
+      val jobClientErrFile = targetWorkingDir + "/" + id + "/job-client.err"
 
-      val envWorkingDir = ("HTRC_WORKING_DIR" -> (targetWorkingDir + "/" + id))
-      val envDependencyDir = ("HTRC_DEPENDENCY_DIR" -> HtrcConfig.dependencyDir)
-      val envJavaCmd = ("JAVA_CMD" -> HtrcConfig.javaCmd)
-      val envJavaMaxHeapSize = 
-        ("JAVA_MAX_HEAP_SIZE" -> HtrcConfig.javaMaxHeapSize)
-      val envMeandrePort = 
-        ("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString)
+      // create job client script to launch AgentJobClient with the algorithm
+      // as a sub-process
+      val walltime = HtrcConfig.maxWalltime
+      val envVars = 
+        JobClientUtils.jobClientEnvVars(inputs, id, 
+                                        (targetWorkingDir + "/" + id),
+                                        walltime) ++
+        List(("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString))
+      HtrcSystem.jobClientScriptCreator.
+        createJobClientScript(envVars, 
+                              workingDir + "/" + HtrcConfig.jobClientScript, 
+                              log)
 
+      // command to launch the AgentJobClient process 
       val cmdF = "bash %s/%s/%s"
-      val cmd = cmdF.format(targetWorkingDir, id, inputs.runScript)
+      val cmd = cmdF.format(targetWorkingDir, id, HtrcConfig.jobClientScript)
 
-      // val env = 
-      //   "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
-      //   " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
-      //   " JAVA_CMD=" + HtrcConfig.javaCmd +
-      //   " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize +
-      //   " HTRC_MEANDRE_PORT=" + MeandrePortAllocator.get.toString
-
-      // val cmdF = "%s bash %s/%s/%s"
-      // val cmd = cmdF.format(env, targetWorkingDir, id, inputs.runScript)
-
-      println("Run job command: " + cmd)
-
-      val sysProcess = SProcess(cmd, new File(HtrcConfig.homeDir), 
-                                envWorkingDir, envDependencyDir, envJavaCmd, 
-                                envJavaMaxHeapSize, envMeandrePort)
-
-      // val sysProcess = SProcess(cmd, new File(HtrcConfig.homeDir))
+      val sysProcess = SProcess(cmd)
 
       log.debug("SHELL_TASK_RUNNING_COMMAND\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
                user.name, inputs.ip, id, cmd)
-      
-      supe ! StatusUpdate(InternalRunning)
-      // Recall from above, this plogger forwards stdin and stdout to
-      // the parent
-      val exitCode = sysProcess ! plogger
-      
-      log.debug("SHELL_TASK_COMPLETE\t{}\t{}", id, exitCode)
 
-      // start off by finding and creating the result directory if it
-      // doesn't exist
-      // val outputDir = HtrcConfig.systemVariables("output_dir")
-      // val resultLocation = HtrcConfig.resultDir
-      // val dest = resultLocation + "/" + user.name + "/" + id
-      // log.debug("SHELL_TASK_CREATING_OUTPUTDIR\t{}\t{}", id, resultLocation)
-      // (new File(dest)).mkdirs()
-
-      // now cp the result folder back over
-      // val resultCpCmdF = "cp -r %s/%s/%s %s"
-      // val resultCpCmd = resultCpCmdF.format(targetWorkingDir, id, outputDir, dest)
-      // log.debug("SHELL_TASK_RESULT_CP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
-      //          user.name, inputs.ip, id, resultCpCmd)
-      // val scpResultRes = SProcess(resultCpCmd) !
-
-      // write the job's stderr, stdout to files in the result directory
-      writeFile(stdout.toString, "stdout.txt", user, id)
-      writeFile(stderr.toString, "stderr.txt", user, id)
-
-      // create a list of the result files
-      // val dirResults = inputs.resultNames map { n => 
-      //   DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
-      // log.debug("SHELL_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
-      //          user.name, inputs.ip, id, dirResults)
-
-      if(exitCode == 0) {
-        // dirResults foreach { r =>
-        //   supe ! Result(r)
-        // }
-        supe ! StatusUpdate(InternalFinished)        
-      } else {
-        supe ! StatusUpdate(InternalCrashed(true))
+      def inputStreamToFile(outputFile: String)(is: InputStream) = {
+        val sb = new StringBuilder
+        scala.io.Source.fromInputStream(is).getLines.foreach(l => 
+          sb.append(l + "\n"))
+        appendToFile(sb.toString, outputFile)
       }
+
+      val pio = new ProcessIO(_ => (),
+                              inputStreamToFile(jobClientOutFile),
+                              inputStreamToFile(jobClientErrFile))
+      
+      // run the AgentJobClient process in the background, so that this actor
+      // does not block on the job
+      val proc = sysProcess.run(pio)
     }
   }
 

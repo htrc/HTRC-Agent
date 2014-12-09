@@ -177,6 +177,7 @@ object JobCompletionTask {
   def apply(status: PendingCompletion, token: String, context: ActorContext) = {
     if (status.computeResource != "shell") 
       context.actorOf(Props(new RemoteJobCompletion(status, token)))
-    else null
+    else 
+      context.actorOf(Props(new LocalJobCompletion(status, token)))
   }
 }
