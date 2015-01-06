@@ -19,16 +19,29 @@ public class AgentJobClient {
 	private String workDirPath;
 	private String timeLimitStr;
 	private String jobid;
+	private String user;
 	private String agentEndpoint;
+	private String idServerTokenUrl;
 	private String authToken;
+	private String oauthClientId;
+	private String oauthClientSecret;
 	private String[] arguments;
     private Timer jobTimer = null;
     private int jobTimerStatus = Constants.NA;
     private Process jobProcess;
+    private IdentityServerClient idServerClient;
     private AgentClient agentClient;
 	private Logger log;
 
 	private long startTime;
+
+	private String getEnvVar(String envVar) throws Exception {
+	    String result = System.getenv(envVar);
+	    if (result == null) {
+	    	throw new Exception("Environment variable " + envVar + " not set."); 	
+	    }
+	    return result;
+	}
 	
 	public AgentJobClient(JSAPResult cmdLine, Logger log) throws Exception {
 		workDir = cmdLine.getFile("workDir");
@@ -36,21 +49,25 @@ public class AgentJobClient {
 	    shell = cmdLine.getFile("shell");
 	    timeLimitStr = cmdLine.getString("timelimit");
 	    jobid = cmdLine.getString("jobid");
+	    user = cmdLine.getString("user");
 	    agentEndpoint = cmdLine.getURL("agentEndpoint").toString();
-	    authToken = System.getenv(Constants.AUTH_TOKEN_ENV_VAR);
-	    if (authToken == null) {
-	    	throw new Exception("Environment variable " + Constants.AUTH_TOKEN_ENV_VAR + 
-	    			            " not set."); 	
-	    }
+	    idServerTokenUrl = cmdLine.getURL("idServerTokenUrl").toString();
+
+	    // get values that are provided through environment variables for security purposes
+	    authToken = getEnvVar(Constants.AUTH_TOKEN_ENV_VAR);
+	    oauthClientId = getEnvVar(Constants.OAUTH_CLIENT_ID_ENV_VAR);
+	    oauthClientSecret = getEnvVar(Constants.OAUTH_CLIENT_SECRET_ENV_VAR);
+
 	    script = cmdLine.getFile("jobScript");
 	    arguments = cmdLine.getStringArray("arg");
-	    agentClient = new AgentClient(jobid, agentEndpoint, authToken);
+	    idServerClient = new IdentityServerClient(idServerTokenUrl, oauthClientId, oauthClientSecret);
+	    // String ccToken = idServerClient.getClientCredentialsTypeToken();
+	    agentClient = new AgentClient(jobid, user, agentEndpoint, authToken, idServerClient);
 	    this.log = log;
 	    // printParamsToLog();
 	}
 	
 	private void printParamsToLog() {
-	    // log.debug("Reporting URL: {}", agentUrl);
 	    log.debug("Shell: {}", shell);
 	    log.debug("Working directory: {}", workDir);
 	    log.debug("Walltime in milliseconds: {}", timeLimitStr);

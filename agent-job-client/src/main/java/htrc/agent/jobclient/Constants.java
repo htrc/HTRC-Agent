@@ -15,4 +15,8 @@ public class Constants {
 	public static final long DEFAULT_PROCESSING_TIME_FOR_JOB_COMPLETION = 1 * 60 * 1000L;
 	
 	public static final String AUTH_TOKEN_ENV_VAR = "HTRC_OAUTH_TOKEN";
+	public static final String OAUTH_CLIENT_ID_ENV_VAR = "HTRC_OAUTH_CLIENT_ID";
+	public static final String OAUTH_CLIENT_SECRET_ENV_VAR = "HTRC_OAUTH_CLIENT_SECRET";
+	
+	public static final String ACCESS_TOKEN_FIELD_NAME = "access_token";
 }
