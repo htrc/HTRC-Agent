@@ -172,9 +172,12 @@ object HtrcConfig {
   val registryVersion = config.getString("htrc.registry.version")
   val registryPort = config.getInt("htrc.registry.port")
 
+  val idServerHttpProtocol = config.getString("htrc.id_server.http_protocol")
   val idServerHost = config.getString("htrc.id_server.host")
   val idServerPort = config.getInt("htrc.id_server.port")
   val idServerTokenEndPoint = config.getString("htrc.id_server.token_endpoint")
+  val idServerTokenUrl = idServerHttpProtocol + "://" + idServerHost + ":" + 
+                         idServerPort + idServerTokenEndPoint 
 
   val clientIdFormFieldName = 
     config.getString("htrc.id_server.client_id_form_field_name")

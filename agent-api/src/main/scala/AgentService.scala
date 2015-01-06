@@ -149,14 +149,20 @@ trait AgentService extends HttpService {
             pathPrefix("updatestatus") {
               (put | post) {
                 entity(as[NodeSeq]) { userInput =>
-                  println("ROBIN: tok = " + tok +
-                          ", userName = " + userName +
-                          ", userInput = " + userInput)
-                // complete("Received msg /job/" + id + 
-                //          "/updatestatus for user " + userName)
-                  complete(dispatch(HtrcUser(userName)) 
-                           { UpdateJobStatus(JobId(id), token(tok), 
-                                             userInput) })
+                  val usrName = (userInput \ "user" text)
+                  if (usrName == "") {
+                    val err = "no user specified in updatestatus request"
+                    log.debug("AGENT_SERVICE job/{}/updatestatus ERROR: {}, " + 
+                              "unable to process updatestatus; userInput = {}", 
+                              id, err, userInput)
+                    respondWithStatus(StatusCodes.BadRequest) {
+                      complete(err)
+                    }
+                  }
+                  else 
+                    complete(dispatch(HtrcUser(usrName)) 
+                             { UpdateJobStatus(JobId(id), token(tok), 
+                                               userInput) })
 	        }
 	      }
 	    }
