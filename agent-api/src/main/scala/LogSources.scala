@@ -27,6 +27,7 @@ package htrc.agent
 
 import akka.event.LogSource
 import akka.actor.ActorSystem
+import spray.routing.HttpService
 
 object HtrcLogSources {
 

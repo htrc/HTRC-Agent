@@ -21,19 +21,16 @@ package htrc.agent
 
 import scala.concurrent.Future
 import akka.actor._
-import spray.can.client.HttpClient
-import spray.client.HttpConduit
 import spray.io._
 import spray.util._
 import spray.http._
+import spray.client.pipelining._
 import HttpMethods._
 import scala.concurrent.duration._
 import akka.util.Timeout
 import akka.actor.{ ActorSystem, Props, Actor }
 import HttpMethods._
 import akka.pattern.ask
-import HttpConduit._
-import HttpClient._
 import akka.event.Logging
 import akka.event.slf4j.Logger
 import scala.util.{Success, Failure}
@@ -46,30 +43,33 @@ object IdentityServerClient {
   // the usual setup
   implicit val timeout = Timeout(5 seconds)
   implicit val system = HtrcSystem.system
+  import system.dispatcher
   val log = Logging(system, "identity-server-http-client")
   val auditLog = Logger("audit")
 
   // initialize the bridge to the IO layer used by Spray
-  val ioBridge = IOExtension(system).ioBridge()
+  // val ioBridge = IOExtension(system).ioBridge()
 
   def queryClientCredentialsToken(): Future[HttpResponse] = {
 
-    val root = idServerHost
-    val path = idServerTokenEndPoint
-    val port = idServerPort
+    // val root = idServerHost
+    // val path = idServerTokenEndPoint
+    // val port = idServerPort
+    // val uri = "https://" + root + ":" + port + path
+    val uri = idServerTokenUrl
 
     val method = POST
 
     // create a client to use
-    val httpClient = system.actorOf(Props(new HttpClient(ioBridge)))
+    // val httpClient = system.actorOf(Props(new HttpClient(ioBridge)))
 
     // now we define a conduit, which is a use of the client
-    val conduit = system.actorOf(
-      props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true))
-    )
+    // val conduit = system.actorOf(
+    //   props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true))
+    // )
     
     val pipeline: HttpRequest => Future[HttpResponse] = (
-      sendReceive(conduit)
+      sendReceive
     )
 
     val contentType = `application/x-www-form-urlencoded`
@@ -82,8 +82,8 @@ object IdentityServerClient {
     //                             "grant_type" -> "client_credentials"));
 
     val response = 
-      pipeline(HttpRequest(method = method, uri = path, 
-                           entity = HttpBody(contentType, formDataStr))).mapTo[HttpResponse]
+      pipeline(HttpRequest(method = method, uri = uri, 
+                           entity = HttpEntity(contentType, formDataStr))).mapTo[HttpResponse]
 
     log.debug("IS_CLIENT_CRED_TOKEN_QUERY sent.")
 

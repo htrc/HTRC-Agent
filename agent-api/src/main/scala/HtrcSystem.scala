@@ -64,6 +64,7 @@ object HtrcAgents {
 
   // make the actor system implicitly available
   import HtrcSystem._
+  import system.dispatcher
 
   // the global store of what agents exist
   val agents = Agent(new HashMap[HtrcUser, ActorRef])
@@ -168,16 +169,18 @@ object HtrcConfig {
 
   val agentEndpoint = config.getString("htrc.agent_endpoint");
 
-  val registryHost = config.getString("htrc.registry.host")
-  val registryVersion = config.getString("htrc.registry.version")
-  val registryPort = config.getInt("htrc.registry.port")
+  // val registryHost = config.getString("htrc.registry.host")
+  // val registryVersion = config.getString("htrc.registry.version")
+  // val registryPort = config.getInt("htrc.registry.port")
+  val registryUrl = config.getString("htrc.registry.url")
 
-  val idServerHttpProtocol = config.getString("htrc.id_server.http_protocol")
-  val idServerHost = config.getString("htrc.id_server.host")
-  val idServerPort = config.getInt("htrc.id_server.port")
-  val idServerTokenEndPoint = config.getString("htrc.id_server.token_endpoint")
-  val idServerTokenUrl = idServerHttpProtocol + "://" + idServerHost + ":" + 
-                         idServerPort + idServerTokenEndPoint 
+  // val idServerHttpProtocol = config.getString("htrc.id_server.http_protocol")
+  // val idServerHost = config.getString("htrc.id_server.host")
+  // val idServerPort = config.getInt("htrc.id_server.port")
+  // val idServerTokenEndPoint = config.getString("htrc.id_server.token_endpoint")
+  // val idServerTokenUrl = idServerHttpProtocol + "://" + idServerHost + ":" + 
+  //                        idServerPort + idServerTokenEndPoint 
+  val idServerTokenUrl = config.getString("htrc.id_server.token_url")
 
   val clientIdFormFieldName = 
     config.getString("htrc.id_server.client_id_form_field_name")

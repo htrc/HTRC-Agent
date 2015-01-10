@@ -49,8 +49,9 @@ class AgentServiceActor extends Actor with AgentService {
 
 // this trait defines our service behavior independently from the service actor
 trait AgentService extends HttpService {
+  implicit def executionContext = actorRefFactory.dispatcher
 
-// implicit val timeout = Timeout(5 seconds)
+  // Implicit val timeout = Timeout(5 seconds)
   implicit val timeout = Timeout(30 seconds)
 
   // logging setup
@@ -86,67 +87,69 @@ trait AgentService extends HttpService {
       headerValueByName("htrc-request-id") { requestId =>
       headerValueByName("htrc-remote-user") { rawUser =>
         val userName = rawUser.split('@')(0)
-        pathPrefix("agent") {      
-          pathPrefix("algorithm") {
-            pathPrefix("run") {    
-              (post | put) {
-                entity(as[NodeSeq]) { userInput =>
+        log.debug("userName = " + userName)
 
-                val algorithm = userInput \ "algorithm" text
-                val token = tok.split(' ')(1)
-                val inputProps =
-                  RegistryHttpClient.algorithmMetadata(algorithm, token)
+        pathPrefix("algorithm") {
+          pathPrefix("run") {    
+            (post | put) {
+              entity(as[NodeSeq]) { userInput =>
 
-                  complete(
-                    inputProps map { in =>
-                      RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
-                                             in, token, requestId, ip))
-                    } map { msg =>
-                      dispatch(HtrcUser(userName)) { msg }
-                    }
-                  )
-                }
+              val algorithm = userInput \ "algorithm" text
+              val token = tok.split(' ')(1)
+              val inputProps =
+                RegistryHttpClient.algorithmMetadata(algorithm, token)
+
+                complete(
+                  inputProps map { in =>
+                    RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
+                                           in, token, requestId, ip))
+                  } map { msg =>
+                    dispatch(HtrcUser(userName)) { msg }
+                  }
+                )
               }
-            }   
-          } ~ 
-          pathPrefix("job") {
-            pathPrefix("all") {
-              pathPrefix("status") {
-		log.debug("Handling all status request");
+            }
+          }   
+        } ~ 
+        pathPrefix("job") {
+          pathPrefix("all") {
+            path("status") {
+              get {
                 complete(dispatch(HtrcUser(userName)) 
                          { AllJobStatuses(token(tok)) })
               }
+            }
+          } ~
+          pathPrefix("active") {
+            path("status") {
+              complete(dispatch(HtrcUser(userName)) 
+                       { ActiveJobStatuses })
+            }
+          } ~
+          pathPrefix("saved") {
+            path("status") {
+              complete(dispatch(HtrcUser(userName)) 
+                       { SavedJobStatuses(token(tok)) })
+            }
+          } ~
+          pathPrefix(Segment) { id =>
+            path("status") {
+              complete(dispatch(HtrcUser(userName)) 
+                       { JobStatusRequest(JobId(id)) })
             } ~
-            pathPrefix("active") {
-              pathPrefix("status") {
-                complete(dispatch(HtrcUser(userName)) 
-                         { ActiveJobStatuses })
-              }
-            } ~
-            pathPrefix("saved") {
-              pathPrefix("status") {
-                complete(dispatch(HtrcUser(userName)) 
-                         { SavedJobStatuses(token(tok)) })
-              }
-            } ~
-            pathPrefix(PathElement) { id =>
-              pathPrefix("status") {
-                complete(dispatch(HtrcUser(userName)) 
-                         { JobStatusRequest(JobId(id)) })
-              } ~
-            pathPrefix("save") {
+            path("save") {
               (put | post) {
                 complete(dispatch(HtrcUser(userName)) 
                          {  SaveJob(JobId(id), token(tok)) })
               }
             } ~
-            pathPrefix("delete") {
+            path("delete") {
               delete {
                 complete(dispatch(HtrcUser(userName)) 
                        { DeleteJob(JobId(id), token(tok)) })
               }
             } ~
-            pathPrefix("updatestatus") {
+            path("updatestatus") {
               (put | post) {
                 entity(as[NodeSeq]) { userInput =>
                   val usrName = (userInput \ "user" text)
@@ -163,37 +166,16 @@ trait AgentService extends HttpService {
                     complete(dispatch(HtrcUser(usrName)) 
                              { UpdateJobStatus(JobId(id), token(tok), 
                                                userInput) })
-	        }
-	      }
-	    }
-            // uncomment the following when stderr, stdout of jobs are
-            // available
-            // ~
-            // pathPrefix("result") {
-            //   pathPrefix("stdout") {
-            //     complete(dispatch(HtrcUser(userName)) 
-            //              { JobOutputRequest(JobId(id), "stdout") })
-            // } ~
-            // pathPrefix("stderr") {
-            //   complete(dispatch(HtrcUser(userName)) 
-            //            { JobOutputRequest(JobId(id), "stderr") })
-            // } ~
-            // pathPrefix("directory") {
-            //   complete(dispatch(HtrcUser(userName)) 
-            //            { JobOutputRequest(JobId(id), "directory") })
-            // }
-          // }
+  	          }
+  	        }
+  	      }
+          }
         }
-      }
-    } ~
-    pathPrefix("result") {
-      getFromDirectory("agent_result_directories")
-    } ~
-    pathPrefix("") { 
-      complete("Path is not a valid API query.")
-    }
-  }      
- }                                      
-}
+    // ~
+    // pathPrefix("") { 
+    //   complete("Path is not a valid API query.")
+    // }
+      }      
+    }                                      
+  }
 }}
-
