@@ -36,3 +36,9 @@ libraryDependencies ++= Seq(
 // container:start fails to start Jetty because of problems with jar file
 // icu4j-2.6.1.jar, but Tomcat is able get past this error
 tomcat(port = 9000)
+
+val buildenv = settingKey[String]("buildenv")
+
+buildenv := sys.props.getOrElse("buildenv", default = "dev")
+
+unmanagedResourceDirectories in Compile += baseDirectory.value / "src" / "main" / "env-specific-resources" / buildenv.value
