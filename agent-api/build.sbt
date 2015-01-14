@@ -30,7 +30,8 @@ libraryDependencies ++= Seq(
   // "javax.servlet" % "javax.servlet-api" % "3.0.1" % "provided",
   "ch.qos.logback" % "logback-classic" % "1.0.9",
   "org.apache.httpcomponents" % "httpcore" % "4.3.2",
-  "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
+  // "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
+  "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
 )
 
 // container:start fails to start Jetty because of problems with jar file
