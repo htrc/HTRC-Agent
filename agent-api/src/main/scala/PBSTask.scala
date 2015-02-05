@@ -124,7 +124,8 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   val walltime = HtrcConfig.getPBSWalltime(inputs)
   val envVars = 
     JobClientUtils.jobClientEnvVars(inputs, id, (targetWorkingDir + "/" + id),
-                                    walltime)
+                                    walltime) ++
+    List(("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString))
   HtrcSystem.jobClientScriptCreator.
     createJobClientScript(envVars, workingDir + "/" + HtrcConfig.jobClientScript, 
     log)
