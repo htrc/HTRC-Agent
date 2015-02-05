@@ -42,13 +42,25 @@ public class ArgumentParser {
 				.setRequired(true)
 				.setHelp("Specifies the jobid.");
 
+        Parameter user = new FlaggedOption("user")
+				.setStringParser(JSAP.STRING_PARSER)
+				.setShortFlag('u')
+				.setRequired(true)
+				.setHelp("Specifies the user that launched the job.");
+        
         Parameter agentEndpoint = new FlaggedOption("agentEndpoint")
         		.setStringParser(URLStringParser.getParser())
 				.setShortFlag('a')
 				.setRequired(true)
-				.setHelp("Specifies the agent endpoint that will be contacted by AgentJobClient.");
+				.setHelp("Specifies the agent endpoint that will be contacted by the AgentJobClient.");
 
-//        Parameter agent = new FlaggedOption("agent")
+        Parameter idServerTokenUrl = new FlaggedOption("idServerTokenUrl")
+				.setStringParser(URLStringParser.getParser())
+				.setShortFlag('i')
+				.setRequired(true)
+				.setHelp("Specifies the identity server URL that will be contacted by the AgentJobClient to obtain oauth tokens.");
+
+        //        Parameter agent = new FlaggedOption("agent")
 //                .setStringParser(URLStringParser.getParser())
 //                .setShortFlag('a')
 //                .setHelp("Specifies the URL to use for reporting job status information to the Agent");
@@ -66,7 +78,8 @@ public class ArgumentParser {
                 .setGreedy(true)
                 .setHelp("Job arguments");
 
-        return new Parameter[] { workDir, shell, timelimit, jobid, agentEndpoint, script, arguments };
+        return new Parameter[] { workDir, shell, timelimit, jobid, user, agentEndpoint, 
+        		                 idServerTokenUrl, script, arguments };
     }
 
     private static String getApplicationHelp() {

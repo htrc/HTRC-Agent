@@ -73,11 +73,11 @@ abstract class JobCompletionTask extends Actor {
   }
 
   // copy job results, job and job client error and output files if necessary
-  var scpRes = 0
+  var cpRes = 0
   if (copyResults)
-    scpRes = copyJobResultsFromCompRes()
+    cpRes = copyJobResultsFromCompRes()
   else if (timedOut) {
-    scpRes = copyJobResultsFromCompResOnTimeOut()
+    cpRes = copyJobResultsFromCompResOnTimeOut()
     val timeoutErrorMsg = 
       "Job status: Timed Out. Allotted time limit exceeded. Job killed.\n" 
     val pathPrefix = localResultDir + "/"
@@ -94,7 +94,7 @@ abstract class JobCompletionTask extends Actor {
     finalStatus = Crashed(inputs, id, computeResource, results)
   else if (timedOut)
     finalStatus = TimedOut(inputs, id, computeResource, results)
-  else if (scpRes != 0) {
+  else if (cpRes != 0) {
     finalStatus = Crashed(inputs, id, computeResource, results)
     crashed = true
   }
@@ -177,6 +177,7 @@ object JobCompletionTask {
   def apply(status: PendingCompletion, token: String, context: ActorContext) = {
     if (status.computeResource != "shell") 
       context.actorOf(Props(new RemoteJobCompletion(status, token)))
-    else null
+    else 
+      context.actorOf(Props(new LocalJobCompletion(status, token)))
   }
 }

@@ -131,92 +131,30 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     if(errors.length != 0) {
       errors.foreach { e =>
         log.error("Registry failed to write resource: " + e)
-        // HtrcUtils.writeFile("", "stdout.txt", user, id)
         var errorMsg = "Error in retrieving resource from the registry."
         e match {
           case RegistryError(resource) => 
-            // HtrcUtils.writeFile("Error in retrieving " + resource +
-            //                     " from the registry.", 
-            //                     "stderr.txt", user, id)
             errorMsg = "Error in retrieving " + resource + " from the registry."
         }
         supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
       }
     } else {
       // to be here we must have not had errors, so do the work
-      log.debug("SLURM_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}",
-               user.name, inputs.ip, id)
-      log.debug("SLURM_TASK_WORKING_DIR\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
+      log.debug("SLURM_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
                user.name, inputs.ip, id, workingDir)
 
-      // Now we need to copy the directory to the cluster
-      val scpCmdF = "scp -r %s %s:%s/"
-      val scpCmd = scpCmdF.format(workingDir, target, targetWorkingDir)
-      val scpRes = SProcess(scpCmd) !
+      try {
+	// copy job working dir to compute resource
+        copyToComputeResource()
 
-      log.debug("SLURM_TASK_SCP_COMMAND\t{}\tJOB_ID: {}\tCOMMAND: {}\tRESULT: {}",
-               user.name, id, scpCmd, scpRes)
-
-      // Our "system" parameters can be set as environment variables
-      // val env = 
-      //   "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
-      //   " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
-      //   " JAVA_CMD=" + HtrcConfig.javaCmd +
-      //   " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize
-
-      // val cmdF = "ssh -t -t -q %s srun -N1 bash %s/%s/%s"
-      // val cmd = 
-      //   cmdF.format(target, targetWorkingDir, id, HtrcConfig.jobClientScript)
-      val cmdF = 
-        "ssh -t -t -q %s sbatch %s -t %s -o %s -e %s %s/%s/%s"
-      val cmd = cmdF.format(target, HtrcConfig.getSbatchOptions, timelimit, 
-                            jobClientOutFile, jobClientErrFile, 
-                            targetWorkingDir, id, HtrcConfig.jobClientScript)
-      val sysProcess = SProcess(cmd, new File(workingDir))
-      val exitCode = sysProcess ! plogger
-      
-      // supe ! StatusUpdate(InternalRunning)
-
-      log.debug("SLURM_TASK_SBATCH_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}", 
-                user.name, id, cmd, exitCode)
-      log.debug("SLURM_TASK_SBATCH_OUT\t{}\tJOB_ID: {}\tOUT: {}",
-                user.name, id, stdout)
-      log.debug("SLURM_TASK_SBATCH_ERR\t{}\tJOB_ID: {}\tERR: {}",
-                user.name, id, stderr)
-
-      // move the result back from the cluster
-
-      // start off by finding and creating the result directory if it
-      // doesn't exist
-      // val outputDir = HtrcConfig.systemVariables("output_dir")
-      // val resultLocation = HtrcConfig.resultDir
-      // val dest = resultLocation + "/" + user.name + "/" + id
-      // (new File(dest)).mkdirs()
-
-      // now scp the result folder back over
-      // val resultScpCmdF = "scp -r %s:%s/%s/%s %s"
-      // val resultScpCmd = 
-      //   resultScpCmdF.format(target, targetWorkingDir, id, outputDir, dest)
-      // val scpResultRes = SProcess(resultScpCmd) !
-
-      // val resultScpCmdRes = resultScpCmd + ", result = " + scpResultRes
-      // log.debug("SLURM_TASK_RESULT_SCP\t{}\t{}\tJOB_ID: {}\tCOMMAND: {}",
-      //          user.name, inputs.ip, id, resultScpCmdRes)
-
-      // create a list of the result files
-      // val dirResults = inputs.resultNames map { n => 
-      //   DirectoryResult(user.name+"/"+id+"/"+outputDir+"/"+n) }
-      // log.debug("SLURM_TASK_RESULTS\t{}\t{}\tJOB_ID: {}\tRAW: {}",
-      //          user.name, inputs.ip, id, dirResults)
-
-      // if(exitCode == 0) {
-      //   dirResults foreach { r =>
-      //     supe ! Result(r)
-      //   }
-      //   supe ! StatusUpdate(InternalFinished)        
-      // } else {
-      //   supe ! StatusUpdate(InternalCrashed)
-      // }
+        // launch job on compute resource
+        val jobid = launchJob()
+        supe ! StatusUpdate(InternalQueuedOnTarget)
+      }
+      catch {
+        case JobSetupException(stdout, stderr) =>
+          supe ! StatusUpdate(InternalCrashedWithError(stderr, stdout))
+      }
     }
   }
 
@@ -237,6 +175,92 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
           if(v != "HTRC_DEFAULT") p.println(k + " = " + v) }
       })
     }
+  }
+
+  // copy job working dir from local machine to compute resource; throws
+  // JobSetupException upon error
+  def copyToComputeResource() = {
+    val scpOut = new StringBuilder
+    val scpErr = new StringBuilder
+
+    val scpLogger = SProcessLogger(
+    (o: String) => 
+      { log.debug("SLURM_SCP_TO_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+                  user.name, inputs.ip, id, o)
+        scpOut.append(o + "\n") },
+    (e: String) => 
+      { log.debug("SLURM_SCP_TO_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+                  user.name, inputs.ip, id, e)
+        scpErr.append(e + "\n") })
+
+    val scpCmdF = "scp -r %s %s:%s/"
+    val scpCmd = scpCmdF.format(workingDir, target, targetWorkingDir)
+    val scpRes = SProcess(scpCmd) ! scpLogger
+
+    log.debug("SLURM_SCP_TO_COMPUTE_RES\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}", 
+              user.name, id, scpCmd, scpRes)
+
+    if (scpRes != 0) {
+      val errorMsg = "Unable to copy job directory to compute resource.\n"
+      throw JobSetupException(scpOut.toString, errorMsg + scpErr.toString)
+    }
+  }
+
+  // launch job on compute resource; returns jobid upon success, and throws
+  // JobSetupException upon error
+  def launchJob(): String = {
+    var jobid = ""
+    val sbatchOut = new StringBuilder
+    val sbatchErr = new StringBuilder
+    // logger for sbatch; call to sbatch on cluster queues the job, and
+    // writes jobid to stdout
+    val sbatchLogger = SProcessLogger(
+      (o: String) => 
+        { // if sbatch is successful then the jobid is written to stdout
+          jobid = extractSbatchJobId(o)
+           // error msgs may also be written to stdout
+          sbatchOut.append(o + "\n")
+          log.debug("SLURM_SBATCH_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+                    user.name, inputs.ip, id, o) },
+      (e: String) => 
+        { // "tcgetattr: Invalid argument" in stderr results from the use of
+	  // the -t flag with ssh; this msg can be ignored
+          if (!e.contains("tcgetattr: Invalid argument")) {
+            sbatchErr.append(e + "\n")
+            log.debug("SLURM_SBATCH_ERROR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+                      user.name, inputs.ip, id, e)
+          }
+        } )
+
+    val cmdF = 
+      "ssh -t -t -q %s sbatch %s -t %s -o %s -e %s %s/%s/%s"
+    val cmd = cmdF.format(target, HtrcConfig.getSbatchOptions, timelimit, 
+                          jobClientOutFile, jobClientErrFile, 
+                          targetWorkingDir, id, HtrcConfig.jobClientScript)
+    val sysProcess = SProcess(cmd, new File(workingDir))
+    val exitVal = sysProcess ! sbatchLogger
+
+    log.debug("SLURM_TASK_SBATCH_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
+	      user.name, id, cmd, exitVal)
+
+    if (exitVal != 0) {
+      val errorMsg = "Unable to launch job on compute resource (" + 
+                     HtrcConfig.localResourceType + ").\n"
+      throw JobSetupException(sbatchOut.toString, 
+                              errorMsg + sbatchErr.toString)
+    }
+    else jobid
+  }
+
+  // extract the job id from the output of SLURM command sbatch
+  def extractSbatchJobId(sbatchOut: String): String = {
+    // the output of sbatch is a a string "Submitted batch job <jobid>"
+    val sbatchOutPrefix = "Submitted batch job ";
+    val i = sbatchOut.indexOf(sbatchOutPrefix)
+    if (i >= 0) {
+      sbatchOut.substring(i + sbatchOutPrefix.length)
+    }
+    else ""  
   }
 
   // This actor doesn't actually receive, be sad if it does.

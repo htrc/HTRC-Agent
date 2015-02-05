@@ -117,10 +117,9 @@ class JobClientScriptCreator(val skelJobClientScript: String) {
 
 object JobClientUtils {
   // create a list of environment vars that need to be set in the job client
-  // script; timelimit is the time given to the job on PBS and SLURM systems
-  // and must have format hhh:mm:ss or hh:mm:ss; for systems on which there
-  // is no time limit, set timelimit to -1; all other values will cause
-  // AgentJobClient to exit with an error
+  // script; timelimit is the time given to the job and must have format
+  // hhh:mm:ss or hh:mm:ss; all other values will cause AgentJobClient to
+  // exit with an error
   def jobClientEnvVars(inputs: JobInputs, id: JobId, workDir: String, 
                        timelimit: String) =
     List(("HTRC_WORKING_DIR" -> workDir),
@@ -130,6 +129,10 @@ object JobClientUtils {
          ("HTRC_ALG_SCRIPT" -> inputs.runScript),
          ("HTRC_TIME_LIMIT" -> timelimit),
          ("HTRC_JOBID" -> id.toString),
+         ("HTRC_USER" -> inputs.user.submitter),
          ("HTRC_AGENT_ENDPOINT" -> HtrcConfig.agentEndpoint),
+         ("HTRC_ID_SERVER_TOKEN_URL" -> HtrcConfig.idServerTokenUrl),
+         ("HTRC_OAUTH_CLIENT_ID" -> HtrcConfig.agentClientId),
+         ("HTRC_OAUTH_CLIENT_SECRET" -> HtrcConfig.agentClientSecret),
          ("HTRC_OAUTH_TOKEN" -> inputs.token))
 }

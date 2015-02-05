@@ -23,19 +23,16 @@ package htrc.agent
 
 import scala.concurrent.Future
 import akka.actor._
-import spray.can.client.HttpClient
-import spray.client.HttpConduit
 import spray.io._
 import spray.util._
 import spray.http._
+import spray.client.pipelining._
 import HttpMethods._
 import scala.concurrent.duration._
 import akka.util.Timeout
 import akka.actor.{ ActorSystem, Props, Actor }
 import HttpMethods._
 import akka.pattern.ask
-import HttpConduit._
-import HttpClient._
 import akka.event.Logging
 import akka.event.slf4j.Logger
 import scala.util.{Success, Failure}
@@ -48,36 +45,35 @@ object RegistryHttpClient {
   // the usual setup
   implicit val timeout = Timeout(5 seconds)
   implicit val system = HtrcSystem.system
+  import system.dispatcher
   val log = Logging(system, "registry-http-client")
   val auditLog = Logger("audit")
 
   // initialize the bridge to the IO layer used by Spray
-  val ioBridge = IOExtension(system).ioBridge()
-
-  // now anything we do can use the ioBridge to create connections
-  // unknown : should I try and reuse an htpclient actor between queries?
+  // val ioBridge = IOExtension(system).ioBridge()
 
   def queryRegistry(query: String, method: HttpMethod, token: String, acceptContentType: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
 
     // since we are using the registry I can just grab some info
-    val root = registryHost
-    val path = "/ExtensionAPI-"+registryVersion+"/services/"
-    val port = registryPort
+    // val root = registryHost
+    // val port = registryPort
+    // val path = "/ExtensionAPI-"+registryVersion+"/services/"
+    val uri = registryUrl + query
 
     // create a client to use
-    val httpClient = system.actorOf(Props(new HttpClient(ioBridge)))
+    // val httpClient = system.actorOf(Props(new HttpClient(ioBridge)))
 
     // now we define a conduit, which is a use of the client
-    val conduit = system.actorOf(
-      // props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true)) // prod stack: sslEnabled = true
-      props = Props(new HttpConduit(httpClient, root, port))
-    )
+    // val conduit = system.actorOf(
+    //   // props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true)) // prod stack: sslEnabled = true
+    //   props = Props(new HttpConduit(httpClient, root, port))
+    // )
     
     // the pipeline is exactly what happens with our request
     val pipeline: HttpRequest => Future[HttpResponse] = (
       addHeader("Accept", acceptContentType)
       ~> addHeader("Authorization", "Bearer " + token)
-      ~> sendReceive(conduit)
+      ~> sendReceive
     )
 
     // how do we represent the content type of the xml?
@@ -86,10 +82,10 @@ object RegistryHttpClient {
     // and now finally make a request
     val response = 
       if(body == None)
-        pipeline(HttpRequest(method = method, uri = path + query)).mapTo[HttpResponse]
+        pipeline(HttpRequest(method = method, uri = uri)).mapTo[HttpResponse]
       else
-        pipeline(HttpRequest(method = method, uri = path + query, 
-                             entity = HttpBody(contentType, body.get.toString))).mapTo[HttpResponse]
+        pipeline(HttpRequest(method = method, uri = uri, 
+                             entity = HttpEntity(contentType, body.get.toString))).mapTo[HttpResponse]
 
     log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
 
@@ -150,7 +146,7 @@ object RegistryHttpClient {
 
     q map { response =>
       if (response.status.isSuccess) {
-        writeFile(response.entity.buffer, dest)
+        writeFile(response.entity.data.toByteArray, dest)
         true
       }
       else false
@@ -179,7 +175,7 @@ object RegistryHttpClient {
     val q = query("files/"+name+"?public=true", GET, inputs.token)
     q map { response =>
       if (response.status.isSuccess) {
-        val bytes = response.entity.buffer
+        val bytes = response.entity.data.toByteArray
         writeFile(bytes, dest) 
         true
       }

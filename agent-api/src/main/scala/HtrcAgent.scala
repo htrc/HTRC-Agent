@@ -296,20 +296,38 @@ class HtrcAgent(user: HtrcUser) extends Actor {
     sender ! jobStatusMsg
   }
 
+  // save completed jobs to the registry and notify HtrcAgent when the save
+  // op has been completed
   def handleCompletedJobs(jobId: JobId, status: JobComplete, token: String) = {
-    val ccTokenFuture = IdentityServerClient.getClientCredentialsToken
-    ccTokenFuture map { clientCredentialsToken =>
-      val tok = 
-        if (clientCredentialsToken != null) clientCredentialsToken else token 
-      val f = RegistryHttpClient.saveJob(status, jobId.toString, tok)
-      f map {res => self ! JobSaveCompleted(jobId, status, res)}
+    // save to the registry using the token received in the
+    // InternalUpdateJobStatus msg which in turn is the token received in the
+    // "updatestatus" msg from the AgentJobClient
+    val f1 = RegistryHttpClient.saveJob(status, jobId.toString, token)
+    f1 map { firstSaveRes =>
+      if (firstSaveRes) 
+        self ! JobSaveCompleted(jobId, status, true)
+      else {
+        // if the save using the given token is unsuccessful, obtain a new
+        // client credentials type token and save using this token
+        val ccTokenFuture = IdentityServerClient.getClientCredentialsToken
+        ccTokenFuture map { clientCredentialsToken =>
+          if (clientCredentialsToken != null) {
+            val f2 = RegistryHttpClient.saveJob(status, jobId.toString,
+                                                clientCredentialsToken) 
+            f2 map { secondSaveRes =>
+              self ! JobSaveCompleted(jobId, status, secondSaveRes)
+            }
+          }
+          else self ! JobSaveCompleted(jobId, status, false)
+        }
+      }
     }
   }
 
   // old version of bulkJobStatus: sends msgs to LocalMachineJob actors for
   // active jobs to obtain their statuses
   def oldBulkJobStatus(sender: ActorRef, 
-                       saved: Option[List[SavedHtrcJob]] = None) {
+                        saved: Option[List[SavedHtrcJob]] = None) {
     val futures =
       (for( (id,job) <- jobs ) yield {
         job.ref flatMap { j =>
