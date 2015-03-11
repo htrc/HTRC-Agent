@@ -72,16 +72,11 @@ class LocalJobCompletion(val status: PendingCompletion,
     val stdoutFile = targetWorkingDir + "/" + id + "/stdout.txt"
     val stderrFile = targetWorkingDir + "/" + id + "/stderr.txt"
 
-    val jobClientOutFile = targetWorkingDir + "/" + id + "/job-client.out"
-    val jobClientErrFile = targetWorkingDir + "/" + id + "/job-client.err"
-
-    val itemsToCopyF = "%s/%s/%s %s %s %s %s"
+    val itemsToCopyF = "%s/%s/%s %s %s"
     val itemsToCopy = 
       itemsToCopyF.format(targetWorkingDir, id, outputDir, 
                           stdoutFile, 
-                          stderrFile, 
-                          jobClientOutFile, 
-                          jobClientErrFile)
+                          stderrFile)
 
     copyJobResultsFromCompRes(itemsToCopy)
   }
