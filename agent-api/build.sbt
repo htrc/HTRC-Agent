@@ -11,7 +11,7 @@ resolvers ++= Seq(
   "spray repo"         at "http://repo.spray.io/",
   "sbt plugin repo" at "https://repo.scala-sbt.org/scalasbt/sbt-plugin-releases",
   "WSO2 Nexus" at "http://maven.wso2.org/nexus/content/groups/wso2-public/",
-  "htrc nexus" at "http://htrc.illinois.edu/nexus/content/groups/public"
+  "htrc nexus" at "http://nexus.htrc.illinois.edu/content/groups/public"
 )
 
 libraryDependencies ++= Seq(
