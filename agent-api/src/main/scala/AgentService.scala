@@ -83,94 +83,105 @@ trait AgentService extends HttpService {
   // the agent api calls
   val agentRoute =
     headerValueByName("Authorization") { tok =>
-      headerValueByName("htrc-remote-address") { ip =>
-      headerValueByName("htrc-request-id") { requestId =>
-      headerValueByName("htrc-remote-user") { rawUser =>
-        val userName = rawUser.split('@')(0)
-        log.debug("userName = " + userName)
+    headerValueByName("htrc-remote-address") { ip =>
+    headerValueByName("htrc-request-id") { requestId =>
+    headerValueByName("htrc-remote-user") { rawUser =>
+      val userName = rawUser.split('@')(0)
+      log.debug("userName = " + userName)
 
-        pathPrefix("algorithm") {
-          pathPrefix("run") {    
-            (post | put) {
+      pathPrefix("algorithm") {
+        pathPrefix("run") {    
+          (post | put) {
+            parameters('usecache.as[Boolean] ? HtrcConfig.useCache) { useCache =>
               entity(as[NodeSeq]) { userInput =>
+                val algorithm = userInput \ "algorithm" text
+                val token = tok.split(' ')(1)
+                val inputProps =
+                  RegistryHttpClient.algorithmMetadata(algorithm, token)
 
-              val algorithm = userInput \ "algorithm" text
-              val token = tok.split(' ')(1)
-              val inputProps =
-                RegistryHttpClient.algorithmMetadata(algorithm, token)
-
+                log.debug("AGENT_SERVICE /algorithm/run: useCache = {}",
+                          useCache)
+                // complete(
+                //   inputProps map { in =>
+                //     RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
+                //                            in, token, requestId, ip))
+                //   } map { msg =>
+                //     dispatch(HtrcUser(userName)) { msg }
+                //   }
+                // )
                 complete(
                   inputProps map { in =>
-                    RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
-                                           in, token, requestId, ip))
-                  } map { msg =>
+                    val msg = 
+                      RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
+                                             in, token, requestId, ip))
                     dispatch(HtrcUser(userName)) { msg }
                   }
                 )
-              }
-            }
-          }   
-        } ~ 
-        pathPrefix("job") {
-          pathPrefix("all") {
-            path("status") {
-              get {
-                complete(dispatch(HtrcUser(userName)) 
-                         { AllJobStatuses(token(tok)) })
-              }
-            }
-          } ~
-          pathPrefix("active") {
-            path("status") {
-              complete(dispatch(HtrcUser(userName)) 
-                       { ActiveJobStatuses })
-            }
-          } ~
-          pathPrefix("saved") {
-            path("status") {
-              complete(dispatch(HtrcUser(userName)) 
-                       { SavedJobStatuses(token(tok)) })
-            }
-          } ~
-          pathPrefix(Segment) { id =>
-            path("status") {
-              complete(dispatch(HtrcUser(userName)) 
-                       { JobStatusRequest(JobId(id)) })
-            } ~
-            path("save") {
-              (put | post) {
-                complete(dispatch(HtrcUser(userName)) 
-                         {  SaveJob(JobId(id), token(tok)) })
-              }
-            } ~
-            path("delete") {
-              delete {
-                complete(dispatch(HtrcUser(userName)) 
-                       { DeleteJob(JobId(id), token(tok)) })
-              }
-            } ~
-            path("updatestatus") {
-              (put | post) {
-                entity(as[NodeSeq]) { userInput =>
-                  val usrName = (userInput \ "user" text)
-                  if (usrName == "") {
-                    val err = "no user specified in updatestatus request"
-                    log.debug("AGENT_SERVICE job/{}/updatestatus ERROR: {}, " + 
-                              "unable to process updatestatus; userInput = {}", 
-                              id, err, userInput)
-                    respondWithStatus(StatusCodes.BadRequest) {
-                      complete(err)
-                    }
-                  }
-                  else 
-                    complete(dispatch(HtrcUser(usrName)) 
-                             { UpdateJobStatus(JobId(id), token(tok), 
-                                               userInput) })
-  	          }
-  	        }
-  	      }
+	      }
+	    }
           }
+        }   
+      } ~ 
+      pathPrefix("job") {
+        pathPrefix("all") {
+          path("status") {
+            get {
+              complete(dispatch(HtrcUser(userName)) 
+                       { AllJobStatuses(token(tok)) })
+            }
+          }
+        } ~
+        pathPrefix("active") {
+          path("status") {
+            complete(dispatch(HtrcUser(userName)) 
+                     { ActiveJobStatuses })
+          }
+        } ~
+        pathPrefix("saved") {
+          path("status") {
+            complete(dispatch(HtrcUser(userName)) 
+                     { SavedJobStatuses(token(tok)) })
+          }
+        } ~
+        pathPrefix(Segment) { id =>
+          path("status") {
+            complete(dispatch(HtrcUser(userName)) 
+                     { JobStatusRequest(JobId(id)) })
+          } ~
+          path("save") {
+            (put | post) {
+              complete(dispatch(HtrcUser(userName)) 
+                       {  SaveJob(JobId(id), token(tok)) })
+            }
+          } ~
+          path("delete") {
+            delete {
+              complete(dispatch(HtrcUser(userName)) 
+                     { DeleteJob(JobId(id), token(tok)) })
+            }
+          } ~
+          path("updatestatus") {
+            (put | post) {
+              entity(as[NodeSeq]) { userInput =>
+                val usrName = (userInput \ "user" text)
+                if (usrName == "") {
+                  val err = "no user specified in updatestatus request"
+                  log.debug("AGENT_SERVICE job/{}/updatestatus ERROR: {}, " + 
+                            "unable to process updatestatus; userInput = {}", 
+                            id, err, userInput)
+                  respondWithStatus(StatusCodes.BadRequest) {
+                    complete(err)
+                  }
+                }
+                else 
+                  complete(dispatch(HtrcUser(usrName)) 
+                           { UpdateJobStatus(JobId(id), token(tok), 
+                                             userInput) })
+  	      }
+  	    }
+  	  }
         }
+      }
     // ~
     // pathPrefix("") { 
     //   complete("Path is not a valid API query.")

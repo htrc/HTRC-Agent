@@ -198,6 +198,12 @@ object HtrcConfig {
   val agentClientId = config.getString("htrc.id_server.agent_client_id")
   val agentClientSecret = config.getString("htrc.id_server.agent_client_secret")
 
+  // configuration params for the job result cache
+  val useCache = config.getBoolean("htrc.job_result_cache.use_cache")
+    // default value for the "usecache" query param of "/algorithm/run"
+  val cacheJobs = config.getBoolean("htrc.job_result_cache.cache_jobs")
+    // whether jobs should be added to the cache after successful execution
+
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."
   val computeResourceUser = config.getString(computeResource + "user")
