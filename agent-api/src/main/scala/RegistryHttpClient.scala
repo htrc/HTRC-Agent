@@ -162,6 +162,14 @@ object RegistryHttpClient {
     q map { response =>
       JobProperties(XML.loadString(response.entity.asString)) }
   }
+
+  def algorithmXMLTimestamp(name: String, token: String): Future[Option[String]] = {
+    Future { Some("algXMLTimestamp") }
+  }
+
+  def collectionTimestamp(collection: String, token: String): Future[Option[String]] = {
+    Future { Some("timestamp") }
+  }
     
   def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
     

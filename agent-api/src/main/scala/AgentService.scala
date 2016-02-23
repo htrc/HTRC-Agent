@@ -96,24 +96,24 @@ trait AgentService extends HttpService {
               entity(as[NodeSeq]) { userInput =>
                 val algorithm = userInput \ "algorithm" text
                 val token = tok.split(' ')(1)
-                val inputProps =
-                  RegistryHttpClient.algorithmMetadata(algorithm, token)
+                // val inputProps =
+                //   RegistryHttpClient.algorithmMetadata(algorithm, token)
 
                 log.debug("AGENT_SERVICE /algorithm/run: useCache = {}",
                           useCache)
-                // complete(
-                //   inputProps map { in =>
-                //     RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
-                //                            in, token, requestId, ip))
-                //   } map { msg =>
-                //     dispatch(HtrcUser(userName)) { msg }
-                //   }
-                // )
+
+		val js = JobSubmission(userInput, userName)
+		val dataForJobRunF = (HtrcSystem.cacheController ? 
+                  GetDataForJobRun(js, token)).mapTo[DataForJobRun]
+
                 complete(
-                  inputProps map { in =>
+                  dataForJobRunF map { dataForJobRun =>
+                    log.debug("AGENT_SERVICE /algorithm/run: cacheKey = {}",
+                              dataForJobRun.jobResultCacheKey)
+                   
                     val msg = 
-                      RunAlgorithm(JobInputs(JobSubmission(userInput, userName), 
-                                             in, token, requestId, ip))
+                      RunAlgorithm(JobInputs(js, dataForJobRun.algMetadata,
+                                             token, requestId, ip))
                     dispatch(HtrcUser(userName)) { msg }
                   }
                 )

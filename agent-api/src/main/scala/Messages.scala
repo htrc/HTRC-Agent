@@ -31,6 +31,7 @@ sealed trait JobMessage
 sealed trait AgentMessage
 sealed trait RegistryMessage
 sealed trait WriteStatus
+sealed trait CacheControllerMessage
 
 case class CreateJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends JobCreatorMessage with ComputeResourceMessage
 
@@ -75,3 +76,7 @@ case class WriteCollection(name: String, workingDir: String, inputs: JobInputs) 
 
 case class RegistryError(e: String) extends WriteStatus
 case object RegistryOk extends WriteStatus
+
+// msgs sent from AgentServiceActor to CacheController 
+case class GetJobFromCache(js: JobSubmission, token: String) extends CacheControllerMessage
+case class GetDataForJobRun(js: JobSubmission, token: String) extends CacheControllerMessage

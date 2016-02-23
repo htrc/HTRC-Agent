@@ -55,6 +55,10 @@ object HtrcSystem {
   // object to create job client script files
   val jobClientScriptCreator = 
      new JobClientScriptCreator(HtrcConfig.skelJobClientScript) 
+
+  // actor to manage job result cache
+  val cacheController = system.actorOf(Props(new CacheController), 
+                                       name = "cacheController")
 }
 
 // our global store of what agents exist

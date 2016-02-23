@@ -95,6 +95,10 @@ case class JobSubmission(arguments: NodeSeq, submitter: String) {
     (e \ "@type" text) == "collection"
   } map { e =>(e \ "@value").text } toList
   
+  override def toString() = {
+    val resF = "JobSubmission(name=%s, algorithm=%s, params=%s)"
+    resF.format(name, algorithm, userInputs.mkString("(", ", ", ")"))
+  }
 }
 
 // This class parses and stores the metadata stored about an algorithm
@@ -110,6 +114,7 @@ case class JobProperties(metadata: NodeSeq) {
   }
 
   val info = metadata \ "info"
+  val algVersion = info \ "version" text
 
   val dependencies = new HashMap[String,String]
   (metadata \ "dependencies" \ "dependency") foreach { d =>
