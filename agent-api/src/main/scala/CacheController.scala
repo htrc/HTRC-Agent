@@ -41,6 +41,8 @@ class CacheController extends Actor {
   // logging
   val log = Logging(context.system, this)
 
+  val jobResultCache = new JobResultCache(HtrcConfig.cacheSize)
+
   val behavior: PartialFunction[Any,Unit] = {
     case m: CacheControllerMessage => 
       m match {

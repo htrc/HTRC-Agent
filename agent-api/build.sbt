@@ -11,7 +11,8 @@ resolvers ++= Seq(
   "spray repo"         at "http://repo.spray.io/",
   "sbt plugin repo" at "https://repo.scala-sbt.org/scalasbt/sbt-plugin-releases",
   "WSO2 Nexus" at "http://maven.wso2.org/nexus/content/groups/wso2-public/",
-  "htrc nexus" at "http://nexus.htrc.illinois.edu/content/groups/public"
+  "htrc nexus" at "http://nexus.htrc.illinois.edu/content/groups/public",
+  "storehaus repo" at "http://repo1.maven.org/maven2/com/twitter/"
 )
 
 libraryDependencies ++= Seq(
@@ -30,6 +31,7 @@ libraryDependencies ++= Seq(
   // "javax.servlet" % "javax.servlet-api" % "3.0.1" % "provided",
   "ch.qos.logback" % "logback-classic" % "1.0.9",
   "org.apache.httpcomponents" % "httpcore" % "4.3.2",
+  "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
   // "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
   "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
 )

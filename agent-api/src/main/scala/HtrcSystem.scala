@@ -207,6 +207,8 @@ object HtrcConfig {
     // default value for the "usecache" query param of "/algorithm/run"
   val cacheJobs = config.getBoolean("htrc.job_result_cache.cache_jobs")
     // whether jobs should be added to the cache after successful execution
+  val cacheFilePath = config.getString("htrc.job_result_cache.cache_file_path")
+  val cacheSize = config.getInt("htrc.job_result_cache.cache_size")
 
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."

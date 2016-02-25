@@ -26,9 +26,59 @@ import java.io.File
 import java.io.PrintWriter
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.xml.XML
+import com.twitter.storehaus.cache._
+import java.io._
+import akka.event.Logging
 
 class JobResultCache(val maxEntries: Int = 1000) {
+  implicit val system = HtrcSystem.system
+  // import system.dispatcher
+  val log = Logging(system, "job-result-cache")
 
+  val lruCache = MutableLRUCache[String, String](maxEntries)
+  readCacheFromFile(HtrcConfig.cacheFilePath)
+
+  def readCacheFromFile(cacheFilePath: String) = {
+    try {
+      val cacheIndexXml = XML.loadFile(cacheFilePath)
+
+      (cacheIndexXml \\ "cachedJob") map
+        (n => ((n \ "key").text, (n \ "jobLocation").text)) foreach
+      { case (cacheKey, jobLoc) => lruCache += (cacheKey, jobLoc) }
+    } catch {
+      case e: Exception => 
+        log.debug("JOB_RESULT_CACHE: exception while reading cache from file; {}",
+                  e)
+    }
+    writeCacheToLog
+  }
+
+  def writeCacheToFile(cacheFilePath: String) = {
+    val iter = lruCache.iterator map
+      { case (cacheKey, jobLoc) => 
+        <cachedJob>
+          <key>{cacheKey}</key>
+          <jobLocation>{jobLoc}</jobLocation>
+        </cachedJob> }
+    val cacheIndexXml = <cacheIndex>{iter}</cacheIndex>
+
+    // 80 characters wide, 2 character indentation
+    val prettyPrinter = new scala.xml.PrettyPrinter(80, 2)
+    val readableXml = prettyPrinter.format(cacheIndexXml)
+
+    val bw = new BufferedWriter(new FileWriter(new File(cacheFilePath)))
+    bw.write(readableXml)
+    bw.close()
+
+    // println(cacheIndexXml)
+  }
+
+  def writeCacheToLog() = {
+    val cacheIndexStr = lruCache.iterator mkString ", "
+    log.debug("CACHE_INDEX: size = {}, contents = [{}]", 
+              lruCache.iterator.size, cacheIndexStr)
+  }
 }
 
 object JobResultCache {
@@ -58,7 +108,7 @@ object JobResultCache {
 	collectionName => 
           RegistryHttpClient.collectionTimestamp(collectionName, token) map { 
             _ map { collectionTimestamp =>
-              collectionName + "=" + collectionTimestamp
+              collectionName + "Ts=" + collectionTimestamp
             }
           }
       })
@@ -71,7 +121,7 @@ object JobResultCache {
         None
       else {
         val collectionTsString = 
-          (collectionTimestampList map { _.get }).mkString(sep)
+          collectionTimestampList.flatten mkString sep
         algXMLTsOpt map { algXMLTimestamp =>
           keyF.format(algName, algVersion, algXMLTimestamp, params, 
                       collectionTsString) 
