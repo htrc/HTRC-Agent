@@ -80,3 +80,6 @@ case object RegistryOk extends WriteStatus
 // msgs sent from AgentServiceActor to CacheController 
 case class GetJobFromCache(js: JobSubmission, token: String) extends CacheControllerMessage
 case class GetDataForJobRun(js: JobSubmission, token: String) extends CacheControllerMessage
+
+// periodic msg sent by CacheController to itself
+case object WriteCacheToFile extends CacheControllerMessage

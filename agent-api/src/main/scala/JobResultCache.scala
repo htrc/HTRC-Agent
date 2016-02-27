@@ -39,7 +39,7 @@ class JobResultCache(val maxEntries: Int = 1000) {
   val lruCache = MutableLRUCache[String, String](maxEntries)
   readCacheFromFile(HtrcConfig.cacheFilePath)
 
-  def readCacheFromFile(cacheFilePath: String) = {
+  def readCacheFromFile(cacheFilePath: String): Unit = {
     try {
       val cacheIndexXml = XML.loadFile(cacheFilePath)
 
@@ -54,7 +54,11 @@ class JobResultCache(val maxEntries: Int = 1000) {
     writeCacheToLog
   }
 
-  def writeCacheToFile(cacheFilePath: String) = {
+  def writeCacheToFile(): Unit = {
+    writeCacheToFile(HtrcConfig.cacheFilePath)
+  }
+
+  def writeCacheToFile(cacheFilePath: String): Unit = {
     val iter = lruCache.iterator map
       { case (cacheKey, jobLoc) => 
         <cachedJob>
@@ -74,7 +78,11 @@ class JobResultCache(val maxEntries: Int = 1000) {
     // println(cacheIndexXml)
   }
 
-  def writeCacheToLog() = {
+  def size: Int = {
+    lruCache.iterator.size
+  }
+
+  def writeCacheToLog(): Unit = {
     val cacheIndexStr = lruCache.iterator mkString ", "
     log.debug("CACHE_INDEX: size = {}, contents = [{}]", 
               lruCache.iterator.size, cacheIndexStr)

@@ -209,6 +209,7 @@ object HtrcConfig {
     // whether jobs should be added to the cache after successful execution
   val cacheFilePath = config.getString("htrc.job_result_cache.cache_file_path")
   val cacheSize = config.getInt("htrc.job_result_cache.cache_size")
+  val cacheWriteInterval = cacheWriteIntervalInSec(config.getString("htrc.job_result_cache.cache_write_interval"))
 
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."
@@ -334,6 +335,20 @@ object HtrcConfig {
       result += (algorithm -> lsTuples.reverse)
     }
     result
+  }
+
+  // convert a string of the form "hh:mm:ss" into seconds; if the given
+  // string does not match the required pattern, then a default value of 1
+  // hour = 3600 seconds is returned
+  def cacheWriteIntervalInSec(str: String) = {
+    val hhmmss = """^(?:(?:(\d\d):)?(\d\d):)?(\d\d)$""".r
+    val defaultResult = 1*60*60 // 1 hour
+    str match {
+      case hhmmss(h, m, s) => 
+	val res = ((h.toInt)*60*60 + (m.toInt)*60 + s.toInt)
+        if (res == 0) defaultResult else res
+      case _ => defaultResult
+    }
   }
 }
 

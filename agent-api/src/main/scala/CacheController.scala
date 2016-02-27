@@ -42,6 +42,13 @@ class CacheController extends Actor {
   val log = Logging(context.system, this)
 
   val jobResultCache = new JobResultCache(HtrcConfig.cacheSize)
+  var writeNecessary = false
+
+  // schedule periodic writes of the cache index to disk
+  val writeInterval = HtrcConfig.cacheWriteInterval
+  log.debug("CACHE_CONTROLLER: cacheWriteInterval = {} seconds, " + 
+            "initCacheSize = {}, maxCacheSize = {}", writeInterval,
+            jobResultCache.size, HtrcConfig.cacheSize)
 
   val behavior: PartialFunction[Any,Unit] = {
     case m: CacheControllerMessage => 
@@ -60,12 +67,26 @@ class CacheController extends Actor {
                 jobKey => currSender ! DataForJobRun(jobKey, algMetadata)
               }
           }
+
+	case WriteCacheToFile =>
+          log.debug("CACHE_CONTROLLER received WriteCacheToFile")
+	  if (writeNecessary) jobResultCache.writeCacheToFile
+          system.scheduler.scheduleOnce(writeInterval seconds, self, 
+                                        WriteCacheToFile)
+
       }
   }
 
   val unknown: PartialFunction[Any,Unit] = {
     case m =>
       log.error("Cache controller received unhandled message")
+  }
+
+  override def preStart(): Unit = {
+    // send WriteCacheToFile msg to self after specified time interval to
+    // ensure that the cache is periodically written to disk
+    system.scheduler.scheduleOnce(writeInterval seconds, self, 
+				  WriteCacheToFile)
   }
 
   def receive = behavior orElse unknown
