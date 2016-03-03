@@ -32,6 +32,7 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.0.9",
   "org.apache.httpcomponents" % "httpcore" % "4.3.2",
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
+  "commons-io" % "commons-io" % "2.4",
   // "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
   "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
 )

@@ -28,7 +28,8 @@ import scala.collection.mutable.HashMap
 import scala.util.matching.Regex._
 
 case class JobInputs(user: JobSubmission, system: JobProperties, 
-                     token: String, requestId: String, ip: String) {
+                     jobResultCacheKey: Option[String], token: String, 
+                     requestId: String, ip: String) {
 
   override def toString: String = "JobInputs(name: " + name + ")"
 
@@ -95,7 +96,7 @@ case class JobSubmission(arguments: NodeSeq, submitter: String) {
     (e \ "@type" text) == "collection"
   } map { e =>(e \ "@value").text } toList
   
-  override def toString() = {
+  override def toString: String = {
     val resF = "JobSubmission(name=%s, algorithm=%s, params=%s)"
     resF.format(name, algorithm, userInputs.mkString("(", ", ", ")"))
   }
@@ -132,7 +133,7 @@ case class JobProperties(metadata: NodeSeq) {
 object SampleXmlInputs {
 
   lazy val wcInputs = JobInputs(JobSubmission(wordcountUser, "fake"),
-                                JobProperties(wordcount),
+                                JobProperties(wordcount), None,
                                 "fake", "fake", "fake")
 
 val wordcount = 
@@ -255,12 +256,9 @@ val wordcount =
           </parameters>
     </job>
 
-  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock, "fake"),                 
-                                       JobProperties(sampleAlgorithm),
-                                     "fake", "fake", "fake")                  
-
-   
-
+  lazy val sampleJobInputs = JobInputs(JobSubmission(exampleUserBlock, "fake"),
+                                       JobProperties(sampleAlgorithm), None,
+                                       "fake", "fake", "fake")
 
 }
            

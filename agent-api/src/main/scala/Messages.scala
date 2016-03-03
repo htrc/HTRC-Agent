@@ -83,3 +83,8 @@ case class GetDataForJobRun(js: JobSubmission, token: String) extends CacheContr
 
 // periodic msg sent by CacheController to itself
 case object WriteCacheToFile extends CacheControllerMessage
+
+// msg sent from HtrcAgent to CacheController; only "finished" jobs can be
+// added to the cache
+case class AddJobToCache(key: String, jobStatus: Finished) extends CacheControllerMessage
+

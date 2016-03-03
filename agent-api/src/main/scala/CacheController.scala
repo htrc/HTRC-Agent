@@ -23,15 +23,17 @@ package htrc.agent
 // startup, performs cache lookups and addition of cache entries on request,
 // and performs periodic writes of the cache index
 
+import java.io.File
 import akka.actor.{ Actor, Props }
 import akka.util.Timeout
 import akka.event.Logging
 import scala.concurrent.duration._
 import akka.pattern.ask
 import akka.pattern.pipe
+import scala.sys.process.{ Process => SProcess }
+import org.apache.commons.io.FileUtils
 
 class CacheController extends Actor {
-
   // context import
   import context._
 
@@ -42,13 +44,13 @@ class CacheController extends Actor {
   val log = Logging(context.system, this)
 
   val jobResultCache = new JobResultCache(HtrcConfig.cacheSize)
-  var writeNecessary = false
 
   // schedule periodic writes of the cache index to disk
   val writeInterval = HtrcConfig.cacheWriteInterval
   log.debug("CACHE_CONTROLLER: cacheWriteInterval = {} seconds, " + 
-            "initCacheSize = {}, maxCacheSize = {}", writeInterval,
-            jobResultCache.size, HtrcConfig.cacheSize)
+            "initCacheSize = {}, maxCacheSize = {}, cacheJobs = {}", 
+            writeInterval, jobResultCache.size, HtrcConfig.cacheSize, 
+            HtrcConfig.cacheJobs)
 
   val behavior: PartialFunction[Any,Unit] = {
     case m: CacheControllerMessage => 
@@ -68,9 +70,29 @@ class CacheController extends Actor {
               }
           }
 
+	case AddJobToCache(key, jobStatus) =>
+	  log.debug("CACHE_CONTROLLER received AddJobToCache({}, {})", key, 
+                    jobStatus.id)
+          // if the cache already contains the key, or if the "finished" job
+          // does not have all expected results, then do not add the job to
+          // the cache; this point in the code might be reached even if the
+          // cache contains the key, for instance when usecache for this job's
+          // "/algorithm/run" is false, and HtrcConfig.cacheJobs is true
+          if (!jobResultCache.contains(key) && 
+              allJobResultsAvailable(jobStatus)) {
+            copyJobToCacheDir(jobStatus) foreach { cachedJobId => 
+              jobResultCache.put(key, cachedJobId)
+            }
+	  } else {
+            log.debug("CACHE_CONTROLLER: cache already contains key, or " + 
+                      "job to be cached has missing job results; " + 
+                      "not caching {} job {}",
+                      jobStatus.algorithm, jobStatus.id)
+	  }
+
 	case WriteCacheToFile =>
           log.debug("CACHE_CONTROLLER received WriteCacheToFile")
-	  if (writeNecessary) jobResultCache.writeCacheToFile
+	  jobResultCache.writeCacheToFileIfNeeded
           system.scheduler.scheduleOnce(writeInterval seconds, self, 
                                         WriteCacheToFile)
 
@@ -80,6 +102,40 @@ class CacheController extends Actor {
   val unknown: PartialFunction[Any,Unit] = {
     case m =>
       log.error("Cache controller received unhandled message")
+  }
+
+  // returns true if all expected job results (specified in the algorithm
+  // metadata) exist in the job result folder, false otherwise
+  def allJobResultsAvailable(jobStatus: Finished): Boolean = {
+    val sep = File.separator
+    val jobResultSubdir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc +
+                          sep + HtrcConfig.systemVariables("output_dir")
+    jobStatus.inputs.resultNames forall { res => 
+      log.debug("CACHE_CONTROLLER: looking for {}", jobResultSubdir + sep + res)
+      HtrcUtils.fileExists(jobResultSubdir + sep + res)
+    }
+  }
+
+  // create a new job folder in HtrcConfig.cacheDir which is a copy of the
+  // job result folder of the given job, and return Some(newJobFolderName);
+  // return None if the copy is unsuccessful
+  def copyJobToCacheDir(jobStatus: Finished): Option[String] = {
+    val sep = File.separator
+    val cachedJobId = HtrcUtils.newJobId
+    val srcDir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc
+    val destDir = HtrcConfig.cacheDir + sep + cachedJobId
+
+    log.debug("CACHE_CONTROLLER: copyJobToCacheDir, src {}, dest {}", srcDir, 
+	      destDir) 
+
+    try {
+      FileUtils.copyDirectory(new File(srcDir), new File(destDir))
+      Some(cachedJobId)
+    } catch {
+      case e: Exception => 
+	log.debug("CACHE_CONTROLLER: exception in copyJobToCacheDir {}", e)
+        None
+    }
   }
 
   override def preStart(): Unit = {

@@ -209,29 +209,16 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             status match {
               case s: PendingCompletion => 
                 JobCompletionTask(s, token, context) 
-              case s: JobComplete =>
-                handleCompletedJobs(jobId, s, token)
-                // val f = RegistryHttpClient.saveJob(s, jobId.toString, token)
-                // f map {res => 
-                //   if (res)  {
-                //     savedJobs += (jobId -> (new SavedHtrcJob(s)))
-                //     jobs -= jobId
-                //   }
-                //   else {
-                //     log.debug("ERROR in processing InternalJobUpdateStatus: " + 
-                //               "unable to save job to the registry")
-                //     job.get.setStatus(s)
-                //   }
-                // }
+	      case s: JobComplete => 
+	        s match {
+		  case fin: Finished => 
+		    fin.inputs.jobResultCacheKey foreach { cacheKey =>
+		      HtrcSystem.cacheController ! AddJobToCache(cacheKey, fin)
+		    }
+		    handleCompletedJobs(jobId, s, token)
+		  case _ => handleCompletedJobs(jobId, s, token)
+		}
               case _ => job.get.setStatus(status)
-              // case s @ FinishedPendingCompletion(_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
-              // case s @ TimedOutPendingCompletion(_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
-              // case s @ CrashedPendingCompletion(_,_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
-              // case s @ CrashedWithErrorPendingCompletion(_,_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
             }
 
         // JobSaveCompleted is sent by HtrcAgent to itself once the registry

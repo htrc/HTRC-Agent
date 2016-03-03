@@ -33,11 +33,21 @@ import akka.event.Logging
 
 class JobResultCache(val maxEntries: Int = 1000) {
   implicit val system = HtrcSystem.system
+  var writeNecessary = true
   // import system.dispatcher
   val log = Logging(system, "job-result-cache")
 
   val lruCache = MutableLRUCache[String, String](maxEntries)
   readCacheFromFile(HtrcConfig.cacheFilePath)
+
+  def contains(key: String): Boolean = {
+    lruCache.contains(key)
+  }
+
+  def put(key: String, jobId: String): Unit = {
+    lruCache += (key, jobId)
+    writeNecessary = true
+  }
 
   def readCacheFromFile(cacheFilePath: String): Unit = {
     try {
@@ -54,8 +64,12 @@ class JobResultCache(val maxEntries: Int = 1000) {
     writeCacheToLog
   }
 
-  def writeCacheToFile(): Unit = {
-    writeCacheToFile(HtrcConfig.cacheFilePath)
+  def writeCacheToFileIfNeeded(): Unit = {
+    if (writeNecessary) {
+      writeNecessary = false
+      writeCacheToFile(HtrcConfig.cacheFilePath)
+      // prettyPrintCacheToFile(HtrcConfig.readableCacheFilePath)
+    }
   }
 
   def writeCacheToFile(cacheFilePath: String): Unit = {
@@ -67,15 +81,25 @@ class JobResultCache(val maxEntries: Int = 1000) {
         </cachedJob> }
     val cacheIndexXml = <cacheIndex>{iter}</cacheIndex>
 
-    // 80 characters wide, 2 character indentation
-    val prettyPrinter = new scala.xml.PrettyPrinter(80, 2)
+    XML.save(cacheFilePath, cacheIndexXml)
+  }
+
+  def prettyPrintCacheToFile(cacheFilePath: String): Unit = {
+    val iter = lruCache.iterator map
+      { case (cacheKey, jobLoc) => 
+        <cachedJob>
+          <key>{cacheKey}</key>
+          <jobLocation>{jobLoc}</jobLocation>
+        </cachedJob> }
+    val cacheIndexXml = <cacheIndex>{iter}</cacheIndex>
+
+    // 500 characters wide, 2 character indentation
+    val prettyPrinter = new scala.xml.PrettyPrinter(500, 2)
     val readableXml = prettyPrinter.format(cacheIndexXml)
 
     val bw = new BufferedWriter(new FileWriter(new File(cacheFilePath)))
     bw.write(readableXml)
     bw.close()
-
-    // println(cacheIndexXml)
   }
 
   def size: Int = {
@@ -97,7 +121,6 @@ object JobResultCache {
     // collectionParamTimestamps is a list containing job params that are
     // collections and the timestamps of those collections,
     // paramiTs=<timestamp>, paramjTs=<timestamp>, ...
-    // val keyF = "(%s, %s, %s, %s, %s)"
     val keyF = "(%s, %s, %s, %s, %s)"
 
     val algName = js.algorithm

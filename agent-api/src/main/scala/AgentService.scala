@@ -112,7 +112,8 @@ trait AgentService extends HttpService {
                               dataForJobRun.jobResultCacheKey)
                    
                     val msg = 
-                      RunAlgorithm(JobInputs(js, dataForJobRun.algMetadata,
+                      RunAlgorithm(JobInputs(js, dataForJobRun.algMetadata, 
+                                             dataForJobRun.jobResultCacheKey, 
                                              token, requestId, ip))
                     dispatch(HtrcUser(userName)) { msg }
                   }
