@@ -63,28 +63,38 @@ class CacheController extends Actor {
           val currSender = sender
           log.debug("CACHE_CONTROLLER received GetDataForJobRun({}, {})", js, 
                     token)
+          
           RegistryHttpClient.algorithmMetadata(js.algorithm, token) map {
             algMetadata =>
-              JobResultCache.constructKey(js, algMetadata, token) map {
-                jobKey => currSender ! DataForJobRun(jobKey, algMetadata)
-              }
+              // if HtrcConfig.cacheJobs is set to false, then there is no
+              // need for the key
+	      if (!HtrcConfig.cacheJobs)
+                currSender ! DataForJobRun(None, algMetadata)
+              else {
+                JobResultCache.constructKey(js, algMetadata, token) map {
+                  jobKey => currSender ! DataForJobRun(jobKey, algMetadata)
+                }
+	      }
           }
 
 	case AddJobToCache(key, jobStatus) =>
 	  log.debug("CACHE_CONTROLLER received AddJobToCache({}, {})", key, 
                     jobStatus.id)
-          // if the cache already contains the key, or if the "finished" job
-          // does not have all expected results, then do not add the job to
-          // the cache; this point in the code might be reached even if the
-          // cache contains the key, for instance when usecache for this job's
-          // "/algorithm/run" is false, and HtrcConfig.cacheJobs is true
-          if (!jobResultCache.contains(key) && 
+          // if cacheJobs is false, or if the cache already contains the key,
+          // or if the "finished" job does not have all expected results,
+          // then do not add the job to the cache; this point in the code
+          // might be reached even if the cache contains the key, for
+          // instance when usecache for this job's "/algorithm/run" is false,
+          // and HtrcConfig.cacheJobs is true
+          if (HtrcConfig.cacheJobs &&
+              (!jobResultCache.contains(key)) && 
               allJobResultsAvailable(jobStatus)) {
             copyJobToCacheDir(jobStatus) foreach { cachedJobId => 
               jobResultCache.put(key, cachedJobId)
             }
 	  } else {
-            log.debug("CACHE_CONTROLLER: cache already contains key, or " + 
+            log.debug("CACHE_CONTROLLER: cacheJobs is false, " + 
+                      "or cache already contains key, or " + 
                       "job to be cached has missing job results; " + 
                       "not caching {} job {}",
                       jobStatus.algorithm, jobStatus.id)
@@ -116,14 +126,14 @@ class CacheController extends Actor {
     }
   }
 
-  // create a new job folder in HtrcConfig.cacheDir which is a copy of the
-  // job result folder of the given job, and return Some(newJobFolderName);
-  // return None if the copy is unsuccessful
+  // create a new job folder in HtrcConfig.cachedJobsDir which is a copy of
+  // the job result folder of the given job, and return
+  // Some(newJobFolderName); return None if the copy is unsuccessful
   def copyJobToCacheDir(jobStatus: Finished): Option[String] = {
     val sep = File.separator
     val cachedJobId = HtrcUtils.newJobId
     val srcDir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc
-    val destDir = HtrcConfig.cacheDir + sep + cachedJobId
+    val destDir = HtrcConfig.cachedJobsDir + sep + cachedJobId
 
     log.debug("CACHE_CONTROLLER: copyJobToCacheDir, src {}, dest {}", srcDir, 
 	      destDir) 
