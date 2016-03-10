@@ -96,32 +96,55 @@ trait AgentService extends HttpService {
               entity(as[NodeSeq]) { userInput =>
                 val algorithm = userInput \ "algorithm" text
                 val token = tok.split(' ')(1)
-                // val inputProps =
-                //   RegistryHttpClient.algorithmMetadata(algorithm, token)
 
                 log.debug("AGENT_SERVICE /algorithm/run: useCache = {}",
                           useCache)
 
 		val js = JobSubmission(userInput, userName)
-		val dataForJobRunF = (HtrcSystem.cacheController ? 
-                  GetDataForJobRun(js, token)).mapTo[DataForJobRun]
+		def runAlgorithm(dataForJobRun: DataForJobRun): Future[NodeSeq] = {
+                  log.debug("AGENT_SERVICE /algorithm/run: cacheKey = {}",
+                            dataForJobRun.jobResultCacheKey)
+                  val msg = 
+                    RunAlgorithm(JobInputs(js, dataForJobRun.algMetadata, 
+                                           dataForJobRun.jobResultCacheKey, 
+                                           token, requestId, ip))
+                  dispatch(HtrcUser(userName)) { msg }
+		}
 
-                complete(
-                  dataForJobRunF map { dataForJobRun =>
-                    log.debug("AGENT_SERVICE /algorithm/run: cacheKey = {}",
-                              dataForJobRun.jobResultCacheKey)
-                   
-                    val msg = 
-                      RunAlgorithm(JobInputs(js, dataForJobRun.algMetadata, 
-                                             dataForJobRun.jobResultCacheKey, 
-                                             token, requestId, ip))
-                    dispatch(HtrcUser(userName)) { msg }
-                  }
-                )
+		// val dataForJobRunF = (HtrcSystem.cacheController ? 
+                //   GetDataForJobRun(js, token)).mapTo[DataForJobRun]
+                // complete(
+                //   dataForJobRunF map { dataForJobRun =>
+		//     runAlgorithm(dataForJobRun)
+                //   }
+                // )
+
+		if (useCache) {
+		  val cacheConRes = 
+		  ((HtrcSystem.cacheController ? GetJobFromCache(js, token)).mapTo[Either[DataForJobRun, DataForCachedJob]]) 
+		  complete( cacheConRes map { eith =>
+		    eith match {
+		      case Right(DataForCachedJob(cachedJobId, algMetadata)) => 
+                        val jobInputs = 
+                          JobInputs(js, algMetadata, None, token, requestId, ip)
+			val msg = CreateJobFromCache(jobInputs, cachedJobId)
+			dispatch(HtrcUser(userName)) { msg }
+			
+		      case Left(dataForJobRun) =>
+			runAlgorithm(dataForJobRun)
+		    }
+		  })
+		} else {
+		  val dataForJobRunF = 
+                    (HtrcSystem.cacheController ? GetDataForJobRun(js, token)).mapTo[DataForJobRun]
+		  complete(dataForJobRunF map { dataForJobRun => 
+                    runAlgorithm(dataForJobRun) 
+                  })
+		}
 	      }
-	    }
+            }
           }
-        }   
+	}
       } ~ 
       pathPrefix("job") {
         pathPrefix("all") {

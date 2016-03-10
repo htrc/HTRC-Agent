@@ -58,10 +58,30 @@ class CacheController extends Actor {
         case GetJobFromCache(js, token) =>
           log.debug("CACHE_CONTROLLER received GetJobFromCache({}, {})", js, 
                     token)
+	  val currSender = sender
+	  RegistryHttpClient.algorithmMetadata(js.algorithm, token) map {
+	    algMetadata =>
+	    JobResultCache.constructKey(js, algMetadata, token) map {
+              jobKey => self ! CacheLookup(jobKey, algMetadata, currSender)
+	    }
+	  }
 
-        case GetDataForJobRun(js, token) =>
-          val currSender = sender
-          log.debug("CACHE_CONTROLLER received GetDataForJobRun({}, {})", js, 
+	case CacheLookup(optKey, algMetadata, asker) =>
+          log.debug("CACHE_CONTROLLER received CacheLookup({}, {})", optKey, 
+                    asker)
+          val cacheRes = optKey flatMap { key => jobResultCache.get(key) }
+	  val result: Either[DataForJobRun, DataForCachedJob] = 
+	    cacheRes map { cachedJobId => 
+	      Right(DataForCachedJob(cachedJobId, algMetadata))
+	    } getOrElse { 
+              val resKey = if (HtrcConfig.cacheJobs) optKey else None
+	      Left(DataForJobRun(resKey, algMetadata)) 
+	    }
+	  asker ! result
+
+	case GetDataForJobRun(js, token) =>
+	  val currSender = sender
+	  log.debug("CACHE_CONTROLLER received GetDataForJobRun({}, {})", js, 
                     token)
           
           RegistryHttpClient.algorithmMetadata(js.algorithm, token) map {
@@ -164,3 +184,8 @@ class CacheController extends Actor {
 // after execution are to be cached
 case class DataForJobRun(jobResultCacheKey: Option[String], 
                          algMetadata: JobProperties)
+
+// response for message GetJobFromCache if job is found in the cache;
+// algMetadata is required to construct the final status of the cached job
+// including the list of job results
+case class DataForCachedJob(cachedJobId: String, algMetadata: JobProperties)

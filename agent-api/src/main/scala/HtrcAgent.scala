@@ -138,7 +138,33 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             sender ! Queued(inputs, id).renderXml
             job map { j => j ! RunJob }
           }
-            
+
+        // msg to create a job for this user based on existing job results in
+        // the cache
+	case CreateJobFromCache(inputs, cachedJobId) =>
+	  if( HtrcConfig.jobThrottling && !JobThrottler.jobsOk ) {
+	    log.info("Rejecting job due to overloading")
+	    sender ! <error>Max job count exceeded. Please try again later.</error>
+	  } else {
+	    JobThrottler.addJob() 
+	    val id = JobId(HtrcUtils.newJobId)
+    
+	    // for audit log anaylzer
+	    // type request_id user ip token job_id job_name algorithm
+	    val fstr = "CACHED_JOB_SUBMISSION\t%s\t%s\t%s\t%s\t%s\t%s\t%s"
+	    auditLog.info(fstr.format(inputs.requestId, user.name, inputs.ip, 
+				      inputs.token, id.toString,
+				      inputs.name, inputs.algorithm))
+
+	    val job = 
+	      (HtrcSystem.jobCreator ? 
+	       CreateCachedJob(inputs, id, cachedJobId)).mapTo[ActorRef]
+	    val jobStatus = Queued(inputs, id)
+	    jobs += (id -> HtrcJob(job, jobStatus))
+	    sender ! jobStatus.renderXml
+	    job map { j => j ! RunJob }
+	  }
+
         case JobStatusRequest(jobId) => 
           val job = jobs.get(jobId)
           val savedJob = savedJobs.get(jobId)

@@ -44,6 +44,10 @@ class JobResultCache(val maxEntries: Int = 1000) {
     lruCache.contains(key)
   }
 
+  def get(key: String): Option[String] = {
+    lruCache.hit(key)
+  }
+
   def put(key: String, jobId: String): Unit = {
     lruCache += (key, jobId)
     writeNecessary = true
