@@ -33,7 +33,7 @@ import akka.event.Logging
 
 class JobResultCache(val maxEntries: Int = 1000) {
   implicit val system = HtrcSystem.system
-  var writeNecessary = true
+  var writeNecessary = false
   // import system.dispatcher
   val log = Logging(system, "job-result-cache")
 
@@ -45,7 +45,13 @@ class JobResultCache(val maxEntries: Int = 1000) {
   }
 
   def get(key: String): Option[String] = {
-    lruCache.hit(key)
+    val res = lruCache.hit(key)
+    // if the key exists in the cache, then the LRU order of the entry
+    // corresponding to the key is affected, unless it is already the most
+    // recently used entry; the cache index should be written out at the next
+    // scheduled "WriteCacheToFile" msg to CacheController
+    res foreach { j => writeNecessary = true }
+    res
   }
 
   def put(key: String, jobId: String): Unit = {
@@ -62,7 +68,7 @@ class JobResultCache(val maxEntries: Int = 1000) {
       { case (cacheKey, jobLoc) => lruCache += (cacheKey, jobLoc) }
     } catch {
       case e: Exception => 
-        log.debug("JOB_RESULT_CACHE: exception while reading cache from file; {}",
+        log.error("JOB_RESULT_CACHE: exception while reading cache from file; {}",
                   e)
     }
     writeCacheToLog
@@ -71,8 +77,8 @@ class JobResultCache(val maxEntries: Int = 1000) {
   def writeCacheToFileIfNeeded(): Unit = {
     if (writeNecessary) {
       writeNecessary = false
+      log.debug("JOB_RESULT_CACHE: writing cache index to disk")
       writeCacheToFile(HtrcConfig.cacheFilePath)
-      // prettyPrintCacheToFile(HtrcConfig.readableCacheFilePath)
     }
   }
 
@@ -143,7 +149,7 @@ object JobResultCache {
 	collectionName => 
           RegistryHttpClient.collectionTimestamp(collectionName, token) map { 
             _ map { collectionTimestamp =>
-              collectionName + "Ts=" + collectionTimestamp
+              collectionName + "TS=" + collectionTimestamp
             }
           }
       })

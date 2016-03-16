@@ -75,7 +75,7 @@ class CachedJob(inputs: JobInputs, id: JobId,
       true
     } catch {
       case e: Exception =>
-	log.debug("CACHED_JOB({}): exception in createJobFolder() {}", id, e)
+    	log.error("CACHED_JOB({}): exception in createJobFolder() {}", id, e)
         false
     }
   }
@@ -96,7 +96,6 @@ class CachedJob(inputs: JobInputs, id: JobId,
           val startTime = java.lang.System.currentTimeMillis
           log.debug("CACHED_JOB({}): received RunJob", id)
 	  userActor = sender // HtrcAgent sends RunJob to CachedJob
-          Thread.sleep(5000) // sleep 5s
           val initStatus = Staging(inputs, id, computeResource)
 	  userActor ! InternalUpdateJobStatus(id, initStatus, token)
           val succ = createJobFolder()
@@ -105,6 +104,9 @@ class CachedJob(inputs: JobInputs, id: JobId,
               Finished(inputs, id, computeResource, jobResults)
             else Crashed(inputs, id, computeResource, Nil)
 	  userActor ! InternalUpdateJobStatus(id, finalStatus, token)
+
+	  // for jobs running on local shell
+          JobThrottler.removeJob()
 
           val endTime = java.lang.System.currentTimeMillis
           logEnd(if (succ) "FINISHED" else "CRASHED", 
@@ -118,7 +120,7 @@ class CachedJob(inputs: JobInputs, id: JobId,
 
         case StatusUpdate(status) =>
 	  // unexpected msg; add to log
-	  log.debug("CACHED_JOB({}): unexpected msg, StatusUpdate({})", id,
+	  log.error("CACHED_JOB({}): unexpected msg, StatusUpdate({})", id,
 		    status)
       }
     }

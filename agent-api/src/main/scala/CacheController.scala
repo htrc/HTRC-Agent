@@ -141,7 +141,7 @@ class CacheController extends Actor {
     val jobResultSubdir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc +
                           sep + HtrcConfig.systemVariables("output_dir")
     jobStatus.inputs.resultNames forall { res => 
-      log.debug("CACHE_CONTROLLER: looking for {}", jobResultSubdir + sep + res)
+      // log.debug("CACHE_CONTROLLER: looking for {}", jobResultSubdir + sep + res)
       HtrcUtils.fileExists(jobResultSubdir + sep + res)
     }
   }
@@ -163,7 +163,7 @@ class CacheController extends Actor {
       Some(cachedJobId)
     } catch {
       case e: Exception => 
-	log.debug("CACHE_CONTROLLER: exception in copyJobToCacheDir {}", e)
+	log.error("CACHE_CONTROLLER: exception in copyJobToCacheDir {}", e)
         None
     }
   }

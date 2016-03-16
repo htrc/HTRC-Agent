@@ -49,26 +49,10 @@ object RegistryHttpClient {
   val log = Logging(system, "registry-http-client")
   val auditLog = Logger("audit")
 
-  // initialize the bridge to the IO layer used by Spray
-  // val ioBridge = IOExtension(system).ioBridge()
-
   def queryRegistry(query: String, method: HttpMethod, token: String, acceptContentType: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
 
-    // since we are using the registry I can just grab some info
-    // val root = registryHost
-    // val port = registryPort
-    // val path = "/ExtensionAPI-"+registryVersion+"/services/"
     val uri = registryUrl + query
 
-    // create a client to use
-    // val httpClient = system.actorOf(Props(new HttpClient(ioBridge)))
-
-    // now we define a conduit, which is a use of the client
-    // val conduit = system.actorOf(
-    //   // props = Props(new HttpConduit(httpClient, root, port, sslEnabled=true)) // prod stack: sslEnabled = true
-    //   props = Props(new HttpConduit(httpClient, root, port))
-    // )
-    
     // the pipeline is exactly what happens with our request
     val pipeline: HttpRequest => Future[HttpResponse] = (
       addHeader("Accept", acceptContentType)
@@ -90,7 +74,7 @@ object RegistryHttpClient {
     log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
 
     response
-  }
+   }
 
   // all methods except for collectionData require content type of the
   // response to be "application/xml"
@@ -160,15 +144,51 @@ object RegistryHttpClient {
 //    log.info(fstr)
     val q = query("files/algorithmfolder/"+name+".xml?public=true", GET, token)
     q map { response =>
-      JobProperties(XML.loadString(response.entity.asString)) }
+      JobProperties(XML.loadString(response.entity.asString)) 
+    }
   }
 
+  // obtain the time of last modification of the specified algorithm XML file
   def algorithmXMLTimestamp(name: String, token: String): Future[Option[String]] = {
-    Future { Some("algXMLTimestamp") }
+    val q = query("files/algorithmfolder/"+name+".xml?public=true", OPTIONS, 
+                  token)
+    q map { response =>
+      if (response.status.isSuccess) {
+        val algXMLMetadata = XML.loadString(response.entity.asString)
+        Some(algXMLMetadata \ "lastModified" text)
+      } else {
+        log.error("REGISTRY_CLIENT_QUERY: {} error in obtaining " + 
+                  "algorithmXMLTimestamp({}, {})", response.status.value, name, 
+                  token)
+        None
+      }
+    }
+    // Future { Some("algXMLTimestamp") }
   }
 
-  def collectionTimestamp(collection: String, token: String): Future[Option[String]] = {
-    Future { Some("timestamp") }
+  // obtain the time of last modification of the specified collection; it is
+  // expected that if the collection is private to a user v different from
+  // the user u that owns the given oauth token, then the this method will
+  // return Future(None)
+  def collectionTimestamp(name: String, token: String): Future[Option[String]] = {
+    val title = name.split('@')(0)
+    val author = name.split('@')(1)
+    val q = query("worksets/"+title+"/metadata?author="+author, GET, token)
+    q map { response =>
+      if (response.status.isSuccess) {
+        val metadata = XML.loadString(response.entity.asString)
+        // val res = (metadata \\ "lastModified" text)
+        // log.debug("REGISTRY_CLIENT_QUERY: collectionTimestamp({}) metadata = " +
+        //           "{}, result = {}", name, metadata, res)
+        Some(metadata \\ "lastModified" text)
+      } else {
+        log.error("REGISTRY_CLIENT_QUERY: {} error in obtaining " + 
+                  "collectionTimestamp({}, {})", response.status.value, name, 
+                  token)
+        None
+      }
+    }
+    // Future { Some("timestamp") }
   }
     
   def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
