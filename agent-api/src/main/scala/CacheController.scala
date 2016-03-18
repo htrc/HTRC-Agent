@@ -44,6 +44,7 @@ class CacheController extends Actor {
   val log = Logging(context.system, this)
 
   val jobResultCache = new JobResultCache(HtrcConfig.cacheSize)
+  jobResultCache.readCacheFromFile(HtrcConfig.cacheFilePath)
 
   // schedule periodic writes of the cache index to disk
   val writeInterval = HtrcConfig.cacheWriteInterval
@@ -51,6 +52,12 @@ class CacheController extends Actor {
             "initCacheSize = {}, maxCacheSize = {}, cacheJobs = {}", 
             writeInterval, jobResultCache.size, HtrcConfig.cacheSize, 
             HtrcConfig.cacheJobs)
+
+  // list of cached job folders that have to be removed after the cache index
+  // is written to disk; the cache index is written out periodically; this
+  // list contains cache entries that have been eliminated from
+  // jobResultCache because of limited capacity
+  var cachedJobsToDelete: List[String] = Nil
 
   val behavior: PartialFunction[Any,Unit] = {
     case m: CacheControllerMessage => 
@@ -110,7 +117,8 @@ class CacheController extends Actor {
               (!jobResultCache.contains(key)) && 
               allJobResultsAvailable(jobStatus)) {
             copyJobToCacheDir(jobStatus) foreach { cachedJobId => 
-              jobResultCache.put(key, cachedJobId)
+	      addJobToCache(key, cachedJobId)
+              // jobResultCache.put(key, cachedJobId)
             }
 	  } else {
             log.debug("CACHE_CONTROLLER: cacheJobs is false, " + 
@@ -122,7 +130,10 @@ class CacheController extends Actor {
 
 	case WriteCacheToFile =>
           log.debug("CACHE_CONTROLLER received WriteCacheToFile")
-	  jobResultCache.writeCacheToFileIfNeeded
+	  jobResultCache.writeCacheToFileIfNeeded(HtrcConfig.cacheFilePath)
+          // remove the folders of any cached jobs that are no longer in the
+          // just-written cache index
+          removeCachedJobs()
           system.scheduler.scheduleOnce(writeInterval seconds, self, 
                                         WriteCacheToFile)
 
@@ -132,6 +143,34 @@ class CacheController extends Actor {
   val unknown: PartialFunction[Any,Unit] = {
     case m =>
       log.error("Cache controller received unhandled message")
+  }
+
+  def addJobToCache(key: String, cachedJobId: String): Unit = {
+    jobResultCache.put(key, cachedJobId) foreach { 
+      case(removedKey, removedJobId) => 
+	// add the removed job id to cachedJobsToDelete, so that the job
+	// folder is removed on the next write of jobResultCache; if the job
+	// folder is removed immediately, and the agent is stopped before
+	// jobResultCache is written to disk, upon agent startup
+	// jobResultCache will contain a job id that no longer exists in the
+	// folder containing cached jobs
+        cachedJobsToDelete = removedJobId :: cachedJobsToDelete
+        log.debug("CACHE_CONTROLLER: addJobToCache, cachedJobsToDelete = {}", 
+		  cachedJobsToDelete)
+    }
+  }
+
+  def removeCachedJobs(): Unit = {
+    val cacheIndexJobIds = jobResultCache.values
+    // remove those jobs in the cachedJobsToDelete that are not in
+    // jobResultCache
+    for (cachedJobId <- cachedJobsToDelete
+         if (! cacheIndexJobIds.contains(cachedJobId))) {
+      val sep = File.separator
+      val cachedJobDir = HtrcConfig.cachedJobsDir + sep + cachedJobId
+      deleteDir(cachedJobDir)
+    }
+    cachedJobsToDelete = Nil
   }
 
   // returns true if all expected job results (specified in the algorithm
@@ -165,6 +204,18 @@ class CacheController extends Actor {
       case e: Exception => 
 	log.error("CACHE_CONTROLLER: exception in copyJobToCacheDir {}", e)
         None
+    }
+  }
+
+  def deleteDir(dir: String): Boolean = {
+    try {
+      FileUtils.deleteDirectory(new File(dir))
+      log.debug("CACHE_CONTROLLER: deleted cached job folder {}", dir)
+      true
+    } catch {
+      case e: Exception => 
+	log.error("CACHE_CONTROLLER: exception in deleteDir({}), {}", dir, e)
+	false
     }
   }
 

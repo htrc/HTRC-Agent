@@ -102,8 +102,6 @@ trait AgentService extends HttpService {
 
 		val js = JobSubmission(userInput, userName)
 		def runAlgorithm(dataForJobRun: DataForJobRun): Future[NodeSeq] = {
-                  log.debug("AGENT_SERVICE /algorithm/run: cacheKey = {}",
-                            dataForJobRun.jobResultCacheKey)
                   val msg = 
                     RunAlgorithm(JobInputs(js, dataForJobRun.algMetadata, 
                                            dataForJobRun.jobResultCacheKey, 
@@ -111,26 +109,23 @@ trait AgentService extends HttpService {
                   dispatch(HtrcUser(userName)) { msg }
 		}
 
-		// val dataForJobRunF = (HtrcSystem.cacheController ? 
-                //   GetDataForJobRun(js, token)).mapTo[DataForJobRun]
-                // complete(
-                //   dataForJobRunF map { dataForJobRun =>
-		//     runAlgorithm(dataForJobRun)
-                //   }
-                // )
-
 		if (useCache) {
 		  val cacheConRes = 
 		  ((HtrcSystem.cacheController ? GetJobFromCache(js, token)).mapTo[Either[DataForJobRun, DataForCachedJob]]) 
 		  complete( cacheConRes map { eith =>
 		    eith match {
-		      case Right(DataForCachedJob(cachedJobId, algMetadata)) => 
+		      case Right(DataForCachedJob(cachedJobId, algMetadata)) =>
+                        log.debug("AGENT_SERVICE: received response " + 
+				  "DataForCachedJob({})", cachedJobId)
                         val jobInputs = 
                           JobInputs(js, algMetadata, None, token, requestId, ip)
 			val msg = CreateJobFromCache(jobInputs, cachedJobId)
 			dispatch(HtrcUser(userName)) { msg }
 			
 		      case Left(dataForJobRun) =>
+                        log.debug("AGENT_SERVICE: received response " + 
+				  "DataForJobRun(key = {})", 
+				  dataForJobRun.jobResultCacheKey)
 			runAlgorithm(dataForJobRun)
 		    }
 		  })
@@ -138,6 +133,9 @@ trait AgentService extends HttpService {
 		  val dataForJobRunF = 
                     (HtrcSystem.cacheController ? GetDataForJobRun(js, token)).mapTo[DataForJobRun]
 		  complete(dataForJobRunF map { dataForJobRun => 
+                    log.debug("AGENT_SERVICE: received response " + 
+			      "DataForJobRun(key = {})", 
+			      dataForJobRun.jobResultCacheKey)
                     runAlgorithm(dataForJobRun) 
                   })
 		}

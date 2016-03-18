@@ -37,8 +37,12 @@ class JobResultCache(val maxEntries: Int = 1000) {
   // import system.dispatcher
   val log = Logging(system, "job-result-cache")
 
+  // lruCache contains a mapping of keys to cached job ids; keys are Strings
+  // containing job run parameters; see method constructKey below for
+  // details; the value associated with each key provides the name of the
+  // folder in HtrcConfig.cachedJobsDir that contains the results of the
+  // corresponding job submission
   val lruCache = MutableLRUCache[String, String](maxEntries)
-  readCacheFromFile(HtrcConfig.cacheFilePath)
 
   def contains(key: String): Boolean = {
     lruCache.contains(key)
@@ -54,9 +58,17 @@ class JobResultCache(val maxEntries: Int = 1000) {
     res
   }
 
-  def put(key: String, jobId: String): Unit = {
+  // add an entry to lruCache, and return the entry that had to be removed to
+  // make place for the new entry; return None if there is no such entry
+  def put(key: String, jobId: String): Option[(String, String)] = {
+    val res = if (size == maxEntries) oldestEntry else None
     lruCache += (key, jobId)
     writeNecessary = true
+    res
+  }
+
+  def values: List[String] = {
+    (lruCache.iterator map { case(key, cachedJobId) => cachedJobId }).toList
   }
 
   def readCacheFromFile(cacheFilePath: String): Unit = {
@@ -74,11 +86,11 @@ class JobResultCache(val maxEntries: Int = 1000) {
     writeCacheToLog
   }
 
-  def writeCacheToFileIfNeeded(): Unit = {
+  def writeCacheToFileIfNeeded(cacheFilePath: String): Unit = {
     if (writeNecessary) {
       writeNecessary = false
       log.debug("JOB_RESULT_CACHE: writing cache index to disk")
-      writeCacheToFile(HtrcConfig.cacheFilePath)
+      writeCacheToFile(cacheFilePath)
     }
   }
 
@@ -114,6 +126,13 @@ class JobResultCache(val maxEntries: Int = 1000) {
 
   def size: Int = {
     lruCache.iterator.size
+  }
+
+  def oldestEntry: Option[(String, String)] = {
+    val it = lruCache.iterator
+    if (it.hasNext) 
+      Some(it.next)
+    else None
   }
 
   def writeCacheToLog(): Unit = {
