@@ -32,6 +32,7 @@ import akka.pattern.ask
 import akka.pattern.pipe
 import scala.sys.process.{ Process => SProcess }
 import org.apache.commons.io.FileUtils
+import org.apache.commons.io.filefilter.DirectoryFileFilter
 
 class CacheController extends Actor {
   // context import
@@ -43,8 +44,13 @@ class CacheController extends Actor {
   // logging
   val log = Logging(context.system, this)
 
+  val sep = File.separator
+
   val jobResultCache = new JobResultCache(HtrcConfig.cacheSize)
   jobResultCache.readCacheFromFile(HtrcConfig.cacheFilePath)
+  // remove orphaned cached job folders if so specified
+  if (HtrcConfig.cleanUpCachedJobsOnStartup)
+    cleanUpCachedJobsFolder()
 
   // schedule periodic writes of the cache index to disk
   val writeInterval = HtrcConfig.cacheWriteInterval
@@ -160,23 +166,41 @@ class CacheController extends Actor {
     }
   }
 
+  // remove job folders in the cachedJobsToDelete list
   def removeCachedJobs(): Unit = {
     val cacheIndexJobIds = jobResultCache.values
-    // remove those jobs in the cachedJobsToDelete that are not in
-    // jobResultCache
     for (cachedJobId <- cachedJobsToDelete
+	 // ensure that these jobs are not in jobResultCache
          if (! cacheIndexJobIds.contains(cachedJobId))) {
-      val sep = File.separator
+      // val sep = File.separator
       val cachedJobDir = HtrcConfig.cachedJobsDir + sep + cachedJobId
       deleteDir(cachedJobDir)
     }
     cachedJobsToDelete = Nil
   }
 
+  // remove orphaned cached job folders, i.e., the cached jobs that are not
+  // present in the persistent cache index; this function is expected to be
+  // called at startup, after jobResultCache has been initialized; it handles
+  // scenarios where jobs are added to jobResultCache, after which the agent
+  // shuts down, before jobResultCache, containing the newly added jobs, is
+  // written to disk
+  def cleanUpCachedJobsFolder(): Unit = {
+    val cachedJobDirs = 
+      (new File(HtrcConfig.cachedJobsDir)).list(DirectoryFileFilter.DIRECTORY)
+    val cacheIndexJobIds = jobResultCache.values
+    for (cachedJobId <- cachedJobDirs
+	 // ensure that these jobs are not in jobResultCache
+         if (! cacheIndexJobIds.contains(cachedJobId))) {
+      val orphanedCachedJobDir = HtrcConfig.cachedJobsDir + sep + cachedJobId
+      deleteDir(orphanedCachedJobDir)
+    }
+  }
+
   // returns true if all expected job results (specified in the algorithm
   // metadata) exist in the job result folder, false otherwise
   def allJobResultsAvailable(jobStatus: Finished): Boolean = {
-    val sep = File.separator
+    // val sep = File.separator
     val jobResultSubdir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc +
                           sep + HtrcConfig.systemVariables("output_dir")
     jobStatus.inputs.resultNames forall { res => 
@@ -189,7 +213,6 @@ class CacheController extends Actor {
   // the job result folder of the given job, and return
   // Some(newJobFolderName); return None if the copy is unsuccessful
   def copyJobToCacheDir(jobStatus: Finished): Option[String] = {
-    val sep = File.separator
     val cachedJobId = HtrcUtils.newJobId
     val srcDir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc
     val destDir = HtrcConfig.cachedJobsDir + sep + cachedJobId

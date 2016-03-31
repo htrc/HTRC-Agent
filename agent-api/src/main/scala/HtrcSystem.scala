@@ -209,6 +209,7 @@ object HtrcConfig {
     // whether jobs should be added to the cache after successful execution
   val cacheFilePath = config.getString("htrc.job_result_cache.cache_file_path")
   val cacheSize = config.getInt("htrc.job_result_cache.cache_size")
+  val cleanUpCachedJobsOnStartup = config.getBoolean("htrc.job_result_cache.cleanup_cached_jobs_on_startup")
   val cachedJobsDir = config.getString("htrc.job_result_cache.cached_jobs_dir")
   val cacheWriteInterval = cacheWriteIntervalInSec(config.getString("htrc.job_result_cache.cache_write_interval"))
 
