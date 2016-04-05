@@ -166,10 +166,16 @@ object JobResultCache {
     val collectionTimestampsF = 
       Future.sequence(js.collections map { 
 	collectionName => 
-          RegistryHttpClient.collectionTimestamp(collectionName, token) map { 
-            _ map { collectionTimestamp =>
-              collectionName + "TS=" + collectionTimestamp
-            }
+          RegistryHttpClient.collectionMetadata(collectionName, token) map { 
+            _ flatMap { case (collectionTimestamp, isPublic) =>
+              Option(if (HtrcConfig.cacheJobsOnPrivWksets)
+                       collectionName + "TS=" + collectionTimestamp
+                     else if (isPublic)
+                       collectionName + "TS=" + collectionTimestamp
+                     else null)
+                // if cacheJobsOnPrivWksets is false, and the workset is private
+                // return Option(null) = None
+	    }
           }
       })
 

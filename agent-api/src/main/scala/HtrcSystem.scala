@@ -212,6 +212,9 @@ object HtrcConfig {
   val cleanUpCachedJobsOnStartup = config.getBoolean("htrc.job_result_cache.cleanup_cached_jobs_on_startup")
   val cachedJobsDir = config.getString("htrc.job_result_cache.cached_jobs_dir")
   val cacheWriteInterval = cacheWriteIntervalInSec(config.getString("htrc.job_result_cache.cache_write_interval"))
+  val cacheJobsOnPrivWksets = config.getBoolean("htrc.job_result_cache.cache_jobs_on_priv_wksets")
+     // whether cache read/write should be performed for job submissions for
+     // whom at least one input workset is private
 
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."

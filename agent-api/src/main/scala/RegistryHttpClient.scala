@@ -166,11 +166,15 @@ object RegistryHttpClient {
     // Future { Some("algXMLTimestamp") }
   }
 
-  // obtain the time of last modification of the specified collection; it is
+  // the Future result contains an Option containing a pair, Some((timestamp,
+  // isPublic)), where timestamp is the time of last modification of the
+  // given collection, and isPublic is a Boolean value which is true if the
+  // collection is public, false otherwise; if the registry extension call to
+  // obtain the collection metadata fails, then return Future(None); it is
   // expected that if the collection is private to a user v different from
-  // the user u that owns the given oauth token, then the this method will
-  // return Future(None)
-  def collectionTimestamp(name: String, token: String): Future[Option[String]] = {
+  // the user u that owns the given oauth token, then the method returns
+  // Future(None)
+  def collectionMetadata(name: String, token: String): Future[Option[(String, Boolean)]] = {
     val title = name.split('@')(0)
     val author = name.split('@')(1)
     val q = query("worksets/"+title+"/metadata?author="+author, GET, token)
@@ -178,17 +182,17 @@ object RegistryHttpClient {
       if (response.status.isSuccess) {
         val metadata = XML.loadString(response.entity.asString)
         // val res = (metadata \\ "lastModified" text)
-        // log.debug("REGISTRY_CLIENT_QUERY: collectionTimestamp({}) metadata = " +
+        // log.debug("REGISTRY_CLIENT_QUERY: collectionMetadata({}) metadata = " +
         //           "{}, result = {}", name, metadata, res)
-        Some(metadata \\ "lastModified" text)
+        Some((metadata \\ "lastModified" text),
+             (metadata \\ "public" text).toBoolean)
       } else {
         log.error("REGISTRY_CLIENT_QUERY: {} error in obtaining " + 
-                  "collectionTimestamp({}, {})", response.status.value, name, 
+                  "collectionMetadata({}, {})", response.status.value, name, 
                   token)
         None
       }
     }
-    // Future { Some("timestamp") }
   }
     
   def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
