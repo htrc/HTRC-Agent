@@ -135,7 +135,7 @@ class CacheController extends Actor {
 	  }
 
 	case WriteCacheToFile =>
-          log.debug("CACHE_CONTROLLER received WriteCacheToFile")
+          // log.debug("CACHE_CONTROLLER received WriteCacheToFile")
 	  jobResultCache.writeCacheToFileIfNeeded(HtrcConfig.cacheFilePath)
           // remove the folders of any cached jobs that are no longer in the
           // just-written cache index

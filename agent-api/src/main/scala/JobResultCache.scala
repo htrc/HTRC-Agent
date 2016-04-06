@@ -83,7 +83,7 @@ class JobResultCache(val maxEntries: Int = 1000) {
         log.error("JOB_RESULT_CACHE: exception while reading cache from file; {}",
                   e)
     }
-    writeCacheToLog
+    // writeCacheToLog
   }
 
   def writeCacheToFileIfNeeded(cacheFilePath: String): Unit = {
