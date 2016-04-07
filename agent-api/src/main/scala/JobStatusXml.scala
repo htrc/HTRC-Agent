@@ -29,6 +29,7 @@ package htrc.agent
 // Currently a bunch of info is inserted by just including a pointer
 // to the JobInputs for this job. Should this be changed?
 
+import java.io.File
 import java.util.Date
 import java.text.SimpleDateFormat
 import scala.xml._
@@ -81,6 +82,12 @@ sealed trait PendingCompletion extends JobStatus {
 // trait representing the state of a job that is completely done
 trait JobComplete extends JobStatus {
   val results: List[JobResult]
+
+  // relative path of folder containing job results and other files related
+  // to job execution; the path is relative to HtrcConfig.resultDir
+  def jobResultLoc: String = {
+    submitter + File.separator + id
+  }
 
   def saveXml: NodeSeq = {
     <job_status>
@@ -150,71 +157,6 @@ case class TimedOutPendingCompletion(
   jobRuntime: String) extends PendingCompletion {
   val status = <status type="TimedOutPendingCompletion"/>
 }
-
-// case class Finished(inputs: JobInputs, id: JobId, computeResource: String, 
-//                     results: List[JobResult]) extends JobStatus {
-//   val status =
-//     <status type="Finished">
-//       <results>
-//         {for(r <- results) yield r.renderXml}
-//       </results>
-//     </status>
-
-//   def saveXml: NodeSeq = {
-//     <job_status>
-//       <job_name>{name}</job_name>
-//       <user>{submitter}</user>
-//       <algorithm>{algorithm}</algorithm>
-//       {parameters}
-//       <job_id>{id}</job_id>
-//       <date>{date}</date>
-//       <saved>saved</saved>
-//       <status type="Finished">
-//         <results>
-//           {for(r <- results) yield r.saveXml}
-//         </results>
-//       </status>
-//     </job_status>
-//   } 
-
-// }
-
-// case class TimedOut(inputs: JobInputs, id: JobId, computeResource: String, 
-//                     results: List[JobResult]) extends JobStatus {
-//   val status =
-//     <status type="Timed Out">
-//       <results>
-//         {for(r <- results) yield r.renderXml}
-//       </results>
-//     </status>
-
-//   def saveXml: NodeSeq = {
-//     <job_status>
-//       <job_name>{name}</job_name>
-//       <user>{submitter}</user>
-//       <algorithm>{algorithm}</algorithm>
-//       {parameters}
-//       <job_id>{id}</job_id>
-//       <date>{date}</date>
-//       <saved>saved</saved>
-//       <status type="Timed Out">
-//         <results>
-//           {for(r <- results) yield r.saveXml}
-//         </results>
-//       </status>
-//     </job_status>
-//   } 
-// }
-
-// case class Crashed(inputs: JobInputs, id: JobId, computeResource: String, 
-//                    results: List[JobResult]) extends JobStatus {
-//   val status = 
-//     <status type="Crashed">
-//       <results>
-//         {for(r <- results) yield r.renderXml}
-//       </results>
-//     </status>
-// }
 
 case class Finished(inputs: JobInputs, id: JobId, computeResource: String, 
                     results: List[JobResult]) extends JobComplete {

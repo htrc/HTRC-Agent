@@ -138,7 +138,33 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             sender ! Queued(inputs, id).renderXml
             job map { j => j ! RunJob }
           }
-            
+
+        // msg to create a job for this user based on existing job results in
+        // the cache
+	case CreateJobFromCache(inputs, cachedJobId) =>
+	  if( HtrcConfig.jobThrottling && !JobThrottler.jobsOk ) {
+	    log.info("Rejecting job due to overloading")
+	    sender ! <error>Max job count exceeded. Please try again later.</error>
+	  } else {
+	    JobThrottler.addJob() 
+	    val id = JobId(HtrcUtils.newJobId)
+    
+	    // for audit log anaylzer
+	    // type request_id user ip token job_id job_name algorithm
+	    val fstr = "CACHED_JOB_SUBMISSION\t%s\t%s\t%s\t%s\t%s\t%s\t%s"
+	    auditLog.info(fstr.format(inputs.requestId, user.name, inputs.ip, 
+				      inputs.token, id.toString,
+				      inputs.name, inputs.algorithm))
+
+	    val job = 
+	      (HtrcSystem.jobCreator ? 
+	       CreateCachedJob(inputs, id, cachedJobId)).mapTo[ActorRef]
+	    val jobStatus = Queued(inputs, id)
+	    jobs += (id -> HtrcJob(job, jobStatus))
+	    sender ! jobStatus.renderXml
+	    job map { j => j ! RunJob }
+	  }
+
         case JobStatusRequest(jobId) => 
           val job = jobs.get(jobId)
           val savedJob = savedJobs.get(jobId)
@@ -209,29 +235,16 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             status match {
               case s: PendingCompletion => 
                 JobCompletionTask(s, token, context) 
-              case s: JobComplete =>
-                handleCompletedJobs(jobId, s, token)
-                // val f = RegistryHttpClient.saveJob(s, jobId.toString, token)
-                // f map {res => 
-                //   if (res)  {
-                //     savedJobs += (jobId -> (new SavedHtrcJob(s)))
-                //     jobs -= jobId
-                //   }
-                //   else {
-                //     log.debug("ERROR in processing InternalJobUpdateStatus: " + 
-                //               "unable to save job to the registry")
-                //     job.get.setStatus(s)
-                //   }
-                // }
+	      case s: JobComplete => 
+	        s match {
+		  case fin: Finished => 
+		    fin.inputs.jobResultCacheKey foreach { cacheKey =>
+		      HtrcSystem.cacheController ! AddJobToCache(cacheKey, fin)
+		    }
+		    handleCompletedJobs(jobId, s, token)
+		  case _ => handleCompletedJobs(jobId, s, token)
+		}
               case _ => job.get.setStatus(status)
-              // case s @ FinishedPendingCompletion(_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
-              // case s @ TimedOutPendingCompletion(_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
-              // case s @ CrashedPendingCompletion(_,_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
-              // case s @ CrashedWithErrorPendingCompletion(_,_,_,_,_) => 
-              //   JobCompletionTask(s, context) 
             }
 
         // JobSaveCompleted is sent by HtrcAgent to itself once the registry

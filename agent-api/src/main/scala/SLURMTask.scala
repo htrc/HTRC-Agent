@@ -119,7 +119,8 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   val timelimit = HtrcConfig.getPBSWalltime(inputs)
   val envVars = 
     JobClientUtils.jobClientEnvVars(inputs, id, 
-                                    (targetWorkingDir + "/" + id), timelimit)
+                                    (targetWorkingDir + "/" + id), timelimit) ++
+    List(("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString))
   HtrcSystem.jobClientScriptCreator.
     createJobClientScript(envVars, workingDir + "/" + HtrcConfig.jobClientScript,
                           log)
