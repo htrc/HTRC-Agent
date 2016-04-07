@@ -22,6 +22,7 @@ package htrc.agent
 // Messages not specific to the agent, eventually refactor to better locations
 
 import scala.xml._
+import akka.actor.ActorRef
 
 case class BuildAgent(user: HtrcUser, message: AgentMessage)
 
@@ -31,12 +32,15 @@ sealed trait JobMessage
 sealed trait AgentMessage
 sealed trait RegistryMessage
 sealed trait WriteStatus
+sealed trait CacheControllerMessage
 
 case class CreateJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends JobCreatorMessage with ComputeResourceMessage
+case class CreateCachedJob(inputs: JobInputs, id: JobId, cachedJobId: String) extends JobCreatorMessage
 
 case class SaveJob(jobId: JobId, token: String) extends AgentMessage
 case class DeleteJob(jobId: JobId, token: String) extends AgentMessage with JobMessage
 case class RunAlgorithm(inputs: JobInputs) extends AgentMessage
+case class CreateJobFromCache(inputs: JobInputs, cachedJobId: String) extends AgentMessage
 case class JobStatusRequest(jobId: JobId) extends AgentMessage
 case object ActiveJobStatuses extends AgentMessage
 case class AllJobStatuses(token: String) extends AgentMessage
@@ -75,3 +79,20 @@ case class WriteCollection(name: String, workingDir: String, inputs: JobInputs) 
 
 case class RegistryError(e: String) extends WriteStatus
 case object RegistryOk extends WriteStatus
+
+// msgs sent from AgentServiceActor to CacheController 
+case class GetJobFromCache(js: JobSubmission, token: String) extends CacheControllerMessage
+case class GetDataForJobRun(js: JobSubmission, token: String) extends CacheControllerMessage
+
+// msg sent by CacheController to itself after constructing the lookup key upon
+// receiving GetJobFromCache
+case class CacheLookup(optKey: Option[String], algMetadata: JobProperties, 
+                       asker: ActorRef) extends CacheControllerMessage
+
+// periodic msg sent by CacheController to itself
+case object WriteCacheToFile extends CacheControllerMessage
+
+// msg sent from HtrcAgent to CacheController; only "finished" jobs can be
+// added to the cache
+case class AddJobToCache(key: String, jobStatus: Finished) extends CacheControllerMessage
+

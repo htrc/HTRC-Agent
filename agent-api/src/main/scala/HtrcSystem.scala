@@ -55,6 +55,10 @@ object HtrcSystem {
   // object to create job client script files
   val jobClientScriptCreator = 
      new JobClientScriptCreator(HtrcConfig.skelJobClientScript) 
+
+  // actor to manage job result cache
+  val cacheController = system.actorOf(Props(new CacheController), 
+                                       name = "cacheController")
 }
 
 // our global store of what agents exist
@@ -198,6 +202,20 @@ object HtrcConfig {
   val agentClientId = config.getString("htrc.id_server.agent_client_id")
   val agentClientSecret = config.getString("htrc.id_server.agent_client_secret")
 
+  // configuration params for the job result cache
+  val useCache = config.getBoolean("htrc.job_result_cache.use_cache")
+    // default value for the "usecache" query param of "/algorithm/run"
+  val cacheJobs = config.getBoolean("htrc.job_result_cache.cache_jobs")
+    // whether jobs should be added to the cache after successful execution
+  val cacheFilePath = config.getString("htrc.job_result_cache.cache_file_path")
+  val cacheSize = config.getInt("htrc.job_result_cache.cache_size")
+  val cleanUpCachedJobsOnStartup = config.getBoolean("htrc.job_result_cache.cleanup_cached_jobs_on_startup")
+  val cachedJobsDir = config.getString("htrc.job_result_cache.cached_jobs_dir")
+  val cacheWriteInterval = cacheWriteIntervalInSec(config.getString("htrc.job_result_cache.cache_write_interval"))
+  val cacheJobsOnPrivWksets = config.getBoolean("htrc.job_result_cache.cache_jobs_on_priv_wksets")
+     // whether cache read/write should be performed for job submissions for
+     // whom at least one input workset is private
+
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."
   val computeResourceUser = config.getString(computeResource + "user")
@@ -322,6 +340,20 @@ object HtrcConfig {
       result += (algorithm -> lsTuples.reverse)
     }
     result
+  }
+
+  // convert a string of the form "hh:mm:ss" into seconds; if the given
+  // string does not match the required pattern, then a default value of 1
+  // hour = 3600 seconds is returned
+  def cacheWriteIntervalInSec(str: String) = {
+    val hhmmss = """^(?:(?:(\d\d):)?(\d\d):)?(\d\d)$""".r
+    val defaultResult = 1*60*60 // 1 hour
+    str match {
+      case hhmmss(h, m, s) => 
+	val res = ((h.toInt)*60*60 + (m.toInt)*60 + s.toInt)
+        if (res == 0) defaultResult else res
+      case _ => defaultResult
+    }
   }
 }
 
