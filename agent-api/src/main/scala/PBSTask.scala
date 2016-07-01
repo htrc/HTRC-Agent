@@ -245,11 +245,11 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
     // val walltime = HtrcConfig.getPBSWalltime(inputs)
 
-    val cmdF = "ssh -t -t -q %s qsub %s " +
+    val cmdF = "ssh -t -t -q %s qsub -N %s %s " +
     "-l walltime=%s -o %s -e %s -V -W umask=0122 %s/%s/%s"
-    val cmd = cmdF.format(target, HtrcConfig.getQsubOptions, walltime, 
-                          jobClientOutFile, jobClientErrFile, targetWorkingDir, 
-                          id, HtrcConfig.jobClientScript)
+    val cmd = cmdF.format(target, qsubJobName, HtrcConfig.getQsubOptions,
+      walltime, jobClientOutFile, jobClientErrFile,
+      targetWorkingDir, id, HtrcConfig.jobClientScript)
     
     val sysProcess = SProcess(cmd, new File(workingDir))
     val exitVal = sysProcess ! qsubLogger
@@ -263,6 +263,23 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
       throw JobSetupException(qsubOut.toString, errorMsg + qsubErr.toString)
     }
     else jobid
+  }
+
+  // return a job name of the form <username>:<algorithmName>
+  def qsubJobName: String = {
+    // the qsub job name has the following form
+    //   (7 chars of username):algName
+    val maxLenUserName = 7
+    val divider = ":"
+
+    (user.name.substring(0, maxLenUserName.min(user.name.length)) + divider +
+      algorithmNameForQsub)
+  }
+
+  // obtain a short name for the algorithm to be used in the job name in qsub
+  def algorithmNameForQsub: String = {
+    val algName = inputs.info \ "short_name"
+    if (algName.isEmpty) (inputs.info \ "name" text) else algName.text
   }
 
   // Helper to write properties file to disk
