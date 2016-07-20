@@ -245,10 +245,10 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
     // val walltime = HtrcConfig.getPBSWalltime(inputs)
 
-    val cmdF = "ssh -t -t -q %s qsub -N %s %s " +
+    val cmdF = "ssh -t -t -q %s qsub -N %s %s %s " +
     "-l walltime=%s -o %s -e %s -V -W umask=0122 %s/%s/%s"
     val cmd = cmdF.format(target, qsubJobName, HtrcConfig.getQsubOptions,
-      walltime, jobClientOutFile, jobClientErrFile,
+      qsubProcessorReq, walltime, jobClientOutFile, jobClientErrFile,
       targetWorkingDir, id, HtrcConfig.jobClientScript)
     
     val sysProcess = SProcess(cmd, new File(workingDir))
@@ -280,6 +280,16 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   def algorithmNameForQsub: String = {
     val algName = inputs.info \ "short_name"
     if (algName.isEmpty) (inputs.info \ "name" text) else algName.text
+  }
+
+  // return a string containing the processor request for this job
+  def qsubProcessorReq: String = {
+    // obtain the no. of processors specified in the algorithm XML file, if any
+    val numProcs =
+      inputs.system.metadata \ "execution_info" \ "number_of_processors"
+  
+    HtrcConfig.getQsubProcReqStr + (if (numProcs.isEmpty)
+      HtrcConfig.getDefaultNumProcessors else numProcs.text)
   }
 
   // Helper to write properties file to disk

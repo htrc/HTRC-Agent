@@ -1,6 +1,6 @@
 organization  := "htrc"
 
-version       := "3.2.1"
+version       := "3.2.4"
 
 scalaVersion  := "2.10.4"
 
