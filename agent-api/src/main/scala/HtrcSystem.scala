@@ -263,6 +263,14 @@ object HtrcConfig {
     config.getString(computeResource + "qsub-options")
   }
 
+  def getQsubProcReqStr: String = {
+    config.getString(computeResource + "qsub-proc-req-str")
+  }
+
+  def getDefaultNumProcessors: Int = {
+    config.getInt(computeResource + "default-num-procs")
+  }
+
   def getSbatchOptions: String = {
     config.getString(computeResource + "sbatch-options")
   }
