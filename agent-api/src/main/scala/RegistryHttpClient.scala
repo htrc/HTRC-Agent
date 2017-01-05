@@ -39,6 +39,10 @@ import scala.util.{Success, Failure}
 import scala.xml._
 import HtrcConfig._
 import MediaTypes._
+import java.io.File
+import java.io.ByteArrayInputStream
+import java.io.InputStreamReader
+import com.github.tototoshi.csv._
 
 object RegistryHttpClient {
 
@@ -130,8 +134,8 @@ object RegistryHttpClient {
 
     q map { response =>
       if (response.status.isSuccess) {
-        writeFile(response.entity.data.toByteArray, dest)
-        true
+        writeFileWithEmptyFieldSubst(response.entity.data.toByteArray, dest)
+        // true
       }
       else false
     }
@@ -285,7 +289,40 @@ object RegistryHttpClient {
       out.close()
     }
   }
-    
+
+  // csv data for worksets may contain empty fields; these are not handled by
+  // Meandre; replace empty fields with a dummy value; call writeFile if
+  // substitution of empty fields is not required
+  def writeFileWithEmptyFieldSubst(bytes: Array[Byte], dest: String): Boolean = {
+    val byteRdr = new InputStreamReader(new ByteArrayInputStream(bytes))
+    val reader = CSVReader.open(byteRdr)
+
+    var res = true
+    try {
+      val writer = CSVWriter.open(new File(dest))
+
+      try {
+        reader foreach { row =>
+          writer.writeRow(row.map(x => (if (x == "") "HTRC_DUMMY_VAL" else x)))
+        }
+      } catch {
+        case e: Exception => 
+          log.error("REGISTRY_CLIENT_QUERY: exception in writing to {}: {}",
+            dest, e)
+          res = false
+      } finally {
+        writer.close()
+      }
+    } catch {
+      case e: Exception =>
+        log.error("REGISTRY_CLIENT_QUERY: exception in writing to {}: {}",
+          dest, e)
+        res = false
+    } finally {
+      byteRdr.close()
+      reader.close()
+    }
+    res
+  }
 
 }
-
