@@ -1,6 +1,6 @@
 organization  := "htrc"
 
-version       := "3.2.4"
+version       := "3.2.5"
 
 scalaVersion  := "2.10.4"
 
@@ -33,6 +33,7 @@ libraryDependencies ++= Seq(
   "org.apache.httpcomponents" % "httpcore" % "4.3.2",
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
   "commons-io" % "commons-io" % "2.4",
+  "com.github.tototoshi" %% "scala-csv" % "1.3.4",
   // "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
   "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
 )
