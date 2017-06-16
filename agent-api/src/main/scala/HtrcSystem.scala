@@ -154,7 +154,20 @@ object HtrcUtils {
 
 object HtrcConfig {
 
-  private val config = ConfigFactory.load("htrc.conf")
+  val defaultConfFilePath = "/etc/htrc/agent/htrc.conf"
+  val confFilePathVar = "HTRC_AGENT_CONF_FILE"
+
+  // an external path to the configuration file is used only when the agent is
+  // run in dummy mode, i.e., in the development environment
+  val confFilePath =
+    sys.env.getOrElse(confFilePathVar, defaultConfFilePath)
+
+  private val config =
+    if (HtrcUtils.fileExists(confFilePath)) {
+      ConfigFactory.parseFile(new File(confFilePath))
+    } else {
+      ConfigFactory.load("htrc.conf")
+    }
 
   val localResourceType = config.getString("htrc.compute.local_resource_type")
   val jobScheduler = config.getString("htrc.compute.job-scheduler")

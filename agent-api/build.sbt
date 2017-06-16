@@ -1,6 +1,6 @@
-organization  := "htrc"
+organization  := "edu.indiana.d2i.htrc"
 
-version       := "3.2.5"
+version       := "3.2.6-SNAPSHOT"
 
 scalaVersion  := "2.10.4"
 
@@ -34,9 +34,38 @@ libraryDependencies ++= Seq(
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
   "commons-io" % "commons-io" % "2.4",
   "com.github.tototoshi" %% "scala-csv" % "1.3.4",
-  // "edu.indiana.d2i.htrc.security" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
-  "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT"
+  "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT",
+  "edu.indiana.d2i.htrc" % "jwt-servletfilter"  % "0.1-SNAPSHOT"
 )
+
+// disable using the Scala version in output paths and artifacts
+crossPaths := false
+
+publishMavenStyle := true
+
+publishTo := Some("HTRC Nexus Snapshots" at "https://nexus.htrc.illinois.edu/content/repositories/snapshots/")
+
+// credentials += Credentials("Sonatype Nexus Repository Manager", "nexus.htrc.illinois.edu", "user", "passwd")
+
+credentials += Credentials(Path.userHome / "htrc-agent-dev" / "trunk.dummy-mode" / ".credentials")
+
+// disable .jar publishing
+publishArtifact in (Compile, packageBin) := false
+
+// disable publishing the main API jar
+publishArtifact in (Compile, packageDoc) := false
+
+// disable publishing the main sources jar
+publishArtifact in (Compile, packageSrc) := false
+
+// create an Artifact for publishing the .war file
+artifact in (Compile, packageWar) := {
+  val previous: Artifact = (artifact in (Compile, packageWar)).value
+  previous.copy(`type` = "war", extension = "war")
+}
+
+// add the .war file to what gets published
+addArtifact(artifact in (Compile, packageWar), packageWar)
 
 // container:start fails to start Jetty because of problems with jar file
 // icu4j-2.6.1.jar, but Tomcat is able get past this error

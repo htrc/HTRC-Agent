@@ -57,58 +57,20 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
       actorOf(Props(new PBSTask(user, inputs, id)))  
     } else if (HtrcConfig.jobScheduler == "SLURM") {
       actorOf(Props(new SLURMTask(user, inputs, id)))  
+    } else if (HtrcConfig.jobScheduler == "DUMMY") {
+      actorOf(Props(new DummyTask(user, inputs, id)))
     } else {
       actorOf(Props(new ShellTask(user, inputs, id)))
     }
   }
-
-  // mutable state party time
-  // var results: List[JobResult] = Nil
-  // var stdoutResult: Stdout = null
-  // var stderrResult: Stderr = null
-
-  // how long did the job take?
-  // val startTime = java.lang.System.currentTimeMillis
-  // var jobRuntime = "0"
-  // def totalTime: String = { 
-  //   if (HtrcConfig.jobScheduler == "PBS")
-  //   jobRuntime
-  //   else {
-  //     val endTime = java.lang.System.currentTimeMillis
-  //     ((endTime - startTime) / 1000).toString
-  //   }
-  // }
-
-  // def logEnd(t: String) {
-  //   // for audit log analyzer
-  //   // type end_status request_id user ip token job_id job_name algorithm run_time
-  //   val fstr = "JOB_TERMINATION\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s".format(t, 
-  //              inputs.requestId, user.name, inputs.ip, inputs.token, id,
-  //              inputs.name, inputs.algorithm, totalTime)
-  //   auditLog.info(fstr)
-  // }
     
   val behavior: PartialFunction[Any,Unit] = {
     case m: JobMessage => {
       m match {
-        // case Result(res) =>
-        //   results = res :: results
-        // case SaveJob(id, token) =>
-        //   status match {
-        //     case s @ Finished(_,id,_,_) =>
-        //       RegistryHttpClient.saveJob(s, id.toString, token)
-        //       s.saved = "saved"
-        //       sender ! <job>Saved job</job>
-        //     case s => 
-        //       sender ! <error>Job not yet finished or is crashed. Failed to save.</error>
-        //   }
         case DeleteJob(id, token) =>
           sender ! <success>deleted job: {id}</success>
           self ! PoisonPill
-        // case JobStatusRequest(id) =>
-        //   log.debug("JOB_ACTOR_STATUS_REQUEST\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
-        //           user.name, "ip", id, status)
-        //   sender ! status.renderXml
+
         case StatusUpdate(newStatus) =>
           log.debug("JOB_ACTOR_STATUS_UPDATE\t{}\t{}\tJOB_ID: {}\tSTATUS: {}",
                    user.name, "ip", id, newStatus)
@@ -128,15 +90,11 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
                                                   stderr, stdout)
               userActor ! InternalUpdateJobStatus(id, status, inputs.token)
             case InternalRunning =>
-              log.debug("JOB_ACTOR_ERROR: unexpected status update InternalRunning, USER: {}\tJOB_ID: {}", user.name, id)
-              // status = Running(inputs, id, computeResource)
-              // userActor ! InternalUpdateJobStatus(id, status)
-            case InternalFinished =>
-              log.debug("JOB_ACTOR_ERROR: unexpected status update InternalFinished, USER: {}\tJOB_ID: {}", user.name, id)
-              // JobThrottler.removeJob()
-              // logEnd("FINISHED")
-              // status = FinishedPendingCompletion(inputs, id, computeResource)
-              // userActor ! InternalUpdateJobStatus(id, status)
+              status = Running(inputs, id, computeResource)
+              userActor ! InternalUpdateJobStatus(id, status, inputs.token)
+            case InternalFinished(results) =>
+              status = Finished(inputs, id, computeResource, results)
+              userActor ! InternalUpdateJobStatus(id, status, inputs.token)
             case InternalCrashed(copyResults) =>
               log.debug("JOB_ACTOR_ERROR: unexpected status update InternalCrashed, USER: {}\tJOB_ID: {}", user.name, id)
               // JobThrottler.removeJob()
@@ -145,18 +103,6 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
               //                                   copyResults)
               // userActor ! InternalUpdateJobStatus(id, status)
           }
-        // case StdoutChunk(str) =>
-        //   stdout.append(str + "\n")
-        // case StderrChunk(str) =>
-        //   stderr.append(str + "\n")
-        // case JobRuntime(str) =>
-        //   jobRuntime = str
-        // case JobOutputRequest(id, "stdout") =>
-        //   sender ! stdoutResult.renderXml
-        // case JobOutputRequest(id, "stderr") =>
-        //   sender ! stderrResult.renderXml
-        // case JobOutputRequest(id, outputType) =>
-        //   sender ! "unrecognized output type: " + outputType
         case RunJob =>
           log.debug("launching job")
           userActor = sender

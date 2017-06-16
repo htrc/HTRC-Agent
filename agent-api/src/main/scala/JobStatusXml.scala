@@ -234,7 +234,7 @@ case object InternalQueued extends InternalJobStatus
 case object InternalStaging extends InternalJobStatus
 case object InternalQueuedOnTarget extends InternalJobStatus
 case object InternalRunning extends InternalJobStatus
-case object InternalFinished extends InternalJobStatus
+case class InternalFinished(results: List[JobResult]) extends InternalJobStatus
 case class InternalCrashed(copyResults: Boolean) extends InternalJobStatus
 case class InternalCrashedWithError(stderr: String, stdout: String) extends InternalJobStatus
 

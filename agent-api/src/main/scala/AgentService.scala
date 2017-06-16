@@ -17,6 +17,7 @@
 
 package htrc.agent
 
+import java.util.UUID
 import akka.actor.Actor
 import spray.routing._
 import spray.http._
@@ -83,9 +84,9 @@ trait AgentService extends HttpService {
   // the agent api calls
   val agentRoute =
     headerValueByName("Authorization") { tok =>
-    headerValueByName("htrc-remote-address") { ip =>
-    headerValueByName("htrc-request-id") { requestId =>
+    headerValueByName("Remote-Address") { ip =>
     headerValueByName("htrc-remote-user") { rawUser =>
+      val requestId = UUID.randomUUID.toString
       val userName = rawUser.split('@')(0)
       log.debug("userName = " + userName)
 
@@ -209,6 +210,5 @@ trait AgentService extends HttpService {
     //   complete("Path is not a valid API query.")
     // }
       }      
-    }                                      
   }
 }}
