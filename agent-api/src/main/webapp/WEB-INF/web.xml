@@ -67,4 +67,22 @@
       <servlet-name>SprayConnectorServlet</servlet-name>
     </filter-mapping>      
 
+    <!-- the following mapping using the JWT-ServletFilter is needed for the
+	 dummy-mode agent used in the development environment -->
+    <!--
+    <filter>
+      <filter-name>JWTFilter</filter-name>
+      <filter-class>edu.indiana.d2i.htrc.identity.JWTServletFilter</filter-class>
+      <init-param>
+        <param-name>htrc.jwtfilter.config</param-name>
+        <param-value>/etc/htrc/agent/jwtfilter.conf</param-value>
+      </init-param>
+    </filter>
+
+    <filter-mapping>
+      <filter-name>JWTFilter</filter-name>
+      <servlet-name>SprayConnectorServlet</servlet-name>
+    </filter-mapping>
+    -->
+    
 </web-app>
