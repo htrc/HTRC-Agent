@@ -52,7 +52,7 @@ class AgentServiceActor extends Actor with AgentService {
 trait AgentService extends HttpService {
   implicit def executionContext = actorRefFactory.dispatcher
 
-  // Implicit val timeout = Timeout(5 seconds)
+  // implicit val timeout = Timeout(5 seconds)
   implicit val timeout = Timeout(30 seconds)
 
   // logging setup
@@ -80,6 +80,12 @@ trait AgentService extends HttpService {
   }
 
   def token(t: String): String = t.split(' ')(1)
+
+  // prints the incoming request including headers; useful for debugging
+  // val agentRoute =
+  //   requestInstance { request =>
+  //     complete(s"Request method is ${request.method} and length is ${request.entity.data.length}; REQUEST=${request.toString}")
+  //   }
 
   // the agent api calls
   val agentRoute =

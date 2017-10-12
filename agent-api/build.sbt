@@ -1,6 +1,6 @@
 organization  := "edu.indiana.d2i.htrc"
 
-version       := "3.2.6-SNAPSHOT"
+version       := "3.2.6"
 
 scalaVersion  := "2.10.4"
 
@@ -34,8 +34,8 @@ libraryDependencies ++= Seq(
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
   "commons-io" % "commons-io" % "2.4",
   "com.github.tototoshi" %% "scala-csv" % "1.3.4",
-  "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT",
-  "edu.indiana.d2i.htrc" % "jwt-servletfilter"  % "0.1-SNAPSHOT"
+  // "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT",
+  "edu.indiana.d2i.htrc" % "jwt-servletfilter"  % "1.3.1"
 )
 
 // disable using the Scala version in output paths and artifacts
@@ -47,7 +47,7 @@ publishTo := Some("HTRC Nexus Snapshots" at "https://nexus.htrc.illinois.edu/con
 
 // credentials += Credentials("Sonatype Nexus Repository Manager", "nexus.htrc.illinois.edu", "user", "passwd")
 
-credentials += Credentials(Path.userHome / "htrc-agent-dev" / "trunk.dummy-mode" / ".credentials")
+credentials += Credentials(Path.userHome / "htrc-agent-dev" / "trunk" / ".credentials")
 
 // disable .jar publishing
 publishArtifact in (Compile, packageBin) := false

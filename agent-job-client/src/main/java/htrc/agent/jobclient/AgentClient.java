@@ -1,14 +1,19 @@
 package htrc.agent.jobclient;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+
+import javax.net.ssl.SSLContext;
 
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.EntityUtils;
 
 public class AgentClient {
@@ -78,58 +83,70 @@ public class AgentClient {
 	}
 
 	private void sendJobStatusUpdateHelper(String content, int numRetries) {
-		CloseableHttpClient httpClient = HttpClients.createDefault();
 		try {
-			HttpPost httpPost = new HttpPost(agentEndPoint + getJobStatusUpdateURL());
-			httpPost.setHeader("Authorization", "Bearer " + this.authToken);
-			httpPost.setHeader("Content-type", "text/xml");
-			StringEntity requestEntity = new StringEntity(content);
-		    httpPost.setEntity(requestEntity);
-		    
-			CloseableHttpResponse response = httpClient.execute(httpPost);
+			String keystore = "/N/dc2/scratch/drhtrc/htrc-agent/karst/agent_dependencies/AJC.keystore";
+			String keystorePsswd = "DUMMY_PASSWORD";
+			SSLContext sslcontext = SSLContexts.custom().loadKeyMaterial(new File(keystore), keystorePsswd.toCharArray(), keystorePsswd.toCharArray()).build();
+
+			SSLConnectionSocketFactory sslsf =
+					new SSLConnectionSocketFactory(sslcontext, new String[] { "TLSv1.1", "TLSv1.2" }, null, SSLConnectionSocketFactory.getDefaultHostnameVerifier());
+			CloseableHttpClient httpClient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+
+			// CloseableHttpClient httpClient = HttpClients.createDefault();
 			try {
-				StatusLine statusLine = response.getStatusLine();
-				int status = statusLine.getStatusCode();
-				if (status > 300) {
-					System.err.println("Unexpected response from the agent to \"job/id/updatestatus\" sent by AgentJobClient: "
-									+ statusLine);
-					EntityUtils.consume(response.getEntity());
-					if (numRetries < MAX_RETRIES) {
-	            		// the initial value of authToken, t0, is a password type token which might have expired;
-	            		// retry the call to the agent with a freshly obtained client credentials type token; the
-	            		// reason for multiple retries is explained below:
-	            		// 
-	            		// the agent and all instances of the AgentJobClient use the same oauth client to 
-	            		// obtain client credentials type tokens; if such a token, t, has already been acquired
-	            		// by some entity (such as the agent or an instance of the AJC) and is still valid, 
-	            		// then the same token, t, is returned by the Identity Server in response to subsequent
-	            		// requests for client credentials tokens; a new client credentials token, t', is
-	            		// returned only after the old one, t, has expired; so, it is possible that in the 1st
-	            		// retry of sendJobStatusUpdate, the client credentials token obtained is one with a 
-	            		// very short amount of remaining validity period, such that it expires by the time
-	            		// the "updatestatus" request containing the token is received by the agent; so, if the
-	            		// 1st retry of sendJobStatusUpdate results in an error response from the agent, then 
-	            		// perform a 2nd retry (starting with again obtaining a client credentials token)
-						this.authToken = idServerClient.getClientCredentialsTypeToken();
-						System.err.println("numRetries = " + numRetries + 
-								"; Retrying \"job/id/updatestatus\" with client credentials token " + 
-								this.authToken + ".");
-						sendJobStatusUpdateHelper(content, numRetries + 1);
+				HttpPost httpPost = new HttpPost(agentEndPoint + getJobStatusUpdateURL());
+				httpPost.setHeader("Authorization", "Bearer " + this.authToken);
+				httpPost.setHeader("Content-type", "text/xml");
+				StringEntity requestEntity = new StringEntity(content);
+				httpPost.setEntity(requestEntity);
+
+				CloseableHttpResponse response = httpClient.execute(httpPost);
+				try {
+					StatusLine statusLine = response.getStatusLine();
+					int status = statusLine.getStatusCode();
+					if (status > 300) {
+						System.err.println("Unexpected response from the agent to \"job/id/updatestatus\" sent by AgentJobClient: "
+								+ statusLine);
+						EntityUtils.consume(response.getEntity());
+						if (numRetries < MAX_RETRIES) {
+							// the initial value of authToken, t0, is a password type token which might have expired;
+							// retry the call to the agent with a freshly obtained client credentials type token; the
+							// reason for multiple retries is explained below:
+							// 
+							// the agent and all instances of the AgentJobClient use the same oauth client to 
+							// obtain client credentials type tokens; if such a token, t, has already been acquired
+							// by some entity (such as the agent or an instance of the AJC) and is still valid, 
+							// then the same token, t, is returned by the Identity Server in response to subsequent
+							// requests for client credentials tokens; a new client credentials token, t', is
+							// returned only after the old one, t, has expired; so, it is possible that in the 1st
+							// retry of sendJobStatusUpdate, the client credentials token obtained is one with a 
+							// very short amount of remaining validity period, such that it expires by the time
+							// the "updatestatus" request containing the token is received by the agent; so, if the
+							// 1st retry of sendJobStatusUpdate results in an error response from the agent, then 
+							// perform a 2nd retry (starting with again obtaining a client credentials token)
+							this.authToken = idServerClient.getClientCredentialsTypeToken();
+							System.err.println("numRetries = " + numRetries + 
+									"; Retrying \"job/id/updatestatus\" with client credentials token " + 
+									this.authToken + ".");
+							sendJobStatusUpdateHelper(content, numRetries + 1);
+						}
 					}
+					else
+						EntityUtils.consume(response.getEntity());
+				} finally {
+					response.close();
 				}
-				else
-					EntityUtils.consume(response.getEntity());
+			} catch (Exception e) {
+				handleException(e);
 			} finally {
-				response.close();
+				try {
+					httpClient.close();
+				} catch (IOException e) {
+					handleException(e);
+				}
 			}
 		} catch (Exception e) {
-	    	handleException(e);
-		} finally {
-			try {
-			  httpClient.close();
-			} catch (IOException e) {
-				handleException(e);
-			}
+			handleException(e);
 		}
 	}
 	
