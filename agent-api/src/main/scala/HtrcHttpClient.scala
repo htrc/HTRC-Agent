@@ -17,7 +17,7 @@ import spray.http._
 import spray.io.ClientSSLEngineProvider
 import java.io.File
 
-object HtrcHttpClient {
+class HtrcHttpClient {
   implicit val timeout = Timeout(5 seconds)
   implicit val system = HtrcSystem.system
   import system.dispatcher
@@ -45,7 +45,7 @@ object HtrcHttpClient {
     }
   }
 
-  def query(uri: String, httpRequest: HttpRequest): Future[HttpResponse] = {
+  def queryService(uri: String, httpRequest: HttpRequest): Future[HttpResponse] = {
     implicit val serviceUri = Uri(uri)
       // serviceUri has type spray.http.Uri, and is required as an implicit
       // param to mySendReceive
@@ -57,8 +57,8 @@ object HtrcHttpClient {
       ctx
        */
 
-      val keystore = "/home/drhtrc/rights-api/certificates/htrc4-client.keystore";
-      val keystorePsswd = "WPR-2A4-c5g-5hc";
+      val keystore = HtrcConfig.keystoreForOutgoingReqs;
+      val keystorePsswd = HtrcConfig.keystorePasswd;
       val ctx =
         SSLContexts.custom()
           .loadKeyMaterial(new File(keystore), keystorePsswd.toCharArray(),

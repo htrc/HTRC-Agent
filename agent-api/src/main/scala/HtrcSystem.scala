@@ -184,6 +184,9 @@ object HtrcConfig {
   val skelJobClientScript = config.getString("htrc.skel_job_client_script")
   val jobClientScript = config.getString("htrc.job_client_script")
 
+  val keystoreForOutgoingReqs = config.getString("htrc.keystore_for_outgoing_requests")
+  val keystorePasswd = config.getString("htrc.keystore_passwd") 
+
   val agentEndpoint = config.getString("htrc.agent_endpoint");
 
   // val registryHost = config.getString("htrc.registry.host")
