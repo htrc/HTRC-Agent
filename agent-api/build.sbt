@@ -30,7 +30,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka"       %%  "akka-slf4j"    % "2.3.6",
   // "javax.servlet" % "javax.servlet-api" % "3.0.1" % "provided",
   "ch.qos.logback" % "logback-classic" % "1.0.9",
-  "org.apache.httpcomponents" % "httpcore" % "4.3.2",
+  "org.apache.httpcomponents" % "httpcore" % "4.4.1",
   "org.apache.httpcomponents" % "httpclient" % "4.5.3",
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
   "commons-io" % "commons-io" % "2.4",

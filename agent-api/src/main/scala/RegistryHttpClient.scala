@@ -31,7 +31,6 @@ import HttpMethods._
 import scala.concurrent.duration._
 import akka.util.Timeout
 import akka.actor.{ ActorSystem, Props, Actor }
-import HttpMethods._
 import akka.pattern.ask
 import akka.event.Logging
 import akka.event.slf4j.Logger
@@ -43,106 +42,72 @@ import java.io.File
 import java.io.ByteArrayInputStream
 import java.io.InputStreamReader
 import com.github.tototoshi.csv._
-
-import javax.net.ssl.SSLContext
-import org.apache.http.ssl.SSLContexts
-import akka.io.IO
-import spray.can.Http
-import scala.concurrent.ExecutionContext
 import HttpHeaders._
 
-object RegistryHttpClient {
+object RegistryHttpClient extends HtrcHttpClient {
 
-  // the usual setup
-  implicit val timeout = Timeout(5 seconds)
-  implicit val system = HtrcSystem.system
+  implicit val regTimeout = Timeout(5 seconds)
   import system.dispatcher
-  val log = Logging(system, "registry-http-client")
+  override val log = Logging(system, "registry-http-client")
   val auditLog = Logger("audit")
-
-  // start of changes
-  // "futureTimeout: Timeout = 60.seconds" was also an implicit param
-  def mySendReceive(request: HttpRequest)(implicit uri: spray.http.Uri,
-    ec: ExecutionContext,
-    sslContext: SSLContext = SSLContext.getDefault): Future[ HttpResponse ] = {
-
-    implicit val clientSSLEngineProvider = ClientSSLEngineProvider { _ =>
-      val engine = sslContext.createSSLEngine( )
-      engine.setUseClientMode( true )
-      engine
-    }
-
-    for {
-      Http.HostConnectorInfo(connector, _) <- IO(Http) ? Http.HostConnectorSetup( uri.authority.host.address, port = uri.authority.port, sslEncryption = true )
-      response <- connector ? request
-    } yield response match {
-      case x: HttpResponse => x
-      case x: HttpResponsePart => sys.error( "sendReceive doesn't support chunked responses, try sendTo instead" )
-      case x: Http.ConnectionClosed => sys.error( "Connection closed before reception of response: " + x )
-      case x => sys.error( "Unexpected response from HTTP transport: " + x )
-    }
-  }
-
-  def queryRights(query: String, method: HttpMethod, token: String,
-    acceptContentType: String, body: Option[String] = None):
-      Future[HttpResponse] = {
-
-    val rightsUrl = "https://htrc5.pti.indiana.edu:10443/rights-api/"
-    val uri = rightsUrl + query
-
-    // how do we represent the content type of the xml?
-    val contentType = `application/json`
-
-    val headers = List(RawHeader("Accept", acceptContentType),
-      RawHeader("Authorization", "Bearer " + token))
-    val httpRequest =
-      body map { b =>
-        HttpRequest(method = method, uri = uri,
-          entity = HttpEntity(contentType, b), headers = headers)
-      } getOrElse {
-        HttpRequest(method = method, uri = uri, headers = headers)
-      }
-
-    // and now finally make a request
-    val response = mySendReceive(httpRequest).mapTo[HttpResponse]
-
-    log.debug("RIGHTS_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
-    printResponse(response)
-
-    response
-  }
 
   def queryRegistry(query: String, method: HttpMethod, token: String, acceptContentType: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
 
     val uri = registryUrl + query
 
-    // the pipeline is exactly what happens with our request
-    val pipeline: HttpRequest => Future[HttpResponse] = (
-      addHeader("Accept", acceptContentType)
-      ~> addHeader("Authorization", "Bearer " + token)
-      ~> sendReceive
-    )
-
-    // how do we represent the content type of the xml?
     val contentType = `application/xml`
 
-    // and now finally make a request
-    val response = 
-      if(body == None)
-        pipeline(HttpRequest(method = method, uri = uri)).mapTo[HttpResponse]
-      else
-        pipeline(HttpRequest(method = method, uri = uri, 
-                             entity = HttpEntity(contentType, body.get.toString))).mapTo[HttpResponse]
+    val headers = List(RawHeader("Accept", acceptContentType),
+      RawHeader("Authorization", "Bearer " + token))
 
+    val httpRequest =
+      body map { b =>
+        HttpRequest(method = method, uri = uri,
+          entity = HttpEntity(contentType, b.toString), headers = headers)
+      } getOrElse {
+        HttpRequest(method = method, uri = uri, headers = headers)
+      }
+
+    val response = queryService(uri, httpRequest)
     log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
 
+    // printResponse(response)
     response
-   }
+  }
 
   // all methods except for collectionData require content type of the
   // response to be "application/xml"
   def query(queryStr: String, method: HttpMethod, token: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
     queryRegistry(queryStr, method, token, "application/xml", body)
+  }
+
+  // method that may be used to send queries to different services for the
+  // purpose of testing
+  def testQuery(serviceUrl: String, query: String, method: HttpMethod, 
+                token: String, acceptContentType: String,
+		body: Option[NodeSeq] = None): Future[HttpResponse] = {
+
+    val uri = serviceUrl + query
+
+    val headers = List(RawHeader("Accept", acceptContentType),
+      RawHeader("Authorization", "Bearer " + token))
+
+    val contentType = `application/json`
+
+    val httpRequest =
+      body map { b =>
+        HttpRequest(method = method, uri = query,
+          entity = HttpEntity(contentType, b.toString), headers = headers)
+      } getOrElse {
+        HttpRequest(method = method, uri = query, headers = headers)
+      }
+
+    val response = queryService(uri, httpRequest)
+    log.debug("TEST_QUERY\tQUERY: {}", query)
+
+    printResponse(response)
+
+    response
   }
 
   // these two functions primarily for debugging

@@ -33,7 +33,8 @@ import scala.concurrent.Future
 import akka.event.Logging
 import scala.xml._
 
-import HttpMethods.POST
+// import HttpMethods.GET
+// import HttpMethods.POST
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
@@ -168,8 +169,11 @@ trait AgentService extends HttpService {
                      { ActiveJobStatuses })
             /*
             complete(
-              RegistryHttpClient.queryRights("filter", POST, token(tok),
-                "application/json", Some("""{"volumeIdsList":["mdp.39015080967915","mdp.39015080967600","mdp.39015080934287","mdp.39015080938338"]}""")))
+              RegistryHttpClient.testQuery("https://emailvalidator.internal.htrc.indiana.edu", "/validate/test@atla.com", GET, token(tok), "application/json"))
+             */
+            /*
+            complete(
+              RegistryHttpClient.testQuery("https://htc6.carbonate.uits.iu.edu/rights-api", "/filter?level=1|2", POST, token(tok), "application/json", Some("""{"volumeIdsList":["mdp.39015080967915","mdp.39015080967600","mdp.39015080934287","mdp.39015080938338"]}""")))
              */
           }
         } ~

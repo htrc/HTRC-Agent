@@ -1,6 +1,7 @@
 package htrc.agent
 
-// class to send requests to other HTRC services
+// class to send requests to other HTRC services; requests use mutual TLS
+// authentication
 
 import scala.concurrent.duration._
 import scala.concurrent.Future
@@ -17,6 +18,13 @@ import spray.http._
 import spray.io.ClientSSLEngineProvider
 import java.io.File
 
+import javax.net.ssl.SSLContext
+import org.apache.http.ssl.SSLContexts
+import HttpHeaders._
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SNIServerName
+import scala.collection.JavaConverters._
+
 class HtrcHttpClient {
   implicit val timeout = Timeout(5 seconds)
   implicit val system = HtrcSystem.system
@@ -26,16 +34,32 @@ class HtrcHttpClient {
   // "futureTimeout: Timeout = 60.seconds" was also an implicit param
   def mySendReceive(request: HttpRequest)(implicit uri: spray.http.Uri,
     ec: ExecutionContext,
-    sslContext: SSLContext = SSLContext.getDefault): Future[HttpResponse] = {
+    sslContext: SSLContext): Future[HttpResponse] = {
+
+    val uriHost = uri.authority.host.address
+    val uriPort = uri.authority.port
+    val hostConnPort = if (uriPort == 0) 443 else uriPort
 
     implicit val clientSSLEngineProvider = ClientSSLEngineProvider { _ =>
       val engine = sslContext.createSSLEngine( )
+      engine.setEnabledProtocols(Array("TLSv1.1", "TLSv1.2"))
+
+      // set the SNI, since it is expected by nginx
+      val sslParams = engine.getSSLParameters()
+      val serverNames = sslParams.getServerNames()
+      val sniServerName: SNIServerName = new SNIHostName(uriHost)
+      sslParams.setServerNames(List(sniServerName).asJava)
+      engine.setSSLParameters(sslParams)
+
       engine.setUseClientMode( true )
       engine
     }
 
+    log.debug("HTRC_HTTP_QUERY: uri = {}, uri.authority.host.address = {}, uri.authority.port = {}, hostConnPort = {}", uri, uriHost, uriPort, hostConnPort)
+
     for {
-      Http.HostConnectorInfo(connector, _) <- IO(Http) ? Http.HostConnectorSetup( uri.authority.host.address, port = uri.authority.port, sslEncryption = true )
+      // Http.HostConnectorInfo(connector, _) <- IO(Http) ? Http.HostConnectorSetup( uri.authority.host.address, port = uri.authority.port, sslEncryption = true )
+      Http.HostConnectorInfo(connector, _) <- IO(Http) ? Http.HostConnectorSetup( uriHost, port = hostConnPort, sslEncryption = true )
       response <- connector ? request
     } yield response match {
       case x: HttpResponse => x
@@ -61,14 +85,11 @@ class HtrcHttpClient {
       val keystorePsswd = HtrcConfig.keystorePasswd;
       val ctx =
         SSLContexts.custom()
-          .loadKeyMaterial(new File(keystore), keystorePsswd.toCharArray(),
-	    keystorePsswd.toCharArray())
+          .loadKeyMaterial(new File(keystore), keystorePsswd.toCharArray(), keystorePsswd.toCharArray())
 	  .build();
-      log.debug("HTRC_HTTP_QUERY: ctx.getProtocol = {}", ctx.getProtocol)
       ctx
     }
 
-    // and now finally make a request
     val response = mySendReceive(httpRequest)
 
     response
