@@ -1,6 +1,6 @@
 organization  := "edu.indiana.d2i.htrc"
 
-version       := "3.2.7-SNAPSHOT"
+version       := "3.2.7"
 
 scalaVersion  := "2.10.4"
 
