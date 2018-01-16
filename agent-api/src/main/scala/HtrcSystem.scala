@@ -154,7 +154,7 @@ object HtrcUtils {
 
 object HtrcConfig {
 
-  val defaultConfFilePath = "/etc/htrc/agent/htrc.conf"
+  val defaultConfFilePath = "/etc/htrc/agent/config/htrc.conf"
   val confFilePathVar = "HTRC_AGENT_CONF_FILE"
 
   // an external path to the configuration file is used only when the agent is

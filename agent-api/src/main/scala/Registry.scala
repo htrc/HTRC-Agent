@@ -64,15 +64,17 @@ class Registry extends Actor {
     case m: RegistryMessage =>
       m match {
         case WriteFile(path, name, dir, inputs) =>
-          log.debug("REGISTRY_WRITE_FILE\tNAME: {}\tTOKEN: {}",
-                   name, inputs.token)
+          // log.debug("REGISTRY_WRITE_FILE\tNAME: {}\tTOKEN: {}",
+          //          name, inputs.token)
+          log.debug("REGISTRY_WRITE_FILE\tNAME: {}", name)
           val dest = sender
           RegistryHttpClient.fileDownload(path, inputs, dir+"/"+name) map { b =>
             if (b) RegistryOk else RegistryError(path)
           } pipeTo dest
         case WriteCollection(name, dir, inputs) =>
-          log.debug("REGISTRY_WRITE_COLLECTION\tNAME: {}\tTOKEN: {}",
-                   name, inputs.token)
+          // log.debug("REGISTRY_WRITE_COLLECTION\tNAME: {}\tTOKEN: {}",
+          //          name, inputs.token)
+          log.debug("REGISTRY_WRITE_COLLECTION\tNAME: {}", name)
           val dest = sender
           RegistryHttpClient.collectionData(name, inputs, dir+"/"+name) map { b =>
             if (b) RegistryOk else RegistryError(name)
