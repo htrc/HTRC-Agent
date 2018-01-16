@@ -1,6 +1,8 @@
 organization  := "edu.indiana.d2i.htrc"
 
-version       := "3.2.7"
+name := "agent"
+
+version       := "3.2.8-SNAPSHOT"
 
 scalaVersion  := "2.10.4"
 
@@ -48,7 +50,7 @@ publishTo := Some("HTRC Nexus Snapshots" at "https://nexus.htrc.illinois.edu/con
 
 // credentials += Credentials("Sonatype Nexus Repository Manager", "nexus.htrc.illinois.edu", "user", "passwd")
 
-credentials += Credentials(Path.userHome / "htrc-agent-dev" / "trunk" / ".credentials")
+credentials += Credentials(Path.userHome / "htrc-agent" / "dev" / "trunk" / ".credentials")
 
 // disable .jar publishing
 publishArtifact in (Compile, packageBin) := false

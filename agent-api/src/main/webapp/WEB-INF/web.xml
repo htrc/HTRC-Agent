@@ -25,7 +25,7 @@
       <filter-class>edu.indiana.d2i.htrc.security.JWTServletFilter</filter-class>
       <init-param>
         <param-name>htrc.jwtfilter.config</param-name>
-        <param-value>/home/drhtrc/htrc-agent-dev/conf/jwtfilter.conf</param-value>
+        <param-value>/etc/htrc/agent/config/jwtfilter.conf</param-value>
       </init-param>
       <async-supported>true</async-supported>
     </filter>

@@ -69,7 +69,8 @@ object RegistryHttpClient extends HtrcHttpClient {
       }
 
     val response = queryService(uri, httpRequest)
-    log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
+    // log.debug("REGISTRY_CLIENT_QUERY\tTOKEN: {}\tQUERY: {}", token, query)
+    log.debug("REGISTRY_CLIENT_QUERY\tQUERY: {}", query)
 
     // printResponse(response)
     response
