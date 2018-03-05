@@ -34,23 +34,24 @@ public class IdentityServerClient {
 			formparams.add(new BasicNameValuePair("client_id", oauthClientId));
 			formparams.add(new BasicNameValuePair("client_secret", oauthClientSecret));
 			formparams.add(new BasicNameValuePair("grant_type", "client_credentials"));
+			formparams.add(new BasicNameValuePair("scope", "openid"));
 			UrlEncodedFormEntity entity = new UrlEncodedFormEntity(formparams, Consts.UTF_8);
 			httpPost.setEntity(entity);
 					    
 			StringResponseHandler rh = new StringResponseHandler();
 			String tokenResponse = httpClient.execute(httpPost, rh);
-            System.out.println("getClientCredentialsTypeToken: tokenResponse = {}" + tokenResponse);
+			System.out.println("getClientCredentialsTypeToken: tokenResponse = " + tokenResponse);
 
-        	String accessTokenFieldName = Constants.ACCESS_TOKEN_FIELD_NAME;
-        	int accessTokenFieldNameLength = accessTokenFieldName.length();
-        	
-            int i = tokenResponse.indexOf(accessTokenFieldName);
-            // the response is of the form "access_token":"<token>", including quotes
-            int startIndex = i + accessTokenFieldNameLength + 3; 
-            if (i >= 0) {
-            	// obtain token from enclosed within "", as shown above
-            	result = tokenResponse.substring(startIndex, tokenResponse.indexOf("\"", startIndex));
-            }
+			String tokenFieldName = Constants.TOKEN_FIELD_NAME;
+			int tokenFieldNameLength = tokenFieldName.length();
+
+			int i = tokenResponse.indexOf(tokenFieldName);
+			// the response is of the form "id_token":"<token>", including quotes
+			int startIndex = i + tokenFieldNameLength + 3; 
+			if (i >= 0) {
+				// obtain token from enclosed within "", as shown above
+				result = tokenResponse.substring(startIndex, tokenResponse.indexOf("\"", startIndex));
+			}
 		} catch (Exception e) {
 			handleException("request for client credentials type token", e);
 		} finally {

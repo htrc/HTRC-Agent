@@ -84,7 +84,7 @@ public class AgentClient {
 
 	private void sendJobStatusUpdateHelper(String content, int numRetries) {
 		try {
-			String keystore = "/N/dc2/scratch/drhtrc/htrc-agent/karst/agent_dependencies/AJC.keystore";
+			String keystore = "/N/dc2/scratch/htrcprod/htrc-agent/karst/dev/agent_dependencies/AJC-dev.keystore";
 			String keystorePsswd = "DUMMY_PASSWORD";
 			SSLContext sslcontext = SSLContexts.custom().loadKeyMaterial(new File(keystore), keystorePsswd.toCharArray(), keystorePsswd.toCharArray()).build();
 

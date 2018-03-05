@@ -18,5 +18,6 @@ public class Constants {
 	public static final String OAUTH_CLIENT_ID_ENV_VAR = "HTRC_OAUTH_CLIENT_ID";
 	public static final String OAUTH_CLIENT_SECRET_ENV_VAR = "HTRC_OAUTH_CLIENT_SECRET";
 	
-	public static final String ACCESS_TOKEN_FIELD_NAME = "access_token";
+	// public static final String ACCESS_TOKEN_FIELD_NAME = "access_token";
+	public static final String TOKEN_FIELD_NAME = "id_token";
 }
