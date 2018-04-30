@@ -48,6 +48,8 @@ publishMavenStyle := true
 
 publishTo := Some("HTRC Nexus Releases" at "https://nexus.htrc.illinois.edu/content/repositories/releases/")
 
+// publishTo := Some("HTRC Nexus Snapshots" at "https://nexus.htrc.illinois.edu/content/repositories/snapshots/")
+
 // credentials += Credentials("Sonatype Nexus Repository Manager", "nexus.htrc.illinois.edu", "user", "passwd")
 
 credentials += Credentials(Path.userHome / "htrc-agent" / "dev" / "trunk" / ".credentials")
