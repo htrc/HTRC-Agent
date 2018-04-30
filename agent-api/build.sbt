@@ -2,7 +2,7 @@ organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "3.2.9"
+version       := "3.2.10"
 
 scalaVersion  := "2.10.4"
 
@@ -47,6 +47,8 @@ crossPaths := false
 publishMavenStyle := true
 
 publishTo := Some("HTRC Nexus Releases" at "https://nexus.htrc.illinois.edu/content/repositories/releases/")
+
+// publishTo := Some("HTRC Nexus Snapshots" at "https://nexus.htrc.illinois.edu/content/repositories/snapshots/")
 
 // credentials += Credentials("Sonatype Nexus Repository Manager", "nexus.htrc.illinois.edu", "user", "passwd")
 
