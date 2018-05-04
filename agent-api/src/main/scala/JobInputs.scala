@@ -25,9 +25,11 @@ package htrc.agent
 
 import scala.xml._
 import scala.collection.mutable.HashMap
+import scala.util.matching.Regex
 import scala.util.matching.Regex._
+// import akka.event.LoggingAdapter
 
-case class JobInputs(user: JobSubmission, system: JobProperties, 
+case class JobInputs(user: JobSubmission, system: JobProperties,
                      jobResultCacheKey: Option[String], token: String, 
                      requestId: String, ip: String) {
 
@@ -56,10 +58,14 @@ case class JobInputs(user: JobSubmission, system: JobProperties,
   val aVar1 = """\$\{(\w+)\}""".r
   val aVar2 = """\$(\w+)""".r
   def bindVariables(exp: String, variables: HashMap[String,String]): String = {
-    val r1 = aVar1 replaceAllIn 
-      (exp, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT"))
-    val r2 = aVar2 replaceAllIn 
-      (r1, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")) 
+    // log.debug("bindVariables, exp = " + exp + ", variables = " +
+    //   variables.mkString("[", ", ", "]"))
+    val r1 = aVar1 replaceAllIn (exp, (m: Match) =>
+      Regex.quoteReplacement(variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")))
+      // use quoteReplacement to handle '$' in the replacement string
+
+    val r2 = aVar2 replaceAllIn (r1, (m: Match) =>
+      Regex.quoteReplacement(variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")))
     r2
   }
 

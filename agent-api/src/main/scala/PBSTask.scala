@@ -305,7 +305,9 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     if(properties.isEmpty == false) {
       printToFile(new File(workingDir + File.separator + name))(p => {
         properties foreach { case (k,v) =>
-          if(v != "HTRC_DEFAULT") p.println(k + " = " + v) }
+          // no spaces around '=' to handle algorithms that use "source
+          // <algorithm>.properties" to define properties as env vars
+          if (v != "HTRC_DEFAULT") p.println(k + "=" + v) }
       })
     }
   }
