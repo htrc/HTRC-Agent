@@ -239,7 +239,30 @@ object RegistryHttpClient extends HtrcHttpClient {
       }
     }
   }
-    
+
+  def worksetMetadata(name: String, token: String): Future[Option[WorksetMetadata]] = {
+    val title = name.split('@')(0)
+    val author = name.split('@')(1)
+
+    // url encode the workset title; space is encoded as '+', but should be
+    // "%20" when part of the url
+    val encTitle = java.net.URLEncoder.encode(title, "utf-8").replace("+", "%20")
+
+    val worksetQuery="worksets/"+encTitle+"/metadata?author="+author
+    val q = query(worksetQuery, GET, token)
+    q map { response =>
+      if (response.status.isSuccess) {
+        val metadata = XML.loadString(response.entity.asString)
+        Some(WorksetMetadata(metadata))
+      } else {
+        log.error("REGISTRY_CLIENT_QUERY: {} error in obtaining " +
+          "worksetMetadata({}, {})", response.status.value, name,
+          token)
+        None
+      }
+    }
+  }
+
   def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
     
     // audit log analyzer output

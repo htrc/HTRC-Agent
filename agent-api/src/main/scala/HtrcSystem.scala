@@ -283,8 +283,20 @@ object HtrcConfig {
     config.getString(computeResource + "qsub-proc-req-str")
   }
 
-  def getDefaultNumProcessors: Int = {
-    config.getInt(computeResource + "default-num-procs")
+  def getDefaultNumNodes: Int = {
+    config.getInt(computeResource + "default-num-nodes")
+  }
+
+  def getDefaultNumProcessorsPerNode: Int = {
+    config.getInt(computeResource + "default-num-processors-per-node")
+  }
+
+  def getDefaultWalltime: String = {
+    config.getString(computeResource + "default-walltime")
+  }
+
+  def getDefaultJavaMaxHeapSize: String = {
+    config.getString(computeResource + "default-java-max-heap-size")
   }
 
   def getSbatchOptions: String = {

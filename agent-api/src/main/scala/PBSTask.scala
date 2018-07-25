@@ -36,6 +36,11 @@ import java.io.PrintWriter
 import akka.pattern.ask
 import scala.concurrent._
 import scala.collection.mutable.HashMap
+import scala.collection.Map
+import scala.util.{Success, Failure}
+
+import scala.xml._
+import scala.util.Try
 
 class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // actor configuration
@@ -45,6 +50,15 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   val registry = HtrcSystem.registry
   val supe = parent
+
+  val dummyWorksetMd =
+    <workset xmlns="http://registry.htrc.i3.illinois.edu/entities/workset">
+      <metadata>
+        <name>DUMMY_WORKSET_SHOULD_NOT_BE_SEEN</name>
+        <author>DUMMY_AUTHOR</author>
+        <volumeCount>0</volumeCount>
+      </metadata>
+    </workset>
 
   // there are 3 job dirs used during job execution:
   // 1. local job dir (created before job is launched)
@@ -119,16 +133,12 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     (registry ? WriteCollection(c, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
-  // create job client script to launch AgentJobClient with the algorithm as
-  // a sub-process
-  val walltime = HtrcConfig.getPBSWalltime(inputs)
-  val envVars = 
-    JobClientUtils.jobClientEnvVars(inputs, id, (targetWorkingDir + "/" + id),
-                                    walltime) ++
-    List(("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString))
-  HtrcSystem.jobClientScriptCreator.
-    createJobClientScript(envVars, workingDir + "/" + HtrcConfig.jobClientScript, 
-    log)
+  // fetch workset metadata for all input worksets; the result is a list of
+  // futures that contain tuples of the form (worksetName,
+  // Option[WorksetMetadata])
+  val lsFutureWksetMetadata = inputs.collections map { c =>
+    RegistryHttpClient.worksetMetadata(c, inputs.token) map { (c, _) }
+  } // List[Future[(String, Option[WorksetMetadata])]]
 
   // Check if these things are all finished, once they are, continue.
   Future.sequence(dependenciesReady ++ collectionsReady) map { statuses =>
@@ -148,35 +158,102 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
         supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
       }
     } else {
-      // to be here we must have not had errors, so do the work
-      log.debug("PBS_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
-                user.name, inputs.ip, id, workingDir)
+      Future.sequence(lsFutureWksetMetadata) map { lsOptWksetMd =>
+        logWorksetMetadata(lsOptWksetMd)
 
-      try {
-	// copy job working dir to compute resource
-        copyToComputeResource()
+        // get the list of workset names for which metadata could not be
+        // retrieved from the registry
+        val wksetsWithNoMetadata = lsOptWksetMd filter {
+          case(wkset, optWksetMd) => optWksetMd.isEmpty
+        } map { _._1 }
 
-        // launch job on compute resource
-        val jobid = launchJob()
-        supe ! StatusUpdate(InternalQueuedOnTarget)
+        // if there is an error in retrieving metadata for any workset, then
+        // the job submission fails
+        if (wksetsWithNoMetadata.length > 0) {
+          val errorMsg =
+            "Error in retrieving metadata for workset(s) from the registry: " +
+          wksetsWithNoMetadata.mkString(", ")
+          supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
+        } else {
+          // map workset names to WorksetMetadata 
+          val mapWorksetMetadata = lsOptWksetMd map { case(wkset, optWksetMd) =>
+            (wkset, optWksetMd.getOrElse(WorksetMetadata(dummyWorksetMd)))
+              // dummyWorksetMd is not strictly required since at this point
+              // all Options in the list are non-empty
+          } toMap
 
-        // check job status until it is completed
-        // jobExitStatus = checkJobStatus(jobid)
+          // check if there are any errors in the input worksets, e.g.,
+          // workset size exceeds the size limit for the workset for the
+          // algorithm in the job submission
+          val lsErrorWksets = getErrorWorksets(mapWorksetMetadata)
+          if (!lsErrorWksets.isEmpty) {
+            supe ! StatusUpdate(InternalCrashedWithError(messageForErrorWorksets(lsErrorWksets), ""))
+          } else {
+            // sum up the sizes of all input worksets
+            val totalInputSize =
+              mapWorksetMetadata.foldLeft(0)( (sum, keyValue) =>
+                sum + (keyValue match {
+                  case (wkset, wksetMd) => wksetMd.volumeCount
+                }))
 
-        // copy stderr.txt, stdout.txt from compute resource to local dir
-        // copyFromComputeResource()
+            inputs.system.parseExecInfo() match {
+              case Failure(e) =>
+                val errorMsg = "Error in algorithm XML.\n" + e
+                supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
 
-        // processJobResults()
-	// if(jobExitStatus == 0)
-        // supe ! StatusUpdate(InternalFinished)        
-        // else supe ! StatusUpdate(InternalCrashed(true))
-      }
-      catch {
-        case JobSetupException(stdout, stderr) => {
-          supe ! StatusUpdate(InternalCrashedWithError(stderr, stdout))
-          // HtrcUtils.writeFile(stdout, "stdout.txt", user, id)
-          // HtrcUtils.writeFile(stderr, "stderr.txt", user, id)
-          // supe ! StatusUpdate(InternalCrashed(false))
+              case Success(lsResAlloc) =>
+                logResAlloc(lsResAlloc)
+                getResourceAlloc(lsResAlloc, totalInputSize) match {
+                  case Left(errorMsg) =>
+                    supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
+
+                  case Right(resourceAlloc) =>
+                    log.debug("Resource allocation for this job: {}",
+                      resourceAlloc.toString)
+
+                    // val walltime = HtrcConfig.getPBSWalltime(inputs)
+                    // val envVars =
+                    //   JobClientUtils.jobClientEnvVars(inputs, id, (targetWorkingDir + "/" +
+                    //     id), walltime) ++
+                    // List(("HTRC_MEANDRE_PORT" -> MeandrePortAllocator.get.toString))
+
+                    // create job client script to launch AgentJobClient
+                    // with the algorithm as a sub-process
+                    // val walltime = resourceAlloc.walltime
+                    val envVars =
+                      JobClientUtils.jobClientEnvVars(inputs, id,
+                        (targetWorkingDir + "/" + id), resourceAlloc) ++
+                    List(("HTRC_MEANDRE_PORT" ->
+                      MeandrePortAllocator.get.toString))
+                    HtrcSystem.jobClientScriptCreator.
+                      createJobClientScript(envVars,
+                        workingDir + "/" + HtrcConfig.jobClientScript,
+                        log)
+
+                    // to be here we must have not had errors, so do the work
+                    log.debug("PBS_TASK_INPUTS_READY\t{}\t{}\tJOB_ID: {}\tWORKING_DIR: {}",
+                      user.name, inputs.ip, id, workingDir)
+
+                    try {
+	              // copy job working dir to compute resource
+                      copyToComputeResource()
+
+                      // launch job on compute resource
+                      val jobid = launchJob(resourceAlloc)
+                      supe ! StatusUpdate(InternalQueuedOnTarget)
+
+                    }
+                    catch {
+                      case JobSetupException(stdout, stderr) => {
+                        supe ! StatusUpdate(InternalCrashedWithError(stderr, stdout))
+                        // HtrcUtils.writeFile(stdout, "stdout.txt", user, id)
+                        // HtrcUtils.writeFile(stderr, "stderr.txt", user, id)
+                        // supe ! StatusUpdate(InternalCrashed(false))
+                      }
+                    }
+                }
+            }
+          }
         }
       }
     }
@@ -213,7 +290,7 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
   // launch job on compute resource; returns jobid upon success, and throws
   // JobSetupException upon error
-  def launchJob(): String = {
+  def launchJob(resourceAlloc: ResourceAlloc): String = {
     var jobid = ""
     val qsubOut = new StringBuilder
     val qsubErr = new StringBuilder
@@ -237,19 +314,13 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
           }
         } )
 
-    // val env = 
-    //   "HTRC_WORKING_DIR=" + targetWorkingDir + "/" + id + 
-    //   " HTRC_DEPENDENCY_DIR=" + HtrcConfig.dependencyDir +
-    //   " JAVA_CMD=" + HtrcConfig.javaCmd +
-    //   " JAVA_MAX_HEAP_SIZE=" + HtrcConfig.javaMaxHeapSize
-
     // val walltime = HtrcConfig.getPBSWalltime(inputs)
 
     val cmdF = "ssh -t -t -q %s qsub -N %s %s %s " +
     "-l walltime=%s -o %s -e %s -V -W umask=0122 %s/%s/%s"
     val cmd = cmdF.format(target, qsubJobName, HtrcConfig.getQsubOptions,
-      qsubProcessorReq, walltime, jobClientOutFile, jobClientErrFile,
-      targetWorkingDir, id, HtrcConfig.jobClientScript)
+      qsubProcessorReq(resourceAlloc), resourceAlloc.walltime, jobClientOutFile,
+      jobClientErrFile, targetWorkingDir, id, HtrcConfig.jobClientScript)
     
     val sysProcess = SProcess(cmd, new File(workingDir))
     val exitVal = sysProcess ! qsubLogger
@@ -282,14 +353,19 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     if (algName.isEmpty) (inputs.info \ "name" text) else algName.text
   }
 
-  // return a string containing the processor request for this job
-  def qsubProcessorReq: String = {
-    // obtain the no. of processors specified in the algorithm XML file, if any
-    val numProcs =
-      inputs.system.metadata \ "execution_info" \ "number_of_processors"
+  // def qsubProcessorReq: String = {
+  //   // obtain the no. of processors specified in the algorithm XML file, if any
+  //   val numProcs =
+  //     inputs.system.metadata \ "execution_info" \ "number_of_processors"
   
-    HtrcConfig.getQsubProcReqStr + (if (numProcs.isEmpty)
-      HtrcConfig.getDefaultNumProcessors else numProcs.text)
+  //   HtrcConfig.getQsubProcReqStr + (if (numProcs.isEmpty)
+  //     HtrcConfig.getDefaultNumProcessors else numProcs.text)
+  // }
+
+  // return a string containing the processor request for this job
+  def qsubProcessorReq(resourceAlloc: ResourceAlloc): String = {
+    "-l nodes=" + resourceAlloc.numNodes + ":ppn=" +
+    resourceAlloc.numProcsPerNode
   }
 
   // Helper to write properties file to disk
@@ -310,6 +386,96 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
           if (v != "HTRC_DEFAULT") p.println(k + "=" + v) }
       })
     }
+  }
+
+  // given a map of workset names associated with workset metadata, returns a
+  // list of (worksetName, worksetSize, worksetSizeLimitForAlgorithm) tuples,
+  // where worksetSizeLimitForAlgorithm is the size limit on the workset
+  // param for the algorithm in the job submission corresponding to this
+  // actor, as specified in "inputs"
+  def getWorksetSizesAndLimits(mapWorksetMetadata: Map[String, WorksetMetadata]): Seq[(String, Int, Int)] = {
+    (inputs.user.arguments \ "parameters" \ "param") filter { p =>
+      (p \ "@type" text) == "collection"
+    } map { p =>
+      val wksetParamName = (p \ "@name" text)
+      val wksetParamValue = (p \ "@value" text)
+      val size = mapWorksetMetadata.get(wksetParamValue).
+        map(_.volumeCount).getOrElse(-1)
+      val sizeLimit =
+        inputs.system.worksetSizeLimits.getOrElse(wksetParamName, -1)
+      ((p \ "@value" text), size, sizeLimit)
+    }
+  }
+
+  // given a map of workset names associated with workset metadata, returns a
+  // list of tuples with unexpected sizes, or where the size exceeds the size
+  // limit specified for the workset parameter for the algorithm in this job
+  // submission
+  def getErrorWorksets(mapWorksetMetadata: Map[String, WorksetMetadata]): Seq[(String, Int, Int)] = {
+    val lsWorksetSizesNLimits = getWorksetSizesAndLimits(mapWorksetMetadata)
+    lsWorksetSizesNLimits filter { case(wkset, size, sizeLimit) =>
+      (size < 0) || ((sizeLimit >= 0) && (size > sizeLimit))
+    }
+  }
+
+  // given a list of (wksetName, size, sizeLimit) tuples, returns a composite
+  // error message, containing relevant errors for each workset
+  def messageForErrorWorksets(lsWorksetSizesNLimits: Seq[(String, Int, Int)]): String = {
+    lsWorksetSizesNLimits map { case(wkset, size, sizeLimit) =>
+      if (size < 0)
+        "Unexpected size of workset " + wkset + ": " + size
+      else if ((sizeLimit >= 0) && (size > sizeLimit))
+        "Size of workset " + wkset + " (" + size + ") exceeds the size limit (" +
+        sizeLimit + ") for this algorithm."
+    } mkString("", "\n", "\n")
+  }
+
+  // write workset metadata to the log
+  def logWorksetMetadata(lsOptWksetMd: List[(String, Option[WorksetMetadata])]): Unit = {
+    val lsStringWksetMd = lsOptWksetMd map { case(wkset, optWksetMd) =>
+      "(" + wkset + ", " +
+      optWksetMd.map(_.volumeCount).getOrElse("NO_METADATA_AVAILABLE") + ")"
+    }
+    log.debug("WORKSET METADATA: {}", lsStringWksetMd.mkString(", "))
+  }
+
+  // given a sequence of (min, max, resourceAlloc) tuples, and an inputSize,
+  // returns the ResourceAlloc object corresponding to the one in the
+  // sequence whose [min, max] range contains inputSize; if there is no such
+  // object, or if there are multiple objects, then a suitable error message
+  // is returned
+  def getResourceAlloc(ls: Seq[(Int, Int, ResourceAlloc)], inputSize: Int):
+      Either[String, ResourceAlloc] = {
+    val matchedItems = ls filter { case (min, max, ra) =>
+      ((min <= inputSize) && (inputSize <= max))
+    }
+
+    if (matchedItems.isEmpty) {
+      // Left("No resource allocation for input size " + inputSize +
+      //   " in algorithm XML")
+      val ra = getDefaultResourceAlloc
+      log.debug("Using default resource allocation for job {}: {}", id.toString, ra)
+      Right(ra)
+    }
+    else if (matchedItems.size > 1)
+      Left("Multiple (conflicting) resource allocations for input size " +
+        inputSize + " in algorithm XML")
+    else 
+      matchedItems(0) match { case(min, max, ra) => Right(ra) }
+  }
+
+  def getDefaultResourceAlloc: ResourceAlloc = {
+    ResourceAlloc(HtrcConfig.getDefaultNumNodes,
+      HtrcConfig.getDefaultNumProcessorsPerNode,
+      HtrcConfig.getDefaultWalltime,
+      HtrcConfig.getDefaultJavaMaxHeapSize)
+  }
+
+  def logResAlloc(ls: Seq[(Int, Int, ResourceAlloc)]): Unit = {
+    log.debug("Resource allocations: {}", 
+      ls map { case (min, max, ra) =>
+        "(" + min + ", " + max + ", " + ra + ")"
+      } mkString(", "))
   }
 
   // This actor doesn't actually receive, be sad if it does.
