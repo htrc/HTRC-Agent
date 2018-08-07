@@ -266,6 +266,9 @@ object HtrcConfig {
 
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
+  systemVariables += ("data_api_host" -> config.getString("htrc.data_api.host"))
+  systemVariables += ("data_api_port" -> config.getString("htrc.data_api.port"))
+  systemVariables += ("data_api_epr" -> config.getString("htrc.data_api.epr"))
   systemVariables += ("solr_proxy" -> config.getString("htrc.solr_proxy"))
   systemVariables += ("output_dir" -> config.getString("htrc.output_dir"))
 

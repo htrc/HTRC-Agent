@@ -202,7 +202,7 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
                 supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
 
               case Success(lsResAlloc) =>
-                logResAlloc(lsResAlloc)
+                // logResAlloc(lsResAlloc)
                 getResourceAlloc(lsResAlloc, totalInputSize) match {
                   case Left(errorMsg) =>
                     supe ! StatusUpdate(InternalCrashedWithError(errorMsg, ""))
