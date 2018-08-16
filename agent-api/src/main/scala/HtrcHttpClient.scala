@@ -55,7 +55,7 @@ class HtrcHttpClient {
       engine
     }
 
-    log.debug("HTRC_HTTP_QUERY: uri = {}, uri.authority.host.address = {}, uri.authority.port = {}, hostConnPort = {}", uri, uriHost, uriPort, hostConnPort)
+    // log.debug("HTRC_HTTP_QUERY: uri = {}, uri.authority.host.address = {}, uri.authority.port = {}, hostConnPort = {}", uri, uriHost, uriPort, hostConnPort)
 
     for {
       // Http.HostConnectorInfo(connector, _) <- IO(Http) ? Http.HostConnectorSetup( uri.authority.host.address, port = uri.authority.port, sslEncryption = true )

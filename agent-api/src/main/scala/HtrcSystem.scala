@@ -266,6 +266,9 @@ object HtrcConfig {
 
   val systemVariables = new MHashMap[String,String]
   systemVariables += ("data_api_url" -> config.getString("htrc.data_api.url"))
+  systemVariables += ("data_api_host" -> config.getString("htrc.data_api.host"))
+  systemVariables += ("data_api_port" -> config.getString("htrc.data_api.port"))
+  systemVariables += ("data_api_epr" -> config.getString("htrc.data_api.epr"))
   systemVariables += ("solr_proxy" -> config.getString("htrc.solr_proxy"))
   systemVariables += ("output_dir" -> config.getString("htrc.output_dir"))
 
@@ -283,8 +286,20 @@ object HtrcConfig {
     config.getString(computeResource + "qsub-proc-req-str")
   }
 
-  def getDefaultNumProcessors: Int = {
-    config.getInt(computeResource + "default-num-procs")
+  def getDefaultNumNodes: Int = {
+    config.getInt(computeResource + "default-num-nodes")
+  }
+
+  def getDefaultNumProcessorsPerNode: Int = {
+    config.getInt(computeResource + "default-num-processors-per-node")
+  }
+
+  def getDefaultWalltime: String = {
+    config.getString(computeResource + "default-walltime")
+  }
+
+  def getDefaultJavaMaxHeapSize: String = {
+    config.getString(computeResource + "default-java-max-heap-size")
   }
 
   def getSbatchOptions: String = {

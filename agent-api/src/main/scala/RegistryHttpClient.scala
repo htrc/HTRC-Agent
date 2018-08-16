@@ -51,11 +51,14 @@ object RegistryHttpClient extends HtrcHttpClient {
   override val log = Logging(system, "registry-http-client")
   val auditLog = Logger("audit")
 
-  def queryRegistry(query: String, method: HttpMethod, token: String, acceptContentType: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
+  def queryRegistry(query: String, method: HttpMethod, token: String,
+    acceptContentType: String, body: Option[NodeSeq] = None,
+    optContentType: Option[MediaType] = None): Future[HttpResponse] = {
 
     val uri = registryUrl + query
 
-    val contentType = `application/xml`
+    // val contentType = `application/xml`
+    val contentType = optContentType.getOrElse(`application/xml`)
 
     val headers = List(RawHeader("Accept", acceptContentType),
       RawHeader("Authorization", "Bearer " + token))
@@ -78,8 +81,10 @@ object RegistryHttpClient extends HtrcHttpClient {
 
   // all methods except for collectionData require content type of the
   // response to be "application/xml"
-  def query(queryStr: String, method: HttpMethod, token: String, body: Option[NodeSeq] = None): Future[HttpResponse] = {
-    queryRegistry(queryStr, method, token, "application/xml", body)
+  def query(queryStr: String, method: HttpMethod, token: String,
+    body: Option[NodeSeq] = None, optContentType: Option[MediaType] = None): Future[HttpResponse] = {
+    queryRegistry(queryStr, method, token, "application/xml", body=body,
+      optContentType=optContentType)
   }
 
   // method that may be used to send queries to different services for the
@@ -144,17 +149,22 @@ object RegistryHttpClient extends HtrcHttpClient {
 
     val name = rawName.split('@')(0)
     val author = rawName.split('@')(1)
+
+    // url encode the workset name; space is encoded as '+', but should be "%20"
+    // when part of the url
+    val encName = java.net.URLEncoder.encode(name, "utf-8").replace("+", "%20")
+
     val q =
       if (HtrcConfig.requiresWorksetWithHeader(inputs))
       // use new REST call to deal with worksets that may contain class
       // labels and other metadata apart from volume ids, and returns a list
       // with a "volume_id, class, ..." header
-      queryRegistry("worksets/"+name+"/volumes?author="+author, GET, 
-                    inputs.token, "text/csv")
+      queryRegistry("worksets/"+encName+"/volumes?author="+author, GET, 
+        inputs.token, "text/csv")
       // otherwise, use old REST call to get just a list of volume ids,
       // without any header row; required for Marc_Downloader,
       // Simple_Deployable_Word_count
-      else queryRegistry("worksets/"+name+"/volumes.txt?author="+author, GET, 
+      else queryRegistry("worksets/"+encName+"/volumes.txt?author="+author, GET, 
                          inputs.token, "application/xml")
 
     q map { response =>
@@ -206,7 +216,13 @@ object RegistryHttpClient extends HtrcHttpClient {
   def collectionMetadata(name: String, token: String): Future[Option[(String, Boolean)]] = {
     val title = name.split('@')(0)
     val author = name.split('@')(1)
-    val q = query("worksets/"+title+"/metadata?author="+author, GET, token)
+
+    // url encode the workset title; space is encoded as '+', but should be "%20"
+    // when part of the url
+    val encTitle = java.net.URLEncoder.encode(title, "utf-8").replace("+", "%20")
+
+    val worksetQuery="worksets/"+encTitle+"/metadata?author="+author
+    val q = query(worksetQuery, GET, token)
     q map { response =>
       if (response.status.isSuccess) {
         val metadata = XML.loadString(response.entity.asString)
@@ -223,7 +239,30 @@ object RegistryHttpClient extends HtrcHttpClient {
       }
     }
   }
-    
+
+  def worksetMetadata(name: String, token: String): Future[Option[WorksetMetadata]] = {
+    val title = name.split('@')(0)
+    val author = name.split('@')(1)
+
+    // url encode the workset title; space is encoded as '+', but should be
+    // "%20" when part of the url
+    val encTitle = java.net.URLEncoder.encode(title, "utf-8").replace("+", "%20")
+
+    val worksetQuery="worksets/"+encTitle+"/metadata?author="+author
+    val q = query(worksetQuery, GET, token)
+    q map { response =>
+      if (response.status.isSuccess) {
+        val metadata = XML.loadString(response.entity.asString)
+        Some(WorksetMetadata(metadata))
+      } else {
+        log.error("REGISTRY_CLIENT_QUERY: {} error in obtaining " +
+          "worksetMetadata({}, {})", response.status.value, name,
+          token)
+        None
+      }
+    }
+  }
+
   def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
     
     // audit log analyzer output

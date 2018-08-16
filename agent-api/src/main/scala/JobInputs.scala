@@ -25,9 +25,12 @@ package htrc.agent
 
 import scala.xml._
 import scala.collection.mutable.HashMap
+import scala.util.matching.Regex
 import scala.util.matching.Regex._
+import scala.util.Try
+// import akka.event.LoggingAdapter
 
-case class JobInputs(user: JobSubmission, system: JobProperties, 
+case class JobInputs(user: JobSubmission, system: JobProperties,
                      jobResultCacheKey: Option[String], token: String, 
                      requestId: String, ip: String) {
 
@@ -56,10 +59,14 @@ case class JobInputs(user: JobSubmission, system: JobProperties,
   val aVar1 = """\$\{(\w+)\}""".r
   val aVar2 = """\$(\w+)""".r
   def bindVariables(exp: String, variables: HashMap[String,String]): String = {
-    val r1 = aVar1 replaceAllIn 
-      (exp, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT"))
-    val r2 = aVar2 replaceAllIn 
-      (r1, (m: Match) => variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")) 
+    // log.debug("bindVariables, exp = " + exp + ", variables = " +
+    //   variables.mkString("[", ", ", "]"))
+    val r1 = aVar1 replaceAllIn (exp, (m: Match) =>
+      Regex.quoteReplacement(variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")))
+      // use quoteReplacement to handle '$' in the replacement string
+
+    val r2 = aVar2 replaceAllIn (r1, (m: Match) =>
+      Regex.quoteReplacement(variables.get(m.group(1)).getOrElse("HTRC_DEFAULT")))
     r2
   }
 
@@ -117,6 +124,19 @@ case class JobProperties(metadata: NodeSeq) {
   val info = metadata \ "info"
   val algVersion = info \ "version" text
 
+  // map associating workset parameter names to size limits defined on them
+  // (-1, if no size limit defined)
+  val worksetSizeLimits =
+    (metadata \ "info" \ "parameters" \ "param") filter { p =>
+      (p \ "@type" text) == "collection"
+    } map { p =>
+      ((p \ "@name" text),
+        if (!(p.attribute("size_limit").isDefined))
+          -1
+        else
+          (p \ "@size_limit" text).toInt)
+    } toMap
+
   val dependencies = new HashMap[String,String]
   (metadata \ "dependencies" \ "dependency") foreach { d =>
     dependencies += ((d \ "@path" text) -> (d \ "@name" text)) 
@@ -128,6 +148,61 @@ case class JobProperties(metadata: NodeSeq) {
 
   val resultNames = metadata \ "results" \ "result" map { e => e \ "@name" text }
 
+  // parse the <execution_info> element in the algorithm XML to determine
+  // resource allocation parameterized by the total size of input worksets;
+  // on success, returns a sequence of (min: Int, max: Int, ResourceAlloc)
+  // tuples, where min and max are the lower and upper bounds on the total
+  // input workset size
+  def parseExecInfo(): Try[Seq[(Int, Int, ResourceAlloc)]] = {
+    val execInfo = (metadata \ "execution_info")
+
+    Try((execInfo \ "input_size") map { e =>
+      val minStr = (e \ "@min" text)
+      val min = if (minStr == "_") 0 else minStr.toInt
+
+      val maxStr = (e \ "@max" text)
+      val max = if (maxStr == "_") Int.MaxValue else maxStr.toInt
+
+      val numNodesStr = (e \ "number_of_nodes" text)
+      val numNodes =
+        if (numNodesStr == "") HtrcConfig.getDefaultNumNodes
+        else numNodesStr.toInt
+
+      val numProcsStr = (e \ "number_of_processors_per_node" text)
+      val numProcs =
+        if (numProcsStr == "") HtrcConfig.getDefaultNumProcessorsPerNode
+        else numProcsStr.toInt
+
+      val walltimeStr = (e \ "walltime" text)
+      val walltime =
+        if (walltimeStr == "") HtrcConfig.getDefaultWalltime else walltimeStr
+
+      val javaMaxHeapSizeStr = (e \ "java_max_heap_size" text)
+      val javaMaxHeapSize =
+        if (javaMaxHeapSizeStr == "") HtrcConfig.getDefaultJavaMaxHeapSize
+        else javaMaxHeapSizeStr
+
+      (min, max, ResourceAlloc(numNodes, numProcs, walltime, javaMaxHeapSize))
+    })
+  }
+}
+
+// class that contains metadata, from the registry, for a workset
+case class WorksetMetadata(metadata: NodeSeq) {
+  val name = (metadata \\ "name" text)
+  val author = (metadata \\ "author" text)
+  val volumeCount = (metadata \\ "volumeCount" text).toInt
+}
+
+// class that contains resource allocation information for the HPC system on
+// which jobs are run, e.g., number of nodes to allocate for the job, number
+// of processors per node
+case class ResourceAlloc(numNodes: Int, numProcsPerNode: Int,
+  walltime: String, javaMaxHeapSize: String) {
+  override def toString: String = {
+    "ResourceAlloc(" + numNodes + ", " + numProcsPerNode + ", " + walltime +
+    ", " + javaMaxHeapSize + ")"
+  }
 }
 
 object SampleXmlInputs {
