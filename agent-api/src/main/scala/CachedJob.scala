@@ -48,14 +48,21 @@ class CachedJob(inputs: JobInputs, id: JobId,
 
   val token = inputs.token
   val userName = inputs.user.submitter
+  val outputDir = HtrcConfig.systemVariables("output_dir")
   val relativeJobLoc = userName + sep + id
   val jobLocation = HtrcConfig.resultDir + sep + relativeJobLoc
 
+  def jobResultFilePath(resultFile: String): String = {
+    jobLocation + sep + outputDir + sep + resultFile
+  }
+
   def jobResults: List[JobResult] = {
-    // we assume that the cached job has all the expected results of the job;
-    // this check should have been performed in CacheController
-    val outputDir = HtrcConfig.systemVariables("output_dir")
-    val dirResults = (inputs.resultNames map { res =>
+    // the copy of the cached job dir may or may not contain optional job
+    // result files; we first determine the list of valid results
+    val validResults =
+      inputs.resultNames filter {x => fileExists(jobResultFilePath(x))}
+
+    val dirResults = (validResults map { res =>
       DirectoryResult(relativeJobLoc + sep + outputDir + sep + res)
     }).toList
 

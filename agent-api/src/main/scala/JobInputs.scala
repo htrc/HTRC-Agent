@@ -19,7 +19,7 @@
 
 package htrc.agent
 
-// When an job submission is received the parameters are parsed
+// When a job submission is received the parameters are parsed
 // (marshalled?) into this class. It can then be passed around and
 // queried / filled in.
 
@@ -31,8 +31,9 @@ import scala.util.Try
 // import akka.event.LoggingAdapter
 
 case class JobInputs(user: JobSubmission, system: JobProperties,
-                     jobResultCacheKey: Option[String], token: String, 
-                     requestId: String, ip: String) {
+  jobResultCacheKey: Option[String], token: String,
+  requestId: String, ip: String,
+  lsCollectionMetadata: List[(String, Option[WorksetMetadata])] = List.empty) {
 
   override def toString: String = "JobInputs(name: " + name + ")"
 
@@ -88,8 +89,10 @@ case class JobSubmission(arguments: NodeSeq, submitter: String) {
   // This is an example block that has a user input parameter. Each
   // param is a "key - value" style element.
 
+  // name of this job submission
   val name = arguments \ "name" text
-  
+
+  // algorithm to be run
   val algorithm = arguments \ "algorithm" text
 
   val rawParameters = arguments \ "parameters"
@@ -148,6 +151,17 @@ case class JobProperties(metadata: NodeSeq) {
 
   val resultNames = metadata \ "results" \ "result" map { e => e \ "@name" text }
 
+  // names of job results that must be present in the output of a successful
+  // job; for example, a file that lists the volumes that could not be
+  // retrieved from the Data API, is an optional result, which may or may not
+  // be produced in a successful job; the "optional" attribute of a job
+  // result is "false" by default
+  val nonOptionalResults =
+    metadata \ "results" \ "result" filter { e =>
+      val opt = (e \ "@optional" text)
+      ((opt == "") || (opt == "false"))
+    } map { e => e \ "@name" text }
+
   // parse the <execution_info> element in the algorithm XML to determine
   // resource allocation parameterized by the total size of input worksets;
   // on success, returns a sequence of (min: Int, max: Int, ResourceAlloc)
@@ -192,6 +206,8 @@ case class WorksetMetadata(metadata: NodeSeq) {
   val name = (metadata \\ "name" text)
   val author = (metadata \\ "author" text)
   val volumeCount = (metadata \\ "volumeCount" text).toInt
+  val lastModifiedTime = (metadata \\ "lastModified" text)
+  val isPublic = (metadata \\ "public" text).toBoolean
 }
 
 // class that contains resource allocation information for the HPC system on

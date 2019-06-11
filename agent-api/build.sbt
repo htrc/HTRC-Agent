@@ -1,10 +1,12 @@
+import com.typesafe.sbt.packager.docker._
+
 organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "3.2.11"
+version       := "4.0.0"
 
-scalaVersion  := "2.10.4"
+scalaVersion  := "2.12.8"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-language:postfixOps", "-encoding", "utf8")
 
@@ -17,67 +19,67 @@ resolvers ++= Seq(
   "storehaus repo" at "http://repo1.maven.org/maven2/com/twitter/"
 )
 
-libraryDependencies ++= Seq(
-  "io.spray"                %   "spray-servlet" % "1.3.2-20140428",
-  "io.spray"                %   "spray-routing" % "1.3.2-20140428",
-  "io.spray"                %   "spray-testkit" % "1.3.2-20140428",
-  "io.spray"                %   "spray-can"     % "1.3.2-20140428",
-  "io.spray"                %   "spray-http" % "1.3.2-20140428",
-  "io.spray"                %   "spray-httpx" % "1.3.2-20140428",
-  "io.spray"                %   "spray-util"     % "1.3.2-20140428",
-  "io.spray"                %   "spray-client"   % "1.3.2-20140428",
-  "org.scala-stm"           %%  "scala-stm" % "0.7",
-  "com.typesafe.akka"       %%  "akka-actor"    % "2.3.6", 
-  "com.typesafe.akka"       %%  "akka-agent"    % "2.3.6",
-  "com.typesafe.akka"       %%  "akka-slf4j"    % "2.3.6",
-  // "javax.servlet" % "javax.servlet-api" % "3.0.1" % "provided",
+// mainClass in Compile := Some("HtrcJobsServer")
+
+enablePlugins(JavaAppPackaging)
+
+enablePlugins(DockerPlugin)
+
+// removing existing docker cmds 
+// dockerCommands := dockerCommands.value.filterNot {
+//   case ExecCmd("ENTRYPOINT", args @ _*) => true
+//   case ExecCmd("CMD", args @ _*) => true
+//
+//   // don't filter the rest; don't filter out anything that doesn't match a
+//   // pattern
+//   case cmd                       => false
+// }
+
+// the docker image gets a default name such as "agent:4.0.0-SNAPSHOT"; set
+// the name to "agent:dev", "agent:prod" as needed
+version in Docker := "dev"
+
+dockerRepository := Some("docker-registry.htrc.indiana.edu")
+dockerCommands ++= Seq(
+  Cmd("USER", "root"),
+  Cmd("ENV", "TZ=America/Indianapolis"),
+  Cmd("RUN",
+    "ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone"),
+  Cmd("RUN", "groupadd htrcprodgrp"),
+  Cmd("RUN", "chmod +x bin/agent"),
+  Cmd("RUN", "useradd -M -s /bin/nologin -g htrcprodgrp -u 1488170 htrcprod"),
+  // Cmd("RUN", "useradd -M -s /bin/nologin -g htrcprodgrp -u 500809 leunnikr"),
+  // allow the user in the container to ssh to karst, and scp to and from karst
+  Cmd("RUN", """echo "Host karst.uits.iu.edu\n\tIdentityFile /etc/htrc/agent/config/id_rsa\n\tStrictHostKeyChecking no\n" >> /etc/ssh/ssh_config"""),
+  Cmd("RUN", "mkdir -p /etc/htrc/agent"),
+  Cmd("RUN", "chown -R htrcprod /etc/htrc/agent"),
+  Cmd("USER", "htrcprod")
+  // launch the app using /opt/docker/bin/agent
+  // Cmd("CMD", "bin/agent > /opt/docker/logs/agent-start-error.out")
+)
+
+libraryDependencies ++= {
+  val akkaV       = "2.5.19"
+  Seq(
+  "org.scala-stm"           %%  "scala-stm" % "0.8",
+  "com.typesafe.akka"       %%  "akka-actor"    % akkaV,
+  "com.typesafe.akka"       %%  "akka-http"     % "10.1.7",
+  "com.typesafe.akka"       %%  "akka-stream"   % akkaV,
+  "com.typesafe.akka"       %%  "akka-http-xml" % "10.1.7",
+  "com.typesafe.akka"       %%  "akka-slf4j"    % akkaV,
+  "org.scala-lang.modules" %% "scala-xml" % "1.1.1",
   "ch.qos.logback" % "logback-classic" % "1.0.9",
   "org.apache.httpcomponents" % "httpcore" % "4.4.1",
   "org.apache.httpcomponents" % "httpclient" % "4.5.3",
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
   "commons-io" % "commons-io" % "2.4",
   "com.github.tototoshi" %% "scala-csv" % "1.3.4",
-  // "edu.indiana.d2i.htrc" % "oauth2-servletfilter"  % "2.0-SNAPSHOT",
-  "edu.indiana.d2i.htrc" % "jwt-servletfilter"  % "1.3.1"
-)
-
-// disable using the Scala version in output paths and artifacts
-crossPaths := false
-
-publishMavenStyle := true
-
-publishTo := Some("HTRC Nexus Releases" at "https://nexus.htrc.illinois.edu/content/repositories/releases/")
-
-// publishTo := Some("HTRC Nexus Snapshots" at "https://nexus.htrc.illinois.edu/content/repositories/snapshots/")
-
-// credentials += Credentials("Sonatype Nexus Repository Manager", "nexus.htrc.illinois.edu", "user", "passwd")
-
-credentials += Credentials(Path.userHome / "htrc-agent" / "dev" / "trunk" / ".credentials")
-
-// disable .jar publishing
-publishArtifact in (Compile, packageBin) := false
-
-// disable publishing the main API jar
-publishArtifact in (Compile, packageDoc) := false
-
-// disable publishing the main sources jar
-publishArtifact in (Compile, packageSrc) := false
-
-// create an Artifact for publishing the .war file
-artifact in (Compile, packageWar) := {
-  val previous: Artifact = (artifact in (Compile, packageWar)).value
-  previous.copy(`type` = "war", extension = "war")
+  "com.auth0" % "java-jwt" % "3.3.0"
+  )
 }
 
-// add the .war file to what gets published
-addArtifact(artifact in (Compile, packageWar), packageWar)
-
-// container:start fails to start Jetty because of problems with jar file
-// icu4j-2.6.1.jar, but Tomcat is able get past this error
-tomcat(port = 9000)
-
-val buildenv = settingKey[String]("buildenv")
-
-buildenv := sys.props.getOrElse("buildenv", default = "dev")
-
-unmanagedResourceDirectories in Compile += baseDirectory.value / "src" / "main" / "env-specific-resources" / buildenv.value
+// scala-xml requires sbt version 1.1.2, or later; the following handles
+// earlier versions of sbt; it runs the code in a forked process in sbt 1.1.1
+// and earlier, so that it doesn't conflict with the scala-xml on which the
+// Scala compiler depends
+fork := true

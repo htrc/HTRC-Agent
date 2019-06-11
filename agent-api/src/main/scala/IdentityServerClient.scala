@@ -21,22 +21,15 @@ package htrc.agent
 
 import scala.concurrent.Future
 import akka.actor._
-import spray.io._
-import spray.util._
-import spray.http._
-import spray.client.pipelining._
-import HttpMethods._
 import scala.concurrent.duration._
 import akka.util.Timeout
 import akka.actor.{ ActorSystem, Props, Actor }
-import HttpMethods._
 import akka.pattern.ask
 import akka.event.Logging
 import akka.event.slf4j.Logger
 import scala.util.{Success, Failure}
 import scala.xml._
 import HtrcConfig._
-import MediaTypes._
 
 object IdentityServerClient {
 
@@ -47,9 +40,12 @@ object IdentityServerClient {
   val log = Logging(system, "identity-server-http-client")
   val auditLog = Logger("audit")
 
-  // initialize the bridge to the IO layer used by Spray
-  // val ioBridge = IOExtension(system).ioBridge()
+  // stub for Akka HTTP
+  def getClientCredentialsToken(): Future[String] = {
+    Future("Stub method result")
+  }
 
+  /*
   def queryClientCredentialsToken(): Future[HttpResponse] = {
 
     // val root = idServerHost
@@ -131,4 +127,5 @@ object IdentityServerClient {
     }
     else ""
   }
+   */
 }
