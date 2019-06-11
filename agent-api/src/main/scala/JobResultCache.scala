@@ -143,7 +143,9 @@ class JobResultCache(val maxEntries: Int = 1000) {
 }
 
 object JobResultCache {
-  def constructKey(js: JobSubmission, algMetadata: JobProperties, token: String): Future[Option[String]] = {
+  def constructKey(js: JobSubmission, algMetadata: JobProperties,
+    lsCollectionMetadata: List[(String, Option[WorksetMetadata])],
+    token: String): Future[Option[String]] = {
     // key associated with a job = (algName, algVersion, algXMLTimestamp, 
     //                              params, collectionParamTimestamps)
     // params is a list of the form param1=<value>, param2=<value>, ...
@@ -163,25 +165,20 @@ object JobResultCache {
     val algXMLTimestampF = 
       RegistryHttpClient.algorithmXMLTimestamp(algName, token)
 
-    val collectionTimestampsF = 
-      Future.sequence(js.collections map { 
-	collectionName => 
-          RegistryHttpClient.collectionMetadata(collectionName, token) map { 
-            _ flatMap { case (collectionTimestamp, isPublic) =>
-              Option(if (HtrcConfig.cacheJobsOnPrivWksets)
-                       collectionName + "TS=" + collectionTimestamp
-                     else if (isPublic)
-                       collectionName + "TS=" + collectionTimestamp
-                     else null)
-                // if cacheJobsOnPrivWksets is false, and the workset is private
-                // return Option(null) = None
-	    }
-          }
-      })
+    // list of collection timestamps, List[Option[String]]
+    val collectionTimestampList =
+      lsCollectionMetadata map { case(collectionName, wksetMdOpt) =>
+        wksetMdOpt flatMap { wksetMetadata =>
+          Option(if (HtrcConfig.cacheJobsOnPrivWksets)
+            collectionName + "TS=" + wksetMetadata.lastModifiedTime
+          else if (wksetMetadata.isPublic)
+            collectionName + "TS=" + wksetMetadata.lastModifiedTime
+          else null)
+        }
+      }
 
     for {
       algXMLTsOpt <- algXMLTimestampF
-      collectionTimestampList <- collectionTimestampsF
     } yield {
       if (collectionTimestampList contains None) 
         None

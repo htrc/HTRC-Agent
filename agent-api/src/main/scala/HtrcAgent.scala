@@ -96,14 +96,19 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             sender ! <error>job: {jobId} does not exist</error>
           } else {
             if( savedJob != None ) {
-              RegistryHttpClient.deleteJob(jobId.toString, token)
-              savedJobs -= jobId
+              val currSender = sender
+              RegistryHttpClient.deleteJob(jobId.toString, token) map { b =>
+                if (b) {
+                  savedJobs -= jobId
+                  currSender ! <success>deleted job: {jobId}</success>
+                } else {
+                  currSender ! <error>Job {jobId} not deleted</error>
+                }
+              }
             }
             if( job != None ) {
               jobs -= jobId
               job.get dispatch(m) pipeTo sender
-            } else {
-              sender ! <success>deleted job: {jobId}</success>
             }
           }
 
@@ -279,7 +284,10 @@ class HtrcAgent(user: HtrcUser) extends Actor {
       val savedJobsF = f flatMap { names =>
         RegistryHttpClient.downloadSavedJobs(names, token)
       }
-      val savedJobsRaw = scala.concurrent.Await.result(savedJobsF, 5 seconds)
+      // wait time for the development stack is 5 seconds; wait time set to
+      // 10 seconds for the production stack, since the produstion registry
+      // extension takes longer for users with several jobs (100+)
+      val savedJobsRaw = scala.concurrent.Await.result(savedJobsF, 10 seconds)
       savedJobsRaw.foreach(j => savedJobs += (JobId(j.id) -> j))
       savedJobsReady = true
     }

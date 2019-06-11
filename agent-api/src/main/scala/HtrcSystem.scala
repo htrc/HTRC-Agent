@@ -22,14 +22,16 @@ package htrc.agent
 // The place for global state.
 
 import scala.collection.immutable.HashMap
-import akka.agent.Agent
-import scala.concurrent.stm._
 import akka.actor.{ ActorSystem, ActorRef, Props }
 import java.util.UUID
 import scala.collection.mutable.{ HashMap => MHashMap }
 import com.typesafe.config.{Config, ConfigFactory, ConfigList}
 import java.io._
 import scala.concurrent.stm._
+
+import collection.JavaConverters._
+import akka.stream.ActorMaterializer
+import akka.event.Logging
 
 object HtrcSystem {
 
@@ -39,11 +41,14 @@ object HtrcSystem {
   // make the system available implicitly
   implicit val htrcSystem = system
 
-  // System Actors 
+  // used by Akka streams
+  val materializer = ActorMaterializer()
+
+  // System Actors
   //   * These need to be replaced with proper path-based lookups /
   //     routers / supervised.
   
-  val agentBuilder = system.actorOf(Props(new AgentBuilder), name = "agentBuilder")
+  val userActors = system.actorOf(Props(new UserActors), name = "userActors")
 
   val jobCreator = system.actorOf(Props(new JobCreator), name = "jobCreator")
 
@@ -59,36 +64,6 @@ object HtrcSystem {
   // actor to manage job result cache
   val cacheController = system.actorOf(Props(new CacheController), 
                                        name = "cacheController")
-}
-
-// our global store of what agents exist
-// includes operations to atomically add, remove, or lookup agents
-
-object HtrcAgents {
-
-  // make the actor system implicitly available
-  import HtrcSystem._
-  import system.dispatcher
-
-  // the global store of what agents exist
-  val agents = Agent(new HashMap[HtrcUser, ActorRef])
-
-  def addAgent(user: HtrcUser, ref: ActorRef) {
-    atomic { txn =>
-      agents send { agents.get + (user -> ref) }
-    }
-  }
-
-  def removeAgent(user: HtrcUser) {
-    atomic { txn =>
-      agents send { agents.get - user }
-    }
-  }
-
-  def lookupAgent(user: HtrcUser): Option[ActorRef] = {
-    agents.get.get(user)
-  }
-
 }
 
 // Utility functions that don't have a home.
@@ -184,6 +159,9 @@ object HtrcConfig {
   val skelJobClientScript = config.getString("htrc.skel_job_client_script")
   val jobClientScript = config.getString("htrc.job_client_script")
 
+  val serverCert = config.getString("htrc.server_cert")
+  val serverCertPasswd = config.getString("htrc.server_cert_passwd") 
+
   val keystoreForOutgoingReqs = config.getString("htrc.keystore_for_outgoing_requests")
   val keystorePasswd = config.getString("htrc.keystore_passwd") 
 
@@ -193,6 +171,7 @@ object HtrcConfig {
   // val registryVersion = config.getString("htrc.registry.version")
   // val registryPort = config.getInt("htrc.registry.port")
   val registryUrl = config.getString("htrc.registry.url")
+  val registryHost = config.getString("htrc.registry.host")
 
   // val idServerHttpProtocol = config.getString("htrc.id_server.http_protocol")
   // val idServerHost = config.getString("htrc.id_server.host")
@@ -231,6 +210,31 @@ object HtrcConfig {
   val cacheJobsOnPrivWksets = config.getBoolean("htrc.job_result_cache.cache_jobs_on_priv_wksets")
      // whether cache read/write should be performed for job submissions for
      // whom at least one input workset is private
+
+  // details of the public key of the issuer of the JWT; the public key is
+  // used to verify the signature in the JWT
+  val jwtPublicKeyPath = config.getString("htrc.jwtfilter.jwt.token.issuer.public-key.keystore")
+  val jwtPublicKeyPass = config.getString("htrc.jwtfilter.jwt.token.issuer.public-key.keystore-password")
+  val jwtPublicKeyAlias = config.getString("htrc.jwtfilter.jwt.token.issuer.public-key.publickey-alias")
+
+  val jwtIssuer = config.getString("htrc.jwtfilter.jwt.token.issuer.id")
+  val jwtVerificationAlg = config.getString("htrc.jwtfilter.jwt.token.verification.algorithm")
+  val jwtIgnoreExpiry = config.getBoolean("htrc.jwtfilter.jwt.token.verification.ignore.expiration")
+
+  // reads the following from the conf file into a scala map
+  // claim-mappings {
+  //   email = "htrc-email"
+  //   sub = "htrc-remote-user"
+  //   iss = "htrc-token-issuer"
+  // }
+  // the map is of the form [email -> htrc-email, sub -> htrc-remote-user,
+  // iss -> htrc-token-issuer]
+  val jwtClaimMappings =
+    config.getConfig("htrc.jwtfilter.claim-mappings")
+      .entrySet()
+      .asScala
+      .map { e => (e.getKey, e.getValue.unwrapped.asInstanceOf[String]) }
+      .toMap
 
   // information regarding compute resource (on which jobs are run)
   val computeResource = "htrc." + localResourceType + "."

@@ -24,7 +24,7 @@ package htrc.agent
 import scala.xml._
 import akka.actor.ActorRef
 
-case class BuildAgent(user: HtrcUser, message: AgentMessage)
+case class GetUserActor(user: HtrcUser, message: AgentMessage)
 
 sealed trait JobCreatorMessage
 sealed trait ComputeResourceMessage
@@ -84,10 +84,14 @@ case object RegistryOk extends WriteStatus
 case class GetJobFromCache(js: JobSubmission, token: String) extends CacheControllerMessage
 case class GetDataForJobRun(js: JobSubmission, token: String) extends CacheControllerMessage
 
-// msg sent by CacheController to itself after constructing the lookup key upon
-// receiving GetJobFromCache
-case class CacheLookup(optKey: Option[String], algMetadata: JobProperties, 
-                       asker: ActorRef) extends CacheControllerMessage
+// msg sent by CacheController to itself after constructing the lookup key
+// upon receiving GetJobFromCache; algMetadata and lsCollectionMetadata are
+// included in this message so that they can be passed back to "asker", and
+// used in further processing of the job submission (running the job, or
+// obtaining it from the cache)
+case class CacheLookup(optKey: Option[String], algMetadata: JobProperties,
+  lsCollectionMetadata: List[(String, Option[WorksetMetadata])],
+  asker: ActorRef) extends CacheControllerMessage
 
 // periodic msg sent by CacheController to itself
 case object WriteCacheToFile extends CacheControllerMessage

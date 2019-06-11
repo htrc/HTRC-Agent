@@ -33,6 +33,7 @@ import akka.pattern.pipe
 import scala.sys.process.{ Process => SProcess }
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.DirectoryFileFilter
+import scala.concurrent.Future
 
 class CacheController extends Actor {
   // context import
@@ -72,23 +73,42 @@ class CacheController extends Actor {
           log.debug("CACHE_CONTROLLER received GetJobFromCache({}, {})", js, 
                     token)
 	  val currSender = sender
-	  RegistryHttpClient.algorithmMetadata(js.algorithm, token) map {
-	    algMetadata =>
-	    JobResultCache.constructKey(js, algMetadata, token) map {
-              jobKey => self ! CacheLookup(jobKey, algMetadata, currSender)
-	    }
-	  }
 
-	case CacheLookup(optKey, algMetadata, asker) =>
+          // retrieve metadata of input worksets of the job submission
+          // Future[List[(String, Option[WorksetMetadata])]]
+          val collectionMetadataF =
+            Future.sequence(js.collections map { collectionName =>
+              RegistryHttpClient.collectionMetadata(collectionName, token) map {
+                (collectionName, _)
+              }  
+            })
+
+          // retrieve the algorithm XML file for the algorithm in the job
+          // submission
+          val algMetadataF =
+            RegistryHttpClient.algorithmMetadata(js.algorithm, token)
+
+          for {
+            lsCollectionMetadata <- collectionMetadataF
+            algMetadata <- algMetadataF
+            jobKey <- JobResultCache.constructKey(js, algMetadata,
+              lsCollectionMetadata, token)
+          } {
+            self ! CacheLookup(jobKey, algMetadata, lsCollectionMetadata,
+              currSender)
+          }
+
+	case CacheLookup(optKey, algMetadata, lsCollectionMetadata, asker) =>
           log.debug("CACHE_CONTROLLER received CacheLookup({}, {})", optKey, 
                     asker)
           val cacheRes = optKey flatMap { key => jobResultCache.get(key) }
 	  val result: Either[DataForJobRun, DataForCachedJob] = 
 	    cacheRes map { cachedJobId => 
-	      Right(DataForCachedJob(cachedJobId, algMetadata))
+	      Right(DataForCachedJob(cachedJobId, algMetadata,
+                lsCollectionMetadata))
 	    } getOrElse { 
               val resKey = if (HtrcConfig.cacheJobs) optKey else None
-	      Left(DataForJobRun(resKey, algMetadata)) 
+	      Left(DataForJobRun(resKey, algMetadata, lsCollectionMetadata)) 
 	    }
 	  asker ! result
 
@@ -96,18 +116,36 @@ class CacheController extends Actor {
 	  val currSender = sender
 	  log.debug("CACHE_CONTROLLER received GetDataForJobRun({}, {})", js, 
                     token)
-          
-          RegistryHttpClient.algorithmMetadata(js.algorithm, token) map {
-            algMetadata =>
-              // if HtrcConfig.cacheJobs is set to false, then there is no
-              // need for the key
-	      if (!HtrcConfig.cacheJobs)
-                currSender ! DataForJobRun(None, algMetadata)
-              else {
-                JobResultCache.constructKey(js, algMetadata, token) map {
-                  jobKey => currSender ! DataForJobRun(jobKey, algMetadata)
+
+          // retrieve metadata of input worksets of the job submission
+          // Future[List[(String, Option[WorksetMetadata])]]
+          val collectionMetadataF =
+            Future.sequence(js.collections map { collectionName =>
+              RegistryHttpClient.collectionMetadata(collectionName, token) map {
+                (collectionName, _)
+              }  
+            })
+
+          // retrieve the algorithm XML file for the algorithm in the job
+          // submission
+          val algMetadataF =
+            RegistryHttpClient.algorithmMetadata(js.algorithm, token)
+
+          for {
+            lsCollectionMetadata <- collectionMetadataF
+            algMetadata <- algMetadataF
+          } {
+            // if HtrcConfig.cacheJobs is set to false, then there is no
+            // need for the key
+	    if (!HtrcConfig.cacheJobs)
+              currSender ! DataForJobRun(None, algMetadata, lsCollectionMetadata)
+            else {
+              JobResultCache.constructKey(js, algMetadata,
+                lsCollectionMetadata, token) map { jobKey =>
+                currSender ! DataForJobRun(jobKey, algMetadata,
+                  lsCollectionMetadata)
                 }
-	      }
+	    }
           }
 
 	case AddJobToCache(key, jobStatus) =>
@@ -203,7 +241,7 @@ class CacheController extends Actor {
     // val sep = File.separator
     val jobResultSubdir = HtrcConfig.resultDir + sep + jobStatus.jobResultLoc +
                           sep + HtrcConfig.systemVariables("output_dir")
-    jobStatus.inputs.resultNames forall { res => 
+    jobStatus.inputs.system.nonOptionalResults forall { res => 
       // log.debug("CACHE_CONTROLLER: looking for {}", jobResultSubdir + sep + res)
       HtrcUtils.fileExists(jobResultSubdir + sep + res)
     }
@@ -253,13 +291,18 @@ class CacheController extends Actor {
 
 }
 
-// response for message GetDataForJobRun; algMetadata contains details needed
-// to launch the job; the jobResultCacheKey is used if the results of the job
-// after execution are to be cached
+// response for message GetDataForJobRun; algMetadata and
+// lsCollectionMetadata contain details needed to launch the job;
+// lsCollectionMetadata is a list of tuples of the form (<worksetName>,
+// Option[WorksetMetadata]); the jobResultCacheKey is used if the results of
+// the job after execution are to be cached
 case class DataForJobRun(jobResultCacheKey: Option[String], 
-                         algMetadata: JobProperties)
+  algMetadata: JobProperties,
+  lsCollectionMetadata: List[(String, Option[WorksetMetadata])])
 
 // response for message GetJobFromCache if job is found in the cache;
 // algMetadata is required to construct the final status of the cached job
-// including the list of job results
-case class DataForCachedJob(cachedJobId: String, algMetadata: JobProperties)
+// including the list of job results; lsCollectionMetadata is included in
+// case it is needed at a later point
+case class DataForCachedJob(cachedJobId: String, algMetadata: JobProperties,
+  lsCollectionMetadata: List[(String, Option[WorksetMetadata])])
