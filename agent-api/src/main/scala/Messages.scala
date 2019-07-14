@@ -47,6 +47,8 @@ case class AllJobStatuses(token: String) extends AgentMessage
 case class SavedJobStatuses(token: String) extends AgentMessage
 // case class JobOutputRequest(jobId: JobId, outputType: String) extends AgentMessage with JobMessage
 
+case class SavedJobs(seq: Seq[SavedHtrcJob]) extends AgentMessage
+
 // msg sent to HtrcAgent upon receipt of job/<jobid>/updatestatus from
 // AgentJobClient
 case class UpdateJobStatus(jobId: JobId, token: String, 

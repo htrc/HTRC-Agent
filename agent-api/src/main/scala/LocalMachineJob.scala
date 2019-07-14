@@ -96,7 +96,7 @@ class LocalMachineJob(user: HtrcUser, inputs: JobInputs, id: JobId) extends Acto
               status = Finished(inputs, id, computeResource, results)
               userActor ! InternalUpdateJobStatus(id, status, inputs.token)
             case InternalCrashed(copyResults) =>
-              log.debug("JOB_ACTOR_ERROR: unexpected status update InternalCrashed, USER: {}\tJOB_ID: {}", user.name, id)
+              log.error("JOB_ACTOR_ERROR: unexpected status update InternalCrashed, USER: {}\tJOB_ID: {}", user.name, id)
               // JobThrottler.removeJob()
               // logEnd("CRASHED")
               // status = CrashedPendingCompletion(inputs, id, computeResource,

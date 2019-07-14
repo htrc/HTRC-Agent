@@ -42,11 +42,11 @@ class RemoteJobCompletion(val status: PendingCompletion,
 
     val scpLogger = SProcessLogger(
     (o: String) => 
-      { log.debug("SCP_FROM_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+      { log.info("SCP_FROM_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
                   userName, inputs.ip, id, o)
         scpOut.append(o + "\n") },
     (e: String) => 
-      { log.debug("SCP_FROM_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+      { log.info("SCP_FROM_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
                   userName, inputs.ip, id, e)
         scpErr.append(e + "\n") })
 
@@ -56,7 +56,7 @@ class RemoteJobCompletion(val status: PendingCompletion,
     val scpCmd = scpCmdF.format(itemsToCopy, localResultDir)
     val scpRes = SProcess(scpCmd) ! scpLogger
 
-    log.debug("SCP_JOB_RESULTS\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
+    log.info("SCP_JOB_RESULTS\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
 	      userName, id, scpCmd, scpRes)
 
     if (scpRes != 0) {

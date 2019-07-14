@@ -123,7 +123,7 @@ class CachedJob(inputs: JobInputs, id: JobId,
         case DeleteJob(id, token) =>
 	  sender ! <success>Deleted job {id}</success>
 	  self ! PoisonPill
-	  log.debug("CACHED_JOB({}): received DeleteJob", id)
+	  log.info("CACHED_JOB({}): received DeleteJob", id)
 
         case StatusUpdate(status) =>
 	  // unexpected msg; add to log

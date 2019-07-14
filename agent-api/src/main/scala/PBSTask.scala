@@ -256,11 +256,11 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
     val scpLogger = SProcessLogger(
     (o: String) => 
-      { log.debug("PBS_SCP_TO_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+      { log.info("PBS_SCP_TO_COMPUTE_RES_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
                   user.name, inputs.ip, id, o)
         scpOut.append(o + "\n") },
     (e: String) => 
-      { log.debug("PBS_SCP_TO_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+      { log.info("PBS_SCP_TO_COMPUTE_RES_ERR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
                   user.name, inputs.ip, id, e)
         scpErr.append(e + "\n") })
 
@@ -268,7 +268,7 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     val scpCmd = scpCmdF.format(workingDir, target, targetWorkingDir)
     val scpRes = SProcess(scpCmd) ! scpLogger
 
-    log.debug("PBS_SCP_TO_COMPUTE_RES\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}", 
+    log.info("PBS_SCP_TO_COMPUTE_RES\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}", 
               user.name, id, scpCmd, scpRes)
 
     if (scpRes != 0) {
@@ -291,14 +291,14 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
           jobid = o
            // error msgs may also be written to stdout
           qsubOut.append(o + "\n")
-          log.debug("PBS_QSUB_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+          log.info("PBS_QSUB_OUT\t{}\t{}\tJOB_ID: {}\tMSG: {}",
                     user.name, inputs.ip, id, o) },
       (e: String) => 
         { // "tcgetattr: Invalid argument" in stderr results from the use of
 	  // the -t flag with ssh; this msg can be ignored
           if (!e.contains("tcgetattr: Invalid argument")) {
             qsubErr.append(e + "\n")
-            log.debug("PBS_QSUB_ERROR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
+            log.info("PBS_QSUB_ERROR\t{}\t{}\tJOB_ID: {}\tMSG: {}",
                       user.name, inputs.ip, id, e)
           }
         } )
@@ -314,7 +314,7 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     val sysProcess = SProcess(cmd, new File(workingDir))
     val exitVal = sysProcess ! qsubLogger
 
-    log.debug("PBS_TASK_QSUB_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
+    log.info("PBS_TASK_QSUB_CMD\t{}\tJOB_ID: {}\tCMD: {}\tRESULT: {}",
 	      user.name, id, cmd, exitVal)
 
     if (exitVal != 0) {
