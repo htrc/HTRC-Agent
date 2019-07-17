@@ -32,6 +32,7 @@ import scala.concurrent.Future
 import akka.pattern.ask
 import akka.pattern.pipe
 import scala.xml._
+import scala.collection.mutable.MutableList
 
 // parameter: the user this agent represents
 class HtrcAgent(user: HtrcUser) extends Actor {
@@ -51,11 +52,28 @@ class HtrcAgent(user: HtrcUser) extends Actor {
   // pre-fetch this information so when a user asks about old jobs the
   // information is available.
   val savedJobs = new HashMap[JobId, SavedHtrcJob]
+  // whether the list of saved jobs is available
   var savedJobsReady = false
+
+  // whether the list of saved jobs is currently being retrieved
+  var processingSavedJobs = false
+
+  // lists of actors that have sent either "SavedJobStatuses" or
+  // "AllJobStatuses", and are still waiting for responses
+  val waitListForSavedJobs = new MutableList[ActorRef]
+  val waitListForAllJobs = new MutableList[ActorRef]
 
   // logging configuration
   val log = Logging(context.system, this)
   val auditLog = Logger("audit")
+
+  override def preStart() = {
+    log.debug("HtrcAgent({}) starting", user.name)
+  }
+
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    log.error(reason, "HtrcAgent({}) restarting due to [{}] when processing [{}]", user.name, reason.getMessage, message.getOrElse(""))
+  }
 
   // to add some type safety define the message types and do an
   // *exhaustive* match on those types, if not exhaustive the compiler
@@ -63,7 +81,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
 
   // thought: clean this up with some syntax? hide PF[Any,Unit] and replace
   // with something meaningful?
-  
+
   val behavior: PartialFunction[Any,Unit] = {
     case m: AgentMessage => 
       m match {
@@ -186,14 +204,73 @@ class HtrcAgent(user: HtrcUser) extends Actor {
           // bulkJobStatus(sender)
           activeJobStatus(sender)
 
-        case SavedJobStatuses(token) => 
-          loadSavedJobs(token)
-          sender ! <jobs>{for(j <- savedJobs.values) yield j.renderXml}</jobs>
-
-        case AllJobStatuses(token) => 
-          loadSavedJobs(token)
+        // message sent from a Future launched by this actor, in which saved
+        // jobs are retrieved, to itself
+        case SavedJobs(seq) =>
+          savedJobsReady = true
+          processingSavedJobs = false
+          seq.foreach(j => savedJobs += (JobId(j.id) -> j))
           val saved = Some(savedJobs.values.toList)
-          bulkJobStatus(sender, saved)
+          waitListForSavedJobs foreach { a =>
+            a ! <jobs>{for(j <- savedJobs.values) yield j.renderXml}</jobs>
+          }
+          waitListForAllJobs foreach { a => bulkJobStatus(a, saved) }
+
+        case SavedJobStatuses(token) =>
+          if (savedJobsReady) {
+            val saved = Some(savedJobs.values.toList)
+            sender ! <jobs>{for(j <- savedJobs.values) yield j.renderXml}</jobs>
+          } else {
+            if (processingSavedJobs) {
+              waitListForSavedJobs += sender
+            } else {
+              // if the list of saved jobs is not available, start retrieving
+              // them; if there are any messages to this actor during
+              // retrieval, the actor knows that retrieval is underway
+              // through processingSavedJobs
+              processingSavedJobs = true
+              waitListForSavedJobs += sender
+              // get the list of all saved jobs
+              val f = RegistryHttpClient.listSavedJobs(token)
+              f flatMap { names =>
+                // get the file for each of the saved jobs
+                RegistryHttpClient.downloadSavedJobs(names, token)
+              } foreach { seq =>
+                // once all jobs have been retrieved, send a SavedJobs
+                // message from the Future in which this executes, to this
+                // actor
+                self ! SavedJobs(seq)
+              }
+            }
+          }
+
+        case AllJobStatuses(token) =>
+          if (savedJobsReady) {
+            val saved = Some(savedJobs.values.toList)
+            bulkJobStatus(sender, saved)
+          } else {
+            if (processingSavedJobs) {
+              waitListForAllJobs += sender
+            } else {
+              // if the list of saved jobs is not available, start retrieving
+              // them; if there are any messages to this actor during
+              // retrieval, the actor knows that retrieval is underway
+              // through processingSavedJobs
+              processingSavedJobs = true
+              waitListForAllJobs += sender
+              // get the list of all saved jobs
+              val f = RegistryHttpClient.listSavedJobs(token)
+              f flatMap { names =>
+                // get the file for each of the saved jobs
+                RegistryHttpClient.downloadSavedJobs(names, token)
+              } foreach { seq =>
+                // once all jobs have been retrieved, send a SavedJobs
+                // message from the Future in which this executes, to this
+                // actor
+                self ! SavedJobs(seq)
+              }
+            }
+          }
 
         // temporarily commented out; should be uncommented when stderr,
         // stdout etc. are available for the job
@@ -207,7 +284,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
         // UpdateJobStatus is received here after a msg is received by the
         // agent from an instance of AgentJobClient
         case updateStatus @ UpdateJobStatus(jobId, tok, newStatus) => 
-          log.debug("UpdateJobStatus(" + jobId + ", " + newStatus + 
+          log.info("UpdateJobStatus(" + jobId + ", " + newStatus + 
                     ") received by HtrcAgent(" + user + ")")
 
           val successMsg = <success>Update of job status successful.</success>
@@ -219,7 +296,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
                                            tok)
             successMsg
           } getOrElse { 
-            log.debug("ERROR: HtrcAgent({}) received UpdateJobStatus for " + 
+            log.error("ERROR: HtrcAgent({}) received UpdateJobStatus for " + 
                       "non-existent job\tJOB_ID: {}\tSTATUS: {}",
                       user.name, jobId, newStatus)
             errorMsg
@@ -233,7 +310,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
                     token + ") received by HtrcAgent(" + user + ")")
           val job = jobs.get(jobId)
           if (job == None)
-            log.debug("ERROR: HtrcAgent({}) received InternalUpdateJobStatus " + 
+            log.error("ERROR: HtrcAgent({}) received InternalUpdateJobStatus " + 
                       "for non-existent job\tJOB_ID: {}\tSTATUS: {}",
                       user.name, jobId, status)
           else
@@ -265,11 +342,11 @@ class HtrcAgent(user: HtrcUser) extends Actor {
             jobs -= jobId
           }
           else {
-            log.debug("ERROR in processing InternalJobUpdateStatus: " + 
+            log.error("ERROR in processing InternalJobUpdateStatus: " + 
                       "unable to save job to the registry")
             val job = jobs.get(jobId)
             job map {j => j.setStatus(status)} getOrElse {
-              log.debug("ERROR: HtrcAgent({}) received JobSaveCompleted " + 
+              log.error("ERROR: HtrcAgent({}) received JobSaveCompleted " + 
                       "for non-existent job\tJOB_ID: {}\tSTATUS: {}",
                       user.name, jobId, status)
             }
@@ -278,6 +355,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
       }
   }
 
+  /*
   def loadSavedJobs(token: String) {
     if(savedJobsReady == false) {
       val f = RegistryHttpClient.listSavedJobs(token)
@@ -292,6 +370,7 @@ class HtrcAgent(user: HtrcUser) extends Actor {
       savedJobsReady = true
     }
   }
+   */
 
   // statuses of jobs that are not saved are stored in "jobs" in the HtrcJob
   // object; so, "jobs" includes active jobs (status Created, Staging,

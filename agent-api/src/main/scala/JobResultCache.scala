@@ -89,7 +89,7 @@ class JobResultCache(val maxEntries: Int = 1000) {
   def writeCacheToFileIfNeeded(cacheFilePath: String): Unit = {
     if (writeNecessary) {
       writeNecessary = false
-      log.debug("JOB_RESULT_CACHE: writing cache index to disk")
+      log.info("JOB_RESULT_CACHE: writing cache index to disk")
       writeCacheToFile(cacheFilePath)
     }
   }

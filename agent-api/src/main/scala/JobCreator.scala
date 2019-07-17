@@ -50,12 +50,12 @@ class JobCreator extends Actor {
     case m: JobCreatorMessage => 
       m match {
         case msg @ CreateJob(user, inputs, id) =>
-          log.debug("JOB_CREATION\t{}\t{}\tJOB_ID: {}",
+          log.info("JOB_CREATION\t{}\t{}\tJOB_ID: {}",
                    user.name, "ip", id)
           localMachineResource forward msg
 
 	case msg @ CreateCachedJob(inputs, id, cachedJobId) =>
-          log.debug("CACHED_JOB_CREATION\t{}\t{}\tJOB_ID: {}",
+          log.info("CACHED_JOB_CREATION\t{}\t{}\tJOB_ID: {}",
                     inputs.user.submitter, "ip", id)
 	  val jobActor = 
 	    context.actorOf(Props(new CachedJob(inputs, id, cachedJobId)), 

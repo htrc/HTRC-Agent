@@ -46,6 +46,7 @@ import java.security.{ SecureRandom, KeyStore }
 import javax.net.ssl.{ SSLContext, TrustManagerFactory, KeyManagerFactory }
 import akka.http.scaladsl.{ ConnectionContext, HttpsConnectionContext, Http }
 import java.io.{ StringWriter, PrintWriter }
+import akka.http.scaladsl.server.directives.LogEntry
 
 object HtrcJobsServer extends App with AgentService {
   override implicit val system = HtrcSystem.system
@@ -53,7 +54,7 @@ object HtrcJobsServer extends App with AgentService {
   override implicit val materializer = HtrcSystem.materializer
 
   override val log = Logging(system, getClass)
-  log.debug("HtrcJobsServer logger initialized")
+  log.info("HtrcJobsServer logger initialized")
 
   // jwtChecker is used for verifying and processing JWTs in incoming
   // requests
@@ -198,12 +199,12 @@ trait AgentService {
   // the agent api calls
   val agentRoute =
     logRequest((req: HttpRequest) =>
-      ("Request: " + req.method + ", " + req.uri + ", entity.contentType = " + req.entity.contentType)) {
+      LogEntry("Request: " + req.method + ", " + req.uri + ", entity.contentType = " + req.entity.contentType, Logging.InfoLevel)) {
     headerValueByName("Remote-Address") { ip =>
     authenticate { case (token, rawUser) => 
       val requestId = UUID.randomUUID.toString
       val userName = rawUser.split('@')(0)
-      log.debug("userName = " + userName)
+      log.info("userName = " + userName)
 
       pathPrefix("agent") {
       pathPrefix("algorithm") {
@@ -231,7 +232,7 @@ trait AgentService {
 		  complete( cacheConRes map { eith =>
 		    eith match {
 		      case Right(DataForCachedJob(cachedJobId, algMetadata, lsCollectionMetadata)) =>
-                        log.debug("AGENT_SERVICE: received response " + 
+                        log.info("AGENT_SERVICE: received response " + 
 				  "DataForCachedJob({})", cachedJobId)
                         val jobInputs = 
                           JobInputs(js, algMetadata, None, token, requestId, ip, lsCollectionMetadata)
@@ -239,7 +240,7 @@ trait AgentService {
 			dispatch(HtrcUser(userName)) { msg }
 			
 		      case Left(dataForJobRun) =>
-                        log.debug("AGENT_SERVICE: received response " + 
+                        log.info("AGENT_SERVICE: received response " + 
 				  "DataForJobRun(key = {})", 
 				  dataForJobRun.jobResultCacheKey)
 			runAlgorithm(dataForJobRun)
@@ -249,7 +250,7 @@ trait AgentService {
 		  val dataForJobRunF = 
                     (HtrcSystem.cacheController ? GetDataForJobRun(js, token)).mapTo[DataForJobRun]
 		  complete(dataForJobRunF map { dataForJobRun => 
-                    log.debug("AGENT_SERVICE: received response " + 
+                    log.info("AGENT_SERVICE: received response " + 
 			      "DataForJobRun(key = {})", 
 			      dataForJobRun.jobResultCacheKey)
                     runAlgorithm(dataForJobRun) 
@@ -312,7 +313,7 @@ trait AgentService {
                 val usrName = (userInput \ "user" text)
                 if (usrName == "") {
                   val err = "no user specified in updatestatus request"
-                  log.debug("AGENT_SERVICE job/{}/updatestatus ERROR: {}, " + 
+                  log.error("AGENT_SERVICE job/{}/updatestatus ERROR: {}, " + 
                             "unable to process updatestatus; userInput = {}", 
                             id, err, userInput)
                   complete(StatusCodes.BadRequest -> err)

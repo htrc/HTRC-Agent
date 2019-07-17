@@ -73,6 +73,8 @@ object RegistryHttpClient {
     val headers = List(RawHeader("Accept", acceptContentType),
       RawHeader("Authorization", "Bearer " + token))
 
+    log.info("REGISTRY_QUERY: {}, {}", queryStr, method)
+
     val httpRequest =
       body map { b =>
         HttpRequest(method = method, uri = request, headers = headers,
@@ -307,7 +309,7 @@ object RegistryHttpClient {
         // ignore files in files/<savedJobLocation> that are not in the
         // expected format
         case e: Exception =>
-          log.debug("REGISTRY_DOWNLOAD_SAVED_JOBS warning: unexpected error " +
+          log.error("REGISTRY_DOWNLOAD_SAVED_JOBS warning: unexpected error " +
             "in reading file for job {}, exception {}", jobId, e)
           None
       }

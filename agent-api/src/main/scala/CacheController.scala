@@ -55,7 +55,7 @@ class CacheController extends Actor {
 
   // schedule periodic writes of the cache index to disk
   val writeInterval = HtrcConfig.cacheWriteInterval
-  log.debug("CACHE_CONTROLLER: cacheWriteInterval = {} seconds, " + 
+  log.info("CACHE_CONTROLLER: cacheWriteInterval = {} seconds, " + 
             "initCacheSize = {}, maxCacheSize = {}, cacheJobs = {}", 
             writeInterval, jobResultCache.size, HtrcConfig.cacheSize, 
             HtrcConfig.cacheJobs)
