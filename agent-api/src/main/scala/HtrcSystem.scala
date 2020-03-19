@@ -306,6 +306,10 @@ object HtrcConfig {
     config.getString(computeResource + "default-java-max-heap-size")
   }
 
+  def getDefaultVmem: String = {
+    config.getString(computeResource + "default-vmem")
+  }
+
   def getSbatchOptions: String = {
     config.getString(computeResource + "sbatch-options")
   }

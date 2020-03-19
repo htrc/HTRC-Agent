@@ -305,10 +305,11 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
 
     // val walltime = HtrcConfig.getPBSWalltime(inputs)
 
-    val cmdF = "ssh -t -t -q %s qsub -N %s %s %s " +
-    "-l walltime=%s -o %s -e %s -V -W umask=0122 %s/%s/%s"
-    val cmd = cmdF.format(target, qsubJobName, HtrcConfig.getQsubOptions,
-      qsubProcessorReq(resourceAlloc), resourceAlloc.walltime, jobClientOutFile,
+    val cmdF = "ssh -t -t -q %s qsub -N %s -d %s %s %s " +
+    "-l walltime=%s -l vmem=%s -o %s -e %s -V -W umask=0122 %s/%s/%s"
+    val cmd = cmdF.format(target, qsubJobName, targetWorkingDir + "/" + id,
+      HtrcConfig.getQsubOptions, qsubProcessorReq(resourceAlloc),
+      resourceAlloc.walltime, resourceAlloc.vmem, jobClientOutFile,
       jobClientErrFile, targetWorkingDir, id, HtrcConfig.jobClientScript)
     
     val sysProcess = SProcess(cmd, new File(workingDir))
@@ -457,7 +458,8 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
     ResourceAlloc(HtrcConfig.getDefaultNumNodes,
       HtrcConfig.getDefaultNumProcessorsPerNode,
       HtrcConfig.getDefaultWalltime,
-      HtrcConfig.getDefaultJavaMaxHeapSize)
+      HtrcConfig.getDefaultJavaMaxHeapSize,
+      HtrcConfig.getDefaultVmem)
   }
 
   def logResAlloc(ls: Seq[(Int, Int, ResourceAlloc)]): Unit = {
