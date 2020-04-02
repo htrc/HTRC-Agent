@@ -196,7 +196,11 @@ case class JobProperties(metadata: NodeSeq) {
         if (javaMaxHeapSizeStr == "") HtrcConfig.getDefaultJavaMaxHeapSize
         else javaMaxHeapSizeStr
 
-      (min, max, ResourceAlloc(numNodes, numProcs, walltime, javaMaxHeapSize))
+      val vmemStr = (e \ "vmem" text)
+      val vmem = if (vmemStr == "") HtrcConfig.getDefaultVmem else vmemStr
+
+      (min, max,
+        ResourceAlloc(numNodes, numProcs, walltime, javaMaxHeapSize, vmem))
     })
   }
 }
@@ -214,10 +218,10 @@ case class WorksetMetadata(metadata: NodeSeq) {
 // which jobs are run, e.g., number of nodes to allocate for the job, number
 // of processors per node
 case class ResourceAlloc(numNodes: Int, numProcsPerNode: Int,
-  walltime: String, javaMaxHeapSize: String) {
+  walltime: String, javaMaxHeapSize: String, vmem: String) {
   override def toString: String = {
     "ResourceAlloc(" + numNodes + ", " + numProcsPerNode + ", " + walltime +
-    ", " + javaMaxHeapSize + ")"
+    ", " + javaMaxHeapSize + ", " + vmem + ")"
   }
 }
 

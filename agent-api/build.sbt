@@ -4,7 +4,7 @@ organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "4.0.1"
+version       := "4.0.2"
 
 scalaVersion  := "2.12.8"
 
@@ -49,8 +49,9 @@ dockerCommands ++= Seq(
   Cmd("RUN", "chmod +x bin/agent"),
   Cmd("RUN", "useradd -M -s /bin/nologin -g htrcprodgrp -u 1488170 htrcprod"),
   // Cmd("RUN", "useradd -M -s /bin/nologin -g htrcprodgrp -u 500809 leunnikr"),
-  // allow the user in the container to ssh to karst, and scp to and from karst
-  Cmd("RUN", """echo "Host karst.uits.iu.edu\n\tIdentityFile /etc/htrc/agent/config/id_rsa\n\tStrictHostKeyChecking no\n" >> /etc/ssh/ssh_config"""),
+  // allow the user in the container to ssh to carbonate, and scp to and from
+  // carbonate
+  Cmd("RUN", """echo "Host carbonate.uits.iu.edu\n\tIdentityFile /etc/htrc/agent/config/id_rsa\n\tStrictHostKeyChecking no\n" >> /etc/ssh/ssh_config"""),
   Cmd("RUN", "mkdir -p /etc/htrc/agent"),
   Cmd("RUN", "chown -R htrcprod /etc/htrc/agent"),
   Cmd("USER", "htrcprod")
