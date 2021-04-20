@@ -4,7 +4,7 @@ organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "4.1.0-SNAPSHOT"
+version       := "4.1.0"
 
 scalaVersion  := "2.12.8"
 
@@ -37,7 +37,7 @@ enablePlugins(DockerPlugin)
 
 // the docker image gets a default name such as "agent:4.0.0-SNAPSHOT"; set
 // the name to "agent:dev", "agent:prod" as needed
-version in Docker := "stage"
+version in Docker := "prod"
 
 dockerRepository := Some("docker-registry.htrc.indiana.edu")
 dockerCommands ++= Seq(
