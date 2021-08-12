@@ -76,7 +76,7 @@ case object RunJob extends JobMessage
 // case class JobRuntime(str: String) extends JobMessage
 // case class Result(res: JobResult) extends JobMessage
 
-case class WriteFile(path: String, name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
+case class WriteFile(name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
 case class WriteCollection(name: String, workingDir: String, inputs: JobInputs) extends RegistryMessage
 
 case class RegistryError(e: String) extends WriteStatus

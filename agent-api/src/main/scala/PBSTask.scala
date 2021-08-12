@@ -122,8 +122,8 @@ class PBSTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
   // dependencies stored in the registry. Dependencies currently
   // include files.
 
-  val dependenciesReady = inputs.dependencies map { case (path,name) =>
-    (registry ? WriteFile(path, name, workingDir, inputs)).mapTo[WriteStatus]
+  val dependenciesReady = inputs.dependencies map { name =>
+    (registry ? WriteFile(name, workingDir, inputs)).mapTo[WriteStatus]
   } toList
 
   // We do the same thing with collections, but our command is
