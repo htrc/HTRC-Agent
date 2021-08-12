@@ -63,13 +63,20 @@ class Registry extends Actor {
   val behavior: PartialFunction[Any,Unit] = {
     case m: RegistryMessage =>
       m match {
-        case WriteFile(path, name, dir, inputs) =>
-          // log.debug("REGISTRY_WRITE_FILE\tNAME: {}\tTOKEN: {}",
-          //          name, inputs.token)
-          log.debug("REGISTRY_WRITE_FILE\tNAME: {}", name)
+        // WriteFile is used only to retrieve algorithm dependencies; this
+        // message is sent by SLURMTask, and other such actors
+        case WriteFile(algDepName, dir, inputs) =>
+          log.debug("REGISTRY_WRITE_FILE\tNAME: {}", algDepName)
           val dest = sender
-          RegistryHttpClient.fileDownload(path, inputs, dir+"/"+name) map { b =>
-            if (b) RegistryOk else RegistryError(path)
+
+          // WriteFile is used only to retrieve algorithm dependencies; this
+          // message is sent by SLURMTask, and other such actors
+          // 
+          // the earlier queries to the registry extension from fileDownload
+          // required the path of the algorithm dependency; however, the new
+          // Registry API requires the name of the algorithm dependency
+          RegistryHttpClient.fileDownload(algDepName, inputs, dir+"/"+algDepName) map { b =>
+            if (b) RegistryOk else RegistryError(algDepName)
           } pipeTo dest
         case WriteCollection(name, dir, inputs) =>
           // log.debug("REGISTRY_WRITE_COLLECTION\tNAME: {}\tTOKEN: {}",

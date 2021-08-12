@@ -154,14 +154,14 @@ object RegistryHttpClient {
   // retrieve the algorithm XML file, and return a JobProperties object
   // constructed using the contents of this file
   def algorithmMetadata(name: String, token: String): Future[JobProperties] = {
-    val q = query("files/algorithmfolder/"+name+".xml?public=true", GET, token)
+    val q = query("algorithms/description/" + name, GET, token)
     q map { byteStr =>
       try {
         val algMetadata = XML.loadString(byteStr.utf8String)
         JobProperties(algMetadata)
       } catch {
         case e: Exception =>
-          val req = "files/algorithmfolder/" + name + ".xml"
+          val req = "algorithms/description/" + name
           log.error("REGISTRY_QUERY: error reading result of {} request for {}, exception {}", GET, req, e)
           throw new RuntimeException("Error reading result of request for " +
             req + ": " + e)
@@ -172,8 +172,7 @@ object RegistryHttpClient {
   // obtain the time of last modification of the specified algorithm XML file
   // returns Some(timestamp) if successful, None otherwise
   def algorithmXMLTimestamp(name: String, token: String): Future[Option[String]] = {
-    val q = query("files/algorithmfolder/"+name+".xml?public=true", OPTIONS, 
-                  token)
+    val q = query("algorithms/description/" + name, OPTIONS, token)
 
     q transform {
       case Success(byteStr) =>
@@ -182,7 +181,7 @@ object RegistryHttpClient {
           Try { Some(algXMLMetadata \ "lastModified" text) }
         } catch {
           case e: Exception =>
-            val req = "files/algorithmfolder/" + name + ".xml"
+            val req = "algorithms/description/" + name
             log.error("REGISTRY_QUERY: error reading result of {} request for {}, exception {}", OPTIONS, req, e)
            Try { None }
         }
@@ -221,6 +220,10 @@ object RegistryHttpClient {
     }
   }
 
+  // fileDownload is used to download algorithm dependency files
+  // name - name of the algorithm dependency
+  // inputs - JobInputs object for the job submission
+  // dest - location of the file to which the algorithm dependency is written
   def fileDownload(name: String, inputs: JobInputs, dest: String): Future[Boolean] = {
     
     // audit log analyzer output
@@ -230,7 +233,7 @@ object RegistryHttpClient {
              inputs.name, inputs.algorithm)
     auditLog.info(fstr)
 
-    val q = query("files/"+name+"?public=true", GET, inputs.token)
+    val q = query("algorithms/dependency/" + name, GET, inputs.token)
 
     q transform {
       case Success(byteStr) =>
@@ -246,7 +249,7 @@ object RegistryHttpClient {
   def listSavedJobs(token: String): Future[List[String]] = {
     // val start = System.nanoTime
     val jobsResult: Future[ByteString] =
-      query("files/"+savedJobLocation, OPTIONS, token)
+      query(savedJobLocation, OPTIONS, token)
 
     jobsResult map { jobsListByteString => 
       // val end = System.nanoTime
@@ -260,8 +263,8 @@ object RegistryHttpClient {
         } toList
       } catch {
         case e: Exception =>
-          log.error("REGISTRY_QUERY: error reading result of {} request for files/ {}, exception {}", OPTIONS, savedJobLocation, e)
-          throw new RuntimeException("Error reading result of request for files/" +
+          log.error("REGISTRY_QUERY: error reading result of {} request for /{}, exception {}", OPTIONS, savedJobLocation, e)
+          throw new RuntimeException("Error reading result of request for /" +
             savedJobLocation + ": " + e)
       }
     }
@@ -306,7 +309,7 @@ object RegistryHttpClient {
         val raw = XML.loadString(jobXML)
         Some(SavedHtrcJob(raw))
       } catch {
-        // ignore files in files/<savedJobLocation> that are not in the
+        // ignore files in <savedJobLocation> that are not in the
         // expected format
         case e: Exception =>
           log.error("REGISTRY_DOWNLOAD_SAVED_JOBS warning: unexpected error " +
@@ -325,14 +328,14 @@ object RegistryHttpClient {
     val headers = List(RawHeader("Accept", "application/xml"),
       RawHeader("Authorization", "Bearer " + token))
 
-    HttpRequest(method = GET, uri = registryUrl + "files/" +
+    HttpRequest(method = GET, uri = registryUrl + 
       savedJobLocation + "/" + jobId, headers = headers) -> jobId
   }
 
   def saveJob(status: JobComplete, id: String, 
               token: String): Future[Boolean] = {
     // use the new registry extension API that requires the username
-    val saveJobQuery = "files/" + savedJobLocation + "/" + id + 
+    val saveJobQuery = savedJobLocation + "/" + id + 
                        "?user=" + status.submitter
     val q = query(saveJobQuery, PUT, token, body = Some(status.saveXml))
 
@@ -343,7 +346,7 @@ object RegistryHttpClient {
   }
 
   def deleteJob(id: String, token: String): Future[Boolean] = {
-    val q = query("files/"+savedJobLocation+"/"+id, DELETE, token)
+    val q = query(savedJobLocation+"/"+id, DELETE, token)
     q transform {
       case Success(byteStr) => Try { true }
       case Failure(e) => Try { false }

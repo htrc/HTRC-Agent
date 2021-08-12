@@ -140,10 +140,9 @@ case class JobProperties(metadata: NodeSeq) {
           (p \ "@size_limit" text).toInt)
     } toMap
 
-  val dependencies = new HashMap[String,String]
-  (metadata \ "dependencies" \ "dependency") foreach { d =>
-    dependencies += ((d \ "@path" text) -> (d \ "@name" text)) 
-  }    
+  // the new registry stores the algorithm dependency against its name; there
+  // is no "path" associated with an algorithm dependency
+  val dependencies = metadata \ "dependencies" \ "dependency" map { e => e \ "@name" text }
 
   val runScript = metadata \ "run_script" text
 
