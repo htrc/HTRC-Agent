@@ -4,7 +4,7 @@ organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "4.1.1-SNAPSHOT"
+version       := "4.1.2-SNAPSHOT"
 
 scalaVersion  := "2.12.8"
 
@@ -69,7 +69,7 @@ libraryDependencies ++= {
   "com.typesafe.akka"       %%  "akka-http-xml" % "10.1.7",
   "com.typesafe.akka"       %%  "akka-slf4j"    % akkaV,
   "org.scala-lang.modules" %% "scala-xml" % "1.1.1",
-  "ch.qos.logback" % "logback-classic" % "1.0.9",
+  "ch.qos.logback" % "logback-classic" % "1.2.10",
   "org.apache.httpcomponents" % "httpcore" % "4.4.1",
   "org.apache.httpcomponents" % "httpclient" % "4.5.3",
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
