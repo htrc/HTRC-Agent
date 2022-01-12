@@ -147,7 +147,13 @@ trait AgentService {
           // obtain the suffix after "Bearer "
         jwtChecker.verify(token) match {
           case Success(decodedJWT) =>
-            val htrcUser = decodedJWT.getClaim("sub").asString
+            // val htrcUser = decodedJWT.getClaim("sub").asString
+
+            // the JWT from Custos in the new IAM infrastructure maps claim
+            // "htrc-uid" to the HTRC user id
+            val htrcUser = decodedJWT.getClaim("htrc-uid").asString
+            log.info("htrc-uid = " + htrcUser)
+            log.info("htrc-alias = " + decodedJWT.getClaim("htrc-alias").asString)
             provide((token, htrcUser))
 
           case Failure(e) =>
