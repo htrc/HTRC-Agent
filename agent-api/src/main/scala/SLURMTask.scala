@@ -304,7 +304,8 @@ class SLURMTask(user: HtrcUser, inputs: JobInputs, id: JobId) extends Actor {
         } )
 
     // "-W umask=0122" used in qsub cmd is elided below
-    val cmdF = "ssh -t -t -q %s sbatch -J %s -D %s %s --time=%s " +
+    //Added '-A general' option to sbatch command due to update in slurm.
+    val cmdF = "ssh -t -t -q %s sbatch -A general -J %s -D %s %s --time=%s " +
     "--mem=%s --output=%s --error=%s --export=ALL  %s/%s/%s"
     val cmd = cmdF.format(target, constructJobName, targetWorkingDir + "/" + id,
       processorReqString(resourceAlloc), resourceAlloc.walltime,
