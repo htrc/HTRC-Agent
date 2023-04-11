@@ -41,7 +41,7 @@ version in Docker := "stage"
 
 dockerRepository := Some("docker-registry.htrc.indiana.edu")
 dockerCommands ++= Seq(
-  dockerBaseImage := "openjdk:11.0.16-jdk-bullseye"
+  dockerBaseImage := "openjdk:11.0.16-jdk-bullseye",
   Cmd("USER", "root"),
   Cmd("ENV", "TZ=America/Indianapolis"),
   Cmd("RUN",
