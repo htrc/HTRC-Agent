@@ -26,14 +26,14 @@ enablePlugins(JavaAppPackaging)
 enablePlugins(DockerPlugin)
 
 // removing existing docker cmds 
-// dockerCommands := dockerCommands.value.filterNot {
-//   case ExecCmd("ENTRYPOINT", args @ _*) => true
-//   case ExecCmd("CMD", args @ _*) => true
-//
-//   // don't filter the rest; don't filter out anything that doesn't match a
-//   // pattern
-//   case cmd                       => false
-// }
+ dockerCommands := dockerCommands.value.filterNot {
+   case ExecCmd("ENTRYPOINT", args @ _*) => true
+   case ExecCmd("CMD", args @ _*) => true
+
+   // don't filter the rest; don't filter out anything that doesn't match a
+   // pattern
+   case cmd                       => false
+ }
 
 // the docker image gets a default name such as "agent:4.0.0-SNAPSHOT"; set
 // the name to "agent:dev", "agent:prod" as needed
@@ -58,7 +58,7 @@ dockerCommands ++= Seq(
   Cmd("RUN", "chown -R htrcprod /etc/htrc/agent"),
   Cmd("USER", "htrcprod")
   // launch the app using /opt/docker/bin/agent
-  // Cmd("CMD", "bin/agent > /opt/docker/logs/agent-start-error.out")
+  Cmd("CMD", "bin/agent -Dconfig.file=/etc/htrc/agent/config/app.conf > /opt/docker/logs/agent-start-error.out")
 )
 
 libraryDependencies ++= {
