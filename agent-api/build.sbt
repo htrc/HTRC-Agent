@@ -37,7 +37,7 @@ enablePlugins(DockerPlugin)
 
 // the docker image gets a default name such as "agent:4.0.0-SNAPSHOT"; set
 // the name to "agent:dev", "agent:prod" as needed
-version in Docker := "stage"
+version in Docker := "prod"
 
 dockerRepository := Some("docker-registry.htrc.indiana.edu")
 dockerBaseImage := "openjdk:11.0.16-jdk-bullseye"
