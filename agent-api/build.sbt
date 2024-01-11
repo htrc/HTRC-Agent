@@ -4,7 +4,7 @@ organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "4.1.2-SNAPSHOT"
+version       := "4.1.3"
 
 scalaVersion  := "2.12.8"
 
@@ -56,7 +56,7 @@ dockerCommands ++= Seq(
   Cmd("RUN", """echo "Host carbonate.uits.iu.edu\n\tIdentityFile /etc/htrc/agent/config/id_rsa\n\tStrictHostKeyChecking no\n" >> /etc/ssh/ssh_config"""),
   Cmd("RUN", "mkdir -p /etc/htrc/agent"),
   Cmd("RUN", "chown -R htrcprod /etc/htrc/agent"),
-  Cmd("USER", "htrcprod")
+  Cmd("USER", "htrcprod"),
   // launch the app using /opt/docker/bin/agent
   Cmd("CMD", "bin/agent -Dconfig.file=/etc/htrc/agent/config/app.conf > /opt/docker/logs/agent-start-error.out")
 )
@@ -71,7 +71,7 @@ libraryDependencies ++= {
   "com.typesafe.akka"       %%  "akka-http-xml" % "10.1.7",
   "com.typesafe.akka"       %%  "akka-slf4j"    % akkaV,
   "org.scala-lang.modules" %% "scala-xml" % "1.1.1",
-  "ch.qos.logback" % "logback-classic" % "1.2.10",
+  "ch.qos.logback" % "logback-classic" % "1.2.13",
   "org.apache.httpcomponents" % "httpcore" % "4.4.1",
   "org.apache.httpcomponents" % "httpclient" % "4.5.3",
   "com.twitter" % "storehaus-cache_2.10" % "0.10.0",
