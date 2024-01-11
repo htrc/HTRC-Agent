@@ -30,6 +30,8 @@ import akka.pattern.ask
 import akka.event.Logging
 import akka.event.slf4j.Logger
 import scala.util.{Success, Failure}
+import java.io.InputStream
+import java.io.FileInputStream
 import scala.xml._
 import HtrcConfig._
 import java.io.File
@@ -40,8 +42,10 @@ import akka.http.scaladsl.model.MediaTypes._
 import akka.http.scaladsl.model.ContentType
 import akka.http.scaladsl.model.HttpCharsets
 
+import java.security.{KeyStore, SecureRandom}
+import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import scala.xml._
-import akka.http.scaladsl.Http
+import akka.http.scaladsl.{ ConnectionContext, HttpsConnectionContext, Http }
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model.headers.RawHeader
@@ -65,6 +69,35 @@ object RegistryHttpClient {
   val poolClientFlow =
     Http().cachedHostConnectionPoolHttps[String](HtrcConfig.registryHost)
 
+  def getHttpsConnectionContext(): HttpsConnectionContext = {
+    val ks: KeyStore = KeyStore.getInstance("JKS")
+    val keystore: InputStream = new FileInputStream(HtrcConfig.keystoreForOutgoingReqs)
+    val passwd = HtrcConfig.keystorePasswd.toCharArray
+
+    require(keystore != null, "Keystore required!")
+    ks.load(keystore, passwd)
+
+    val keyManagerFactory: KeyManagerFactory =
+      KeyManagerFactory.getInstance("SunX509")
+    keyManagerFactory.init(ks, passwd)
+
+    //Configure truststore
+    val ts: KeyStore = KeyStore.getInstance("JKS")
+    val truststore: InputStream = new FileInputStream(HtrcConfig.jwtPublicKeyPath)
+    val trustpasswd = HtrcConfig.jwtPublicKeyPass.toCharArray
+
+    require(truststore != null, "Keystore required!")
+    ts.load(truststore, trustpasswd)
+
+    val tmf: TrustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+    tmf.init(ts)
+
+    val sslContext: SSLContext = SSLContext.getInstance("TLS")
+    sslContext.init(keyManagerFactory.getKeyManagers, tmf.getTrustManagers,
+      new SecureRandom())
+    ConnectionContext.https(sslContext)
+  }
+
   def query(queryStr: String, method: HttpMethod, token: String,
     acceptContentType: String = "application/xml",
     body: Option[NodeSeq] = None): Future[ByteString] = {
@@ -85,6 +118,8 @@ object RegistryHttpClient {
         HttpRequest(method = method, uri = request, headers = headers)
       }
 
+    val https = getHttpsConnectionContext()
+    Http().setDefaultServerHttpContext(https)
     val responseFuture = Http().singleRequest(httpRequest)
 
     // onFailure is deprecated
@@ -94,6 +129,7 @@ object RegistryHttpClient {
         log.error("REGISTRY_QUERY error: request {}, method {}, exception {}", request, method, e)
       case Success(res) => // do nothing
     }
+
 
     // any exceptions in singleRequest are propagated through the returned
     // Future

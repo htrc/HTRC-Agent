@@ -88,9 +88,9 @@ object HtrcJobsServer extends App with AgentService {
    */ 
 
   def getHttpsConnectionContext(): HttpsConnectionContext = {
-    val ks: KeyStore = KeyStore.getInstance("PKCS12")
-    val keystore: InputStream = new FileInputStream(HtrcConfig.serverCert)
-    val passwd = HtrcConfig.serverCertPasswd.toCharArray
+    val ks: KeyStore = KeyStore.getInstance("JKS")
+    val keystore: InputStream = new FileInputStream(HtrcConfig.keystoreForOutgoingReqs)
+    val passwd = HtrcConfig.keystorePasswd.toCharArray
 
     require(keystore != null, "Keystore required!")
     ks.load(keystore, passwd)
@@ -99,12 +99,20 @@ object HtrcJobsServer extends App with AgentService {
       KeyManagerFactory.getInstance("SunX509")
     keyManagerFactory.init(ks, passwd)
 
-    val tmf: TrustManagerFactory = TrustManagerFactory.getInstance("SunX509")
-    tmf.init(ks)
+    //Configure truststore
+    val ts: KeyStore = KeyStore.getInstance("PKCS12")
+    val truststore: InputStream = new FileInputStream(HtrcConfig.serverCert)
+    val trustpasswd = HtrcConfig.serverCertPasswd.toCharArray
 
-    val sslContext: SSLContext = SSLContext.getInstance("TLS")
+    require(truststore != null, "Keystore required!")
+    ts.load(truststore, trustpasswd)
+
+    val tmf: TrustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+    tmf.init(ts)
+
+    val sslContext: SSLContext = SSLContext.getInstance("TLSv1.2")
     sslContext.init(keyManagerFactory.getKeyManagers, tmf.getTrustManagers,
-      new SecureRandom)
+      new SecureRandom())
     ConnectionContext.https(sslContext)
   }
 
