@@ -4,7 +4,7 @@ organization  := "edu.indiana.d2i.htrc"
 
 name := "agent"
 
-version       := "4.1.3"
+version       := "4.1.4-SNAPSHOT"
 
 scalaVersion  := "2.12.8"
 
